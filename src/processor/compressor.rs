@@ -16,37 +16,42 @@ use tracing::debug;
 /// # Returns
 /// Path to the created gzip file
 pub fn compress_csv(csv_path: PathBuf, output_name: String) -> Result<PathBuf> {
-    debug!("Compressing CSV file: {} -> {}", csv_path.display(), output_name);
+    debug!(
+        "Compressing CSV file: {} -> {}",
+        csv_path.display(),
+        output_name
+    );
 
     // Verify CSV file exists
     if !csv_path.exists() {
-        return Err(ProcessingError::FileReadError(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("CSV file not found: {}", csv_path.display())
-            )
-        ));
+        return Err(ProcessingError::FileReadError(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("CSV file not found: {}", csv_path.display()),
+        )));
     }
 
     // Open CSV file for reading
-    let csv_file = File::open(&csv_path)
-        .map_err(ProcessingError::FileReadError)?;
+    let csv_file = File::open(&csv_path).map_err(ProcessingError::FileReadError)?;
     let mut csv_reader = BufReader::new(csv_file);
 
     // Create output path (in same directory as CSV)
-    let output_path = csv_path.parent()
-        .ok_or_else(|| ProcessingError::CompressionError("Cannot determine parent directory".to_string()))?
+    let output_path = csv_path
+        .parent()
+        .ok_or_else(|| {
+            ProcessingError::CompressionError("Cannot determine parent directory".to_string())
+        })?
         .join(&output_name);
 
     // Create gzip output file
-    let output_file = File::create(&output_path)
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::Other && e.to_string().contains("No space left on device") {
-                ProcessingError::DiskFullError(format!("Cannot create gzip file: {}", e))
-            } else {
-                ProcessingError::FileReadError(e)
-            }
-        })?;
+    let output_file = File::create(&output_path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::Other
+            && e.to_string().contains("No space left on device")
+        {
+            ProcessingError::DiskFullError(format!("Cannot create gzip file: {}", e))
+        } else {
+            ProcessingError::FileReadError(e)
+        }
+    })?;
 
     let buf_writer = BufWriter::new(output_file);
     let mut encoder = GzEncoder::new(buf_writer, Compression::default());
@@ -56,30 +61,37 @@ pub fn compress_csv(csv_path: PathBuf, output_name: String) -> Result<PathBuf> {
     let mut total_bytes = 0;
 
     loop {
-        let bytes_read = csv_reader.read(&mut buffer)
+        let bytes_read = csv_reader
+            .read(&mut buffer)
             .map_err(ProcessingError::FileReadError)?;
 
         if bytes_read == 0 {
             break; // EOF
         }
 
-        encoder.write_all(&buffer[..bytes_read])
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::Other && e.to_string().contains("No space left on device") {
-                    ProcessingError::DiskFullError(format!("Disk full while compressing: {}", e))
-                } else {
-                    ProcessingError::CompressionError(format!("Failed to write to gzip: {}", e))
-                }
-            })?;
+        encoder.write_all(&buffer[..bytes_read]).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::Other
+                && e.to_string().contains("No space left on device")
+            {
+                ProcessingError::DiskFullError(format!("Disk full while compressing: {}", e))
+            } else {
+                ProcessingError::CompressionError(format!("Failed to write to gzip: {}", e))
+            }
+        })?;
 
         total_bytes += bytes_read;
     }
 
     // Finish compression and flush
-    encoder.finish()
-        .map_err(|e| ProcessingError::CompressionError(format!("Failed to finalize gzip: {}", e)))?;
+    encoder.finish().map_err(|e| {
+        ProcessingError::CompressionError(format!("Failed to finalize gzip: {}", e))
+    })?;
 
-    debug!("Compressed {} bytes to {}", total_bytes, output_path.display());
+    debug!(
+        "Compressed {} bytes to {}",
+        total_bytes,
+        output_path.display()
+    );
 
     Ok(output_path)
 }

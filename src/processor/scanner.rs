@@ -11,15 +11,17 @@ pub fn scan_directory<P: AsRef<Path>>(source_dir: P) -> Result<Vec<DbfFile>> {
 
     // Verify source directory exists and is accessible
     if !source_dir.exists() {
-        return Err(ProcessingError::DirectoryInaccessible(
-            format!("Source directory does not exist: {}", source_dir.display())
-        ));
+        return Err(ProcessingError::DirectoryInaccessible(format!(
+            "Source directory does not exist: {}",
+            source_dir.display()
+        )));
     }
 
     if !source_dir.is_dir() {
-        return Err(ProcessingError::DirectoryInaccessible(
-            format!("Path is not a directory: {}", source_dir.display())
-        ));
+        return Err(ProcessingError::DirectoryInaccessible(format!(
+            "Path is not a directory: {}",
+            source_dir.display()
+        )));
     }
 
     let mut dbf_files = Vec::new();
@@ -40,11 +42,18 @@ pub fn scan_directory<P: AsRef<Path>>(source_dir: P) -> Result<Vec<DbfFile>> {
 }
 
 /// Internal recursive function to walk directory tree
-fn walk_directory(current_dir: &Path, source_dir: &Path, dbf_files: &mut Vec<DbfFile>) -> Result<()> {
-    let entries = std::fs::read_dir(current_dir)
-        .map_err(|e| ProcessingError::DirectoryInaccessible(
-            format!("Cannot read directory {}: {}", current_dir.display(), e)
-        ))?;
+fn walk_directory(
+    current_dir: &Path,
+    source_dir: &Path,
+    dbf_files: &mut Vec<DbfFile>,
+) -> Result<()> {
+    let entries = std::fs::read_dir(current_dir).map_err(|e| {
+        ProcessingError::DirectoryInaccessible(format!(
+            "Cannot read directory {}: {}",
+            current_dir.display(),
+            e
+        ))
+    })?;
 
     for entry in entries {
         let entry = entry.map_err(ProcessingError::FileReadError)?;
@@ -113,10 +122,17 @@ mod tests {
         assert_eq!(result.len(), 3);
 
         // Verify relative paths are calculated correctly
-        let paths: Vec<_> = result.iter().map(|f| f.relative_path.to_string_lossy().to_string()).collect();
+        let paths: Vec<_> = result
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
         assert!(paths.iter().any(|p| p == "root.dbf"));
-        assert!(paths.iter().any(|p| p.contains("subdir1") && p.contains("level1.dbf")));
-        assert!(paths.iter().any(|p| p.contains("subdir2") && p.contains("level2.dbf")));
+        assert!(paths
+            .iter()
+            .any(|p| p.contains("subdir1") && p.contains("level1.dbf")));
+        assert!(paths
+            .iter()
+            .any(|p| p.contains("subdir2") && p.contains("level2.dbf")));
     }
 
     #[test]

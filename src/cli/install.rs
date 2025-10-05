@@ -157,10 +157,7 @@ fn install_service(config: &Config) -> Result<()> {
 fn set_config_permissions(config_path: &PathBuf) -> Result<()> {
     // TODO: Implement Windows ACL permissions
     // For now, just log that this should be done
-    info!(
-        "TODO: Set ACL permissions on {}",
-        config_path.display()
-    );
+    info!("TODO: Set ACL permissions on {}", config_path.display());
     Ok(())
 }
 
@@ -169,10 +166,7 @@ fn set_config_permissions(config_path: &PathBuf) -> Result<()> {
 fn register_windows_service(exe_path: &PathBuf) -> Result<()> {
     // TODO: Implement Windows service registration
     // For now, just log that this should be done
-    info!(
-        "TODO: Register Windows service for {}",
-        exe_path.display()
-    );
+    info!("TODO: Register Windows service for {}", exe_path.display());
     Ok(())
 }
 

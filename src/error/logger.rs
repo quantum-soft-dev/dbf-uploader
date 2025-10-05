@@ -29,9 +29,10 @@ pub fn log_error_locally(
     // Create parent directory if it doesn't exist
     if let Some(parent) = log_file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
-            ProcessingError::FileReadError(std::io::Error::other(
-                format!("Failed to create error log directory: {}", e),
-            ))
+            ProcessingError::FileReadError(std::io::Error::other(format!(
+                "Failed to create error log directory: {}",
+                e
+            )))
         })?;
     }
 
@@ -41,9 +42,10 @@ pub fn log_error_locally(
         .append(true)
         .open(&log_file)
         .map_err(|e| {
-            ProcessingError::FileReadError(std::io::Error::other(
-                format!("Failed to open error log file: {}", e),
-            ))
+            ProcessingError::FileReadError(std::io::Error::other(format!(
+                "Failed to open error log file: {}",
+                e
+            )))
         })?;
 
     // Format error report entry
@@ -59,16 +61,18 @@ pub fn log_error_locally(
 
     // Write to file
     file.write_all(log_entry.as_bytes()).map_err(|e| {
-        ProcessingError::FileReadError(std::io::Error::other(
-            format!("Failed to write to error log: {}", e),
-        ))
+        ProcessingError::FileReadError(std::io::Error::other(format!(
+            "Failed to write to error log: {}",
+            e
+        )))
     })?;
 
     // Flush to ensure data is written
     file.flush().map_err(|e| {
-        ProcessingError::FileReadError(std::io::Error::other(
-            format!("Failed to flush error log: {}", e),
-        ))
+        ProcessingError::FileReadError(std::io::Error::other(format!(
+            "Failed to flush error log: {}",
+            e
+        )))
     })?;
 
     Ok(())

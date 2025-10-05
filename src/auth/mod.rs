@@ -45,7 +45,7 @@ impl AuthClient {
         // Validate HTTPS-only URL
         if !config.api.base_url.starts_with("https://") {
             return Err(ProcessingError::ConfigurationError(
-                "API base URL must use HTTPS".to_string()
+                "API base URL must use HTTPS".to_string(),
             ));
         }
 
@@ -53,7 +53,9 @@ impl AuthClient {
             .timeout(Duration::from_secs(30))
             .https_only(true) // Enforce HTTPS-only connections
             .build()
-            .map_err(|e| ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
+            })?;
 
         Ok(Self {
             client,
@@ -79,15 +81,19 @@ impl AuthClient {
             .header("Authorization", auth_header)
             .send()
             .await
-            .map_err(|e| ProcessingError::NetworkError(format!("Failed to send auth request: {}", e)))?;
+            .map_err(|e| {
+                ProcessingError::NetworkError(format!("Failed to send auth request: {}", e))
+            })?;
 
         // Handle response
         match response.status().as_u16() {
             200 => {
-                let token_response: TokenResponse = response
-                    .json()
-                    .await
-                    .map_err(|e| ProcessingError::AuthenticationError(format!("Failed to parse token response: {}", e)))?;
+                let token_response: TokenResponse = response.json().await.map_err(|e| {
+                    ProcessingError::AuthenticationError(format!(
+                        "Failed to parse token response: {}",
+                        e
+                    ))
+                })?;
 
                 let now = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -99,16 +105,25 @@ impl AuthClient {
                     expires_at: now + token_response.expires_in,
                 })
             }
-            401 => Err(ProcessingError::AuthenticationError("Invalid credentials".to_string())),
+            401 => Err(ProcessingError::AuthenticationError(
+                "Invalid credentials".to_string(),
+            )),
             403 => {
                 let body = response.text().await.unwrap_or_default();
                 if body.contains("subscription_inactive") {
-                    Err(ProcessingError::AuthenticationError("Subscription inactive".to_string()))
+                    Err(ProcessingError::AuthenticationError(
+                        "Subscription inactive".to_string(),
+                    ))
                 } else {
-                    Err(ProcessingError::AuthenticationError("Forbidden".to_string()))
+                    Err(ProcessingError::AuthenticationError(
+                        "Forbidden".to_string(),
+                    ))
                 }
             }
-            status => Err(ProcessingError::AuthenticationError(format!("Unexpected status code: {}", status))),
+            status => Err(ProcessingError::AuthenticationError(format!(
+                "Unexpected status code: {}",
+                status
+            ))),
         }
     }
 }
@@ -135,10 +150,12 @@ impl TokenManager {
     pub async fn get_valid_token(&self) -> Result<JwtToken> {
         // First, check if we have a valid token
         {
-            let token_lock = self.current_token.read()
-                .map_err(|e| ProcessingError::AuthenticationError(
-                    format!("Failed to acquire read lock on token: {}", e)
-                ))?;
+            let token_lock = self.current_token.read().map_err(|e| {
+                ProcessingError::AuthenticationError(format!(
+                    "Failed to acquire read lock on token: {}",
+                    e
+                ))
+            })?;
 
             if let Some(ref token) = *token_lock {
                 if !token.is_expired() {
@@ -150,10 +167,12 @@ impl TokenManager {
         // Token is expired or doesn't exist, need to get a new one
         // Acquire write lock to check one more time (double-check pattern)
         {
-            let token_lock = self.current_token.write()
-                .map_err(|e| ProcessingError::AuthenticationError(
-                    format!("Failed to acquire write lock on token: {}", e)
-                ))?;
+            let token_lock = self.current_token.write().map_err(|e| {
+                ProcessingError::AuthenticationError(format!(
+                    "Failed to acquire write lock on token: {}",
+                    e
+                ))
+            })?;
 
             // Double-check: another thread might have already refreshed the token
             if let Some(ref token) = *token_lock {
@@ -168,10 +187,12 @@ impl TokenManager {
 
         // Acquire write lock again to store the new token
         {
-            let mut token_lock = self.current_token.write()
-                .map_err(|e| ProcessingError::AuthenticationError(
-                    format!("Failed to acquire write lock on token: {}", e)
-                ))?;
+            let mut token_lock = self.current_token.write().map_err(|e| {
+                ProcessingError::AuthenticationError(format!(
+                    "Failed to acquire write lock on token: {}",
+                    e
+                ))
+            })?;
             *token_lock = Some(new_token.clone());
         }
 
@@ -180,10 +201,12 @@ impl TokenManager {
 
     /// Clear the stored token (useful for testing or manual refresh)
     pub fn clear_token(&self) -> Result<()> {
-        let mut token_lock = self.current_token.write()
-            .map_err(|e| ProcessingError::AuthenticationError(
-                format!("Failed to acquire write lock on token: {}", e)
-            ))?;
+        let mut token_lock = self.current_token.write().map_err(|e| {
+            ProcessingError::AuthenticationError(format!(
+                "Failed to acquire write lock on token: {}",
+                e
+            ))
+        })?;
         *token_lock = None;
         Ok(())
     }

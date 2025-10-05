@@ -1,12 +1,12 @@
 // File processing module
-pub mod scanner;
-pub mod converter;
 pub mod compressor;
+pub mod converter;
+pub mod scanner;
 pub mod uploader;
 
-pub use scanner::scan_directory;
-pub use converter::convert_dbf_to_csv;
 pub use compressor::compress_csv;
+pub use converter::convert_dbf_to_csv;
+pub use scanner::scan_directory;
 pub use uploader::upload_file;
 
 use crate::auth::TokenManager;
@@ -19,10 +19,7 @@ use tracing::{debug, error, info, warn};
 
 /// Run a complete batch processing cycle
 /// This orchestrates: scan → convert → compress → upload for all DBF files
-pub async fn run_batch(
-    config: Config,
-    token_manager: Arc<TokenManager>,
-) -> Result<Batch> {
+pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Result<Batch> {
     let mut batch = Batch::new(config.clone());
     let error_reporter = ErrorReporter::new()?;
 

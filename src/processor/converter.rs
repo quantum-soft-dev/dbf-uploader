@@ -15,34 +15,36 @@ pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf
     debug!("Converting DBF to CSV: {}", dbf_file.path.display());
 
     // Open DBF file
-    let file = File::open(&dbf_file.path)
-        .map_err(ProcessingError::FileReadError)?;
+    let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
 
     let mut reader = dbase::Reader::new(BufReader::new(file))
         .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;
 
     // Get field names from DBF header
-    let field_names: Vec<String> = reader.fields()
+    let field_names: Vec<String> = reader
+        .fields()
         .iter()
         .map(|f| f.name().to_string())
         .collect();
 
     // Create CSV output file (same directory as DBF, with .csv extension)
     let csv_path = dbf_file.path.with_extension("csv");
-    let csv_file = File::create(&csv_path)
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::Other && e.to_string().contains("No space left on device") {
-                ProcessingError::DiskFullError(format!("Cannot create CSV file: {}", e))
-            } else {
-                ProcessingError::FileReadError(e)
-            }
-        })?;
+    let csv_file = File::create(&csv_path).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::Other
+            && e.to_string().contains("No space left on device")
+        {
+            ProcessingError::DiskFullError(format!("Cannot create CSV file: {}", e))
+        } else {
+            ProcessingError::FileReadError(e)
+        }
+    })?;
 
     let mut csv_writer = Writer::from_writer(BufWriter::new(csv_file));
 
     // Write CSV header
-    csv_writer.write_record(&field_names)
-        .map_err(|e| ProcessingError::ConversionError(format!("Failed to write CSV header: {}", e)))?;
+    csv_writer.write_record(&field_names).map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to write CSV header: {}", e))
+    })?;
 
     // Determine encoding to use for text fields
     let encoding = get_encoding_for_dbf(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding);
@@ -53,12 +55,17 @@ pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf
         match result {
             Ok(record) => {
                 let csv_record = convert_record_to_csv(&record, &field_names, encoding)?;
-                csv_writer.write_record(&csv_record)
-                    .map_err(|e| ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e)))?;
+                csv_writer.write_record(&csv_record).map_err(|e| {
+                    ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))
+                })?;
                 record_count += 1;
             }
             Err(e) => {
-                warn!("Skipping corrupted record in {}: {}", dbf_file.path.display(), e);
+                warn!(
+                    "Skipping corrupted record in {}: {}",
+                    dbf_file.path.display(),
+                    e
+                );
                 // Continue processing other records instead of failing
                 continue;
             }
@@ -66,16 +73,24 @@ pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf
     }
 
     // Flush and finish writing
-    csv_writer.flush()
-        .map_err(|e| ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e)))?;
+    csv_writer.flush().map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
+    })?;
 
-    debug!("Converted {} records from DBF to CSV: {}", record_count, csv_path.display());
+    debug!(
+        "Converted {} records from DBF to CSV: {}",
+        record_count,
+        csv_path.display()
+    );
 
     Ok(csv_path)
 }
 
 /// Get the encoding to use for DBF text fields
-fn get_encoding_for_dbf(dbf_encoding: Option<&Encoding>, config_encoding: &str) -> &'static EncodingRs {
+fn get_encoding_for_dbf(
+    dbf_encoding: Option<&Encoding>,
+    config_encoding: &str,
+) -> &'static EncodingRs {
     match dbf_encoding {
         Some(Encoding::CP866) => encoding_rs::IBM866,
         Some(Encoding::Windows1251) => WINDOWS_1251,
@@ -87,7 +102,10 @@ fn get_encoding_for_dbf(dbf_encoding: Option<&Encoding>, config_encoding: &str) 
                 "WINDOWS-1251" | "WINDOWS1251" | "CP1251" => WINDOWS_1251,
                 "UTF-8" | "UTF8" => encoding_rs::UTF_8,
                 _ => {
-                    warn!("Unknown encoding '{}', defaulting to Windows-1251", config_encoding);
+                    warn!(
+                        "Unknown encoding '{}', defaulting to Windows-1251",
+                        config_encoding
+                    );
                     WINDOWS_1251
                 }
             }
@@ -97,15 +115,18 @@ fn get_encoding_for_dbf(dbf_encoding: Option<&Encoding>, config_encoding: &str) 
 
 /// Convert a DBF record to CSV string fields
 /// Takes field names to ensure proper ordering (Record is a HashMap)
-fn convert_record_to_csv(record: &Record, field_names: &[String], encoding: &'static EncodingRs) -> Result<Vec<String>> {
+fn convert_record_to_csv(
+    record: &Record,
+    field_names: &[String],
+    encoding: &'static EncodingRs,
+) -> Result<Vec<String>> {
     let mut csv_fields = Vec::new();
 
     // Iterate through field names in order to maintain column order
     for field_name in field_names {
-        let field_value = record.get(field_name)
-            .ok_or_else(|| ProcessingError::ConversionError(
-                format!("Missing field '{}' in record", field_name)
-            ))?;
+        let field_value = record.get(field_name).ok_or_else(|| {
+            ProcessingError::ConversionError(format!("Missing field '{}' in record", field_name))
+        })?;
 
         let field_str = match field_value {
             FieldValue::Character(Some(s)) => {
@@ -124,7 +145,13 @@ fn convert_record_to_csv(record: &Record, field_names: &[String], encoding: &'st
             FieldValue::Character(None) => String::new(),
             FieldValue::Numeric(Some(n)) => n.to_string(),
             FieldValue::Numeric(None) => String::new(),
-            FieldValue::Logical(Some(b)) => if *b { "true".to_string() } else { "false".to_string() },
+            FieldValue::Logical(Some(b)) => {
+                if *b {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
             FieldValue::Logical(None) => String::new(),
             FieldValue::Date(Some(d)) => format!("{:?}", d), // Use Debug format for date
             FieldValue::Date(None) => String::new(),
@@ -187,9 +214,18 @@ mod tests {
         let config = create_test_config();
 
         // Test known encodings
-        assert_eq!(get_encoding_for_dbf(Some(&Encoding::CP866), &config.encoding.dbf_encoding), encoding_rs::IBM866);
-        assert_eq!(get_encoding_for_dbf(Some(&Encoding::Windows1251), &config.encoding.dbf_encoding), WINDOWS_1251);
-        assert_eq!(get_encoding_for_dbf(Some(&Encoding::UTF8), &config.encoding.dbf_encoding), encoding_rs::UTF_8);
+        assert_eq!(
+            get_encoding_for_dbf(Some(&Encoding::CP866), &config.encoding.dbf_encoding),
+            encoding_rs::IBM866
+        );
+        assert_eq!(
+            get_encoding_for_dbf(Some(&Encoding::Windows1251), &config.encoding.dbf_encoding),
+            WINDOWS_1251
+        );
+        assert_eq!(
+            get_encoding_for_dbf(Some(&Encoding::UTF8), &config.encoding.dbf_encoding),
+            encoding_rs::UTF_8
+        );
 
         // Test None falls back to config
         let encoding = get_encoding_for_dbf(None, "CP866");

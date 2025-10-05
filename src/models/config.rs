@@ -68,9 +68,8 @@ impl Config {
             ))
         })?;
 
-        std::fs::write(path, toml_string).map_err(|e| {
-            crate::error::ProcessingError::FileReadError(e)
-        })?;
+        std::fs::write(path, toml_string)
+            .map_err(|e| crate::error::ProcessingError::FileReadError(e))?;
 
         Ok(())
     }
@@ -85,7 +84,9 @@ impl Config {
 
         // Validate source directory exists
         if !self.src.source_dir.exists() {
-            return Err(format!("Source directory does not exist: {:?}", self.src.source_dir).into());
+            return Err(
+                format!("Source directory does not exist: {:?}", self.src.source_dir).into(),
+            );
         }
 
         // Validate API base URL starts with https://

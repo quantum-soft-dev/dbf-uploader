@@ -2,7 +2,7 @@
 use crate::auth::JwtToken;
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
-use reqwest::{Client, multipart};
+use reqwest::{multipart, Client};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
@@ -32,7 +32,9 @@ pub async fn upload_file(
         .timeout(Duration::from_secs(300)) // 5 minute timeout for large files
         .https_only(true)
         .build()
-        .map_err(|e| ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
+        .map_err(|e| {
+            ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
+        })?;
 
     // Read file contents
     let mut file = File::open(&gzip_path)
@@ -80,8 +82,10 @@ async fn upload_with_retry(
                         // Server error (5xx) - retry with backoff
                         if attempt < max_retries {
                             let backoff = Duration::from_secs(2u64.pow(attempt - 1));
-                            warn!("Server error uploading {} (attempt {}/{}), retrying in {:?}: {}",
-                                  filename, attempt, max_retries, backoff, msg);
+                            warn!(
+                                "Server error uploading {} (attempt {}/{}), retrying in {:?}: {}",
+                                filename, attempt, max_retries, backoff, msg
+                            );
                             tokio::time::sleep(backoff).await;
                             continue;
                         } else {
@@ -93,8 +97,10 @@ async fn upload_with_retry(
                         // Network error - retry with backoff
                         if attempt < max_retries {
                             let backoff = Duration::from_secs(2u64.pow(attempt - 1));
-                            warn!("Network error uploading {} (attempt {}/{}), retrying in {:?}",
-                                  filename, attempt, max_retries, backoff);
+                            warn!(
+                                "Network error uploading {} (attempt {}/{}), retrying in {:?}",
+                                filename, attempt, max_retries, backoff
+                            );
                             tokio::time::sleep(backoff).await;
                             continue;
                         } else {
@@ -107,9 +113,10 @@ async fn upload_with_retry(
         }
     }
 
-    Err(ProcessingError::UploadError(
-        format!("Upload failed after {} retries", max_retries)
-    ))
+    Err(ProcessingError::UploadError(format!(
+        "Upload failed after {} retries",
+        max_retries
+    )))
 }
 
 /// Single upload attempt
@@ -126,8 +133,7 @@ async fn try_upload(
         .mime_str("application/gzip")
         .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
 
-    let form = multipart::Form::new()
-        .part("file", part);
+    let form = multipart::Form::new().part("file", part);
 
     // Send request
     let response = client
@@ -137,7 +143,9 @@ async fn try_upload(
         .multipart(form)
         .send()
         .await
-        .map_err(|e| ProcessingError::NetworkError(format!("Failed to send upload request: {}", e)))?;
+        .map_err(|e| {
+            ProcessingError::NetworkError(format!("Failed to send upload request: {}", e))
+        })?;
 
     // Check response status
     let status = response.status();
@@ -148,9 +156,10 @@ async fn try_upload(
         let status_code = status.as_u16();
         let error_body = response.text().await.unwrap_or_default();
 
-        Err(ProcessingError::UploadError(
-            format!("{} - {}", status_code, error_body)
-        ))
+        Err(ProcessingError::UploadError(format!(
+            "{} - {}",
+            status_code, error_body
+        )))
     }
 }
 
@@ -196,7 +205,8 @@ mod tests {
                 "test.csv.gz".to_string(),
                 &token,
                 &config,
-            ).await;
+            )
+            .await;
 
             assert!(result.is_err());
             match result {

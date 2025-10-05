@@ -9,8 +9,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 async fn main() {
     // Initialize structured logging with tracing
     // Set log level from RUST_LOG environment variable, default to INFO
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt()
         .with_env_filter(env_filter)
@@ -34,9 +33,7 @@ async fn main() {
             crontab,
             api_url,
             encoding,
-        } => {
-            install(username, password, source_dir, crontab, api_url, encoding).await
-        }
+        } => install(username, password, source_dir, crontab, api_url, encoding).await,
         Commands::Uninstall => uninstall().await,
     };
 
