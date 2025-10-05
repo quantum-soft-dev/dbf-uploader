@@ -166,7 +166,7 @@ Error Reporter (API) / Logger (local)
 
 ### Требования
 
-- Rust 1.79.0+
+- Rust 1.82.0+
 - Windows SDK
 
 ### Сборка
