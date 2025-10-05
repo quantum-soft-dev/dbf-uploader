@@ -109,16 +109,21 @@ impl Config {
 mod tests {
     use super::*;
     use std::io::Write;
-    use tempfile::NamedTempFile;
+    use tempfile::{NamedTempFile, TempDir};
 
     #[test]
     fn test_config_from_toml() {
-        let toml_content = r#"
+        // Create temporary directory that actually exists
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
 [scheduler]
 crontab = "*/5 * * * *"
 
 [src]
-source_dir = "/tmp"
+source_dir = "{}"
 
 [credential]
 username = "test_user"
@@ -129,7 +134,9 @@ base_url = "https://api.example.com"
 
 [encoding]
 dbf_encoding = "CP866"
-        "#;
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
@@ -138,7 +145,7 @@ dbf_encoding = "CP866"
         let config = Config::from_file(temp_file.path()).unwrap();
 
         assert_eq!(config.scheduler.crontab, "*/5 * * * *");
-        assert_eq!(config.src.source_dir, PathBuf::from("/tmp"));
+        assert_eq!(config.src.source_dir, temp_dir.path());
         assert_eq!(config.credential.username, "test_user");
         assert_eq!(config.credential.password, "test_password");
         assert_eq!(config.api.base_url, "https://api.example.com");
@@ -147,12 +154,17 @@ dbf_encoding = "CP866"
 
     #[test]
     fn test_config_validation_invalid_url() {
-        let toml_content = r#"
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
 [scheduler]
 crontab = "*/5 * * * *"
 
 [src]
-source_dir = "/tmp"
+source_dir = "{}"
 
 [credential]
 username = "test_user"
@@ -163,7 +175,9 @@ base_url = "http://api.example.com"
 
 [encoding]
 dbf_encoding = "CP866"
-        "#;
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
@@ -176,12 +190,17 @@ dbf_encoding = "CP866"
 
     #[test]
     fn test_config_default_encoding() {
-        let toml_content = r#"
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
 [scheduler]
 crontab = "*/5 * * * *"
 
 [src]
-source_dir = "/tmp"
+source_dir = "{}"
 
 [credential]
 username = "test_user"
@@ -191,7 +210,9 @@ password = "test_password"
 base_url = "https://api.example.com"
 
 [encoding]
-        "#;
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(toml_content.as_bytes()).unwrap();
