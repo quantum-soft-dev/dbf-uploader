@@ -163,14 +163,8 @@ mod tests {
     fn test_encoding_from_str() {
         assert_eq!(Encoding::parse("CP866"), Some(Encoding::CP866));
         assert_eq!(Encoding::parse("cp866"), Some(Encoding::CP866));
-        assert_eq!(
-            Encoding::parse("WINDOWS-1251"),
-            Some(Encoding::Windows1251)
-        );
-        assert_eq!(
-            Encoding::parse("windows1251"),
-            Some(Encoding::Windows1251)
-        );
+        assert_eq!(Encoding::parse("WINDOWS-1251"), Some(Encoding::Windows1251));
+        assert_eq!(Encoding::parse("windows1251"), Some(Encoding::Windows1251));
         assert_eq!(Encoding::parse("UTF-8"), Some(Encoding::UTF8));
         assert_eq!(Encoding::parse("utf8"), Some(Encoding::UTF8));
         assert_eq!(Encoding::parse("invalid"), None);
