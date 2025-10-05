@@ -69,7 +69,7 @@ impl Config {
         })?;
 
         std::fs::write(path, toml_string)
-            .map_err(|e| crate::error::ProcessingError::FileReadError(e))?;
+            .map_err(crate::error::ProcessingError::FileReadError)?;
 
         Ok(())
     }

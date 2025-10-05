@@ -20,7 +20,7 @@ impl Encoding {
     }
 
     /// Parse encoding from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
             "CP866" => Some(Encoding::CP866),
             "WINDOWS-1251" | "WINDOWS1251" => Some(Encoding::Windows1251),
@@ -161,19 +161,19 @@ mod tests {
 
     #[test]
     fn test_encoding_from_str() {
-        assert_eq!(Encoding::from_str("CP866"), Some(Encoding::CP866));
-        assert_eq!(Encoding::from_str("cp866"), Some(Encoding::CP866));
+        assert_eq!(Encoding::parse("CP866"), Some(Encoding::CP866));
+        assert_eq!(Encoding::parse("cp866"), Some(Encoding::CP866));
         assert_eq!(
-            Encoding::from_str("WINDOWS-1251"),
+            Encoding::parse("WINDOWS-1251"),
             Some(Encoding::Windows1251)
         );
         assert_eq!(
-            Encoding::from_str("windows1251"),
+            Encoding::parse("windows1251"),
             Some(Encoding::Windows1251)
         );
-        assert_eq!(Encoding::from_str("UTF-8"), Some(Encoding::UTF8));
-        assert_eq!(Encoding::from_str("utf8"), Some(Encoding::UTF8));
-        assert_eq!(Encoding::from_str("invalid"), None);
+        assert_eq!(Encoding::parse("UTF-8"), Some(Encoding::UTF8));
+        assert_eq!(Encoding::parse("utf8"), Some(Encoding::UTF8));
+        assert_eq!(Encoding::parse("invalid"), None);
     }
 
     #[test]
