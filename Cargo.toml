@@ -1,0 +1,61 @@
+[package]
+name = "data_exporter"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.79.0"
+
+[dependencies]
+# Windows Service
+windows-service = "0.7"
+
+# Async Runtime
+tokio = { version = "1", features = ["full"] }
+tokio-cron-scheduler = "0.13"
+
+# HTTP Client
+reqwest = { version = "0.12", features = ["rustls-tls", "multipart", "json"], default-features = false }
+
+# DBF Parsing
+dbase = { version = "0.5", features = ["yore"] }
+
+# Configuration
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# CSV Writing
+csv = "1"
+
+# Compression
+flate2 = "1"
+
+# Error Handling
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# File Watching
+notify-debouncer-mini = "0.4"
+
+# Encoding
+encoding_rs = "0.8"
+
+# Base64 for Basic Auth
+base64 = "0.22"
+
+# DateTime
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lib]
+name = "data_exporter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "data_exporter"
+path = "src/main.rs"

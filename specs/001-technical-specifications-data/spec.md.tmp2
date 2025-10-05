@@ -1,0 +1,2 @@
+- Assumes cloud server handles file versioning and deduplication (client does not track previously uploaded files)
+- Assumes standard Windows path conventions with backslash separators
