@@ -2,9 +2,9 @@
 use crate::auth::AuthClient;
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
-use std::path::PathBuf;
 #[cfg(target_os = "windows")]
 use std::path::Path;
+use std::path::PathBuf;
 use tracing::{error, info};
 
 /// Install the data exporter service
