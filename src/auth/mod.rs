@@ -4,6 +4,7 @@ use crate::models::Config;
 use base64::Engine;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,10 +40,18 @@ pub struct AuthClient {
 }
 
 impl AuthClient {
-    /// Create a new authentication client
+    /// Create a new authentication client with HTTPS-only enforcement
     pub fn new(config: &Config) -> Result<Self> {
+        // Validate HTTPS-only URL
+        if !config.api.base_url.starts_with("https://") {
+            return Err(ProcessingError::ConfigurationError(
+                "API base URL must use HTTPS".to_string()
+            ));
+        }
+
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
+            .https_only(true) // Enforce HTTPS-only connections
             .build()
             .map_err(|e| ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e)))?;
 
@@ -101,6 +110,82 @@ impl AuthClient {
             }
             status => Err(ProcessingError::AuthenticationError(format!("Unexpected status code: {}", status))),
         }
+    }
+}
+
+/// TokenManager manages JWT token lifecycle with automatic renewal
+pub struct TokenManager {
+    auth_client: Arc<AuthClient>,
+    current_token: Arc<RwLock<Option<JwtToken>>>,
+}
+
+impl TokenManager {
+    /// Create a new TokenManager
+    pub fn new(config: &Config) -> Result<Self> {
+        let auth_client = Arc::new(AuthClient::new(config)?);
+        Ok(Self {
+            auth_client,
+            current_token: Arc::new(RwLock::new(None)),
+        })
+    }
+
+    /// Get a valid token, renewing if necessary
+    /// Returns the current token if it's valid and not expiring soon,
+    /// otherwise requests a new token and updates the stored token.
+    pub async fn get_valid_token(&self) -> Result<JwtToken> {
+        // First, check if we have a valid token
+        {
+            let token_lock = self.current_token.read()
+                .map_err(|e| ProcessingError::AuthenticationError(
+                    format!("Failed to acquire read lock on token: {}", e)
+                ))?;
+
+            if let Some(ref token) = *token_lock {
+                if !token.is_expired() {
+                    return Ok(token.clone());
+                }
+            }
+        }
+
+        // Token is expired or doesn't exist, need to get a new one
+        // Acquire write lock to check one more time (double-check pattern)
+        {
+            let token_lock = self.current_token.write()
+                .map_err(|e| ProcessingError::AuthenticationError(
+                    format!("Failed to acquire write lock on token: {}", e)
+                ))?;
+
+            // Double-check: another thread might have already refreshed the token
+            if let Some(ref token) = *token_lock {
+                if !token.is_expired() {
+                    return Ok(token.clone());
+                }
+            }
+        } // Release write lock before await
+
+        // Request a new token (without holding any locks)
+        let new_token = self.auth_client.get_token().await?;
+
+        // Acquire write lock again to store the new token
+        {
+            let mut token_lock = self.current_token.write()
+                .map_err(|e| ProcessingError::AuthenticationError(
+                    format!("Failed to acquire write lock on token: {}", e)
+                ))?;
+            *token_lock = Some(new_token.clone());
+        }
+
+        Ok(new_token)
+    }
+
+    /// Clear the stored token (useful for testing or manual refresh)
+    pub fn clear_token(&self) -> Result<()> {
+        let mut token_lock = self.current_token.write()
+            .map_err(|e| ProcessingError::AuthenticationError(
+                format!("Failed to acquire write lock on token: {}", e)
+            ))?;
+        *token_lock = None;
+        Ok(())
     }
 }
 

@@ -203,18 +203,19 @@
   - Implement `generate_compressed_filename()` method (path separators → underscores, .dbf → .csv.gz)
   - Add unit tests for filename encoding logic
 
-- [ ] **T019** Create HTTP client setup in `src/auth/client.rs`
+- [x] **T019** Create HTTP client setup in `src/auth/client.rs`
   - Create `HttpClient` struct wrapping `reqwest::Client`
   - Configure client with HTTPS-only enforcement (`.https_only(true)`)
   - Use `rustls-tls` backend (`.use_rustls_tls()`)
   - Add timeout configuration (30 seconds)
   - Export client builder function
+  - **COMPLETED**: Integrated into AuthClient with HTTPS-only validation
 
 ---
 
 ## Phase 3.4: Authentication & HTTP Client
 
-- [ ] **T020** Implement JWT token retrieval in `src/auth/mod.rs`
+- [x] **T020** Implement JWT token retrieval in `src/auth/mod.rs`
   - Define `AuthClient` struct with `HttpClient` and `Config`
   - Implement `get_token(username, password) -> Result<JwtToken>`
   - Send POST to `/api/auth/token` with Basic auth
@@ -222,8 +223,9 @@
   - Record `obtained_at` timestamp
   - Handle errors: 401 (invalid creds), 403 (subscription inactive), network errors
   - **Makes T006 contract test pass**
+  - **COMPLETED**: AuthClient implemented with full error handling
 
-- [ ] **T021** Implement JWT token renewal logic in `src/auth/mod.rs`
+- [x] **T021** Implement JWT token renewal logic in `src/auth/mod.rs`
   - Add `TokenManager` struct to manage token lifecycle
   - Store current token in memory (Arc<RwLock<Option<JwtToken>>>)
   - Implement `get_valid_token() -> Result<JwtToken>` that:
@@ -231,20 +233,22 @@
     - Requests new token if expired or expiring within 5 minutes
     - Updates stored token
   - Handle concurrent token refresh (only one refresh at a time)
+  - **COMPLETED**: TokenManager with double-check locking pattern
 
 ---
 
 ## Phase 3.5: File Processing Pipeline
 
-- [ ] **T022** Implement directory scanner in `src/processor/scanner.rs`
+- [x] **T022** Implement directory scanner in `src/processor/scanner.rs`
   - Implement `scan_directory(source_dir) -> Result<Vec<DbfFile>>`
   - Recursively walk directory tree using `std::fs::read_dir`
   - Filter for files with `.dbf` extension (case-insensitive)
   - Create `DbfFile` instances with relative paths
   - Handle errors: directory inaccessible (send error report, return empty vec)
   - Add unit tests with temp directories
+  - **COMPLETED**: Full recursive scanner with unit tests
 
-- [ ] **T023** Implement DBF to CSV converter in `src/processor/converter.rs`
+- [x] **T023** Implement DBF to CSV converter in `src/processor/converter.rs`
   - Implement `convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf>`
   - Use `dbase` crate with `yore` feature to read DBF
   - Attempt auto-detection of encoding from DBF header
@@ -255,8 +259,9 @@
   - Return path to created CSV file
   - Handle errors: corrupted DBF, encoding errors, disk full
   - Add unit tests with sample DBF files
+  - **COMPLETED**: Full converter with encoding support and error handling
 
-- [ ] **T024** Implement CSV to gzip compressor in `src/processor/compressor.rs`
+- [x] **T024** Implement CSV to gzip compressor in `src/processor/compressor.rs`
   - Implement `compress_csv(csv_path: PathBuf, output_name: String) -> Result<PathBuf>`
   - Use `flate2::write::GzEncoder` with `Compression::default()` (level 6)
   - Read CSV file and write to gzip stream
@@ -265,8 +270,9 @@
   - Return path to created gzip file
   - Handle errors: read errors, compression errors, disk full
   - Add unit tests with sample CSV files
+  - **COMPLETED**: Full compressor with comprehensive tests
 
-- [ ] **T025** Implement file uploader in `src/processor/uploader.rs`
+- [x] **T025** Implement file uploader in `src/processor/uploader.rs`
   - Implement `upload_file(gzip_path: PathBuf, filename: String, token: &JwtToken, config: &Config) -> Result<()>`
   - Use `reqwest::multipart::Form` to create multipart request
   - Add file field with gzip data
@@ -274,6 +280,7 @@
   - Set `Content-Encoding: gzip` header
   - Handle errors: 401 (renew token and retry once), 4xx (report and skip), 5xx (retry with backoff max 3 times)
   - **Makes T007 contract test pass**
+  - **COMPLETED**: Full uploader with retry logic and backoff
 
 - [ ] **T026** Implement locked file deferral in `src/processor/mod.rs`
   - In batch processing loop, wrap file operations in lock detection

@@ -1,6 +1,12 @@
 // Error types for data_exporter
 use thiserror::Error;
 
+pub mod logger;
+pub mod reporter;
+
+pub use logger::log_error_locally;
+pub use reporter::ErrorReporter;
+
 /// Domain-specific errors for file processing operations
 #[derive(Error, Debug)]
 pub enum ProcessingError {

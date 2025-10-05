@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: 1.79.0
+
+    - name: Build release binary
+      run: cargo build --release --verbose
+
+    - name: Run tests
+      run: cargo test --release --verbose
+
+    - name: Create release archive
+      run: |
+        $version = "${{ github.ref_name }}"
+        $archive = "data_exporter-$version-windows-x86_64.zip"
+        Compress-Archive -Path target/release/data_exporter.exe -DestinationPath $archive
+        echo "ASSET_PATH=$archive" >> $env:GITHUB_ENV
+        echo "ASSET_NAME=$archive" >> $env:GITHUB_ENV
+
+    - name: Generate checksums
+      run: |
+        $hash = Get-FileHash -Path $env:ASSET_PATH -Algorithm SHA256
+        $checksumFile = "$env:ASSET_PATH.sha256"
+        "$($hash.Hash.ToLower())  $env:ASSET_NAME" | Out-File -FilePath $checksumFile -Encoding ASCII
+        echo "CHECKSUM_PATH=$checksumFile" >> $env:GITHUB_ENV
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ env.ASSET_PATH }}
+          ${{ env.CHECKSUM_PATH }}
+        body: |
+          ## Data Exporter Service ${{ github.ref_name }}
+
+          ### Installation
+          1. Download the ZIP archive
+          2. Extract `data_exporter.exe`
+          3. Run installation command:
+          ```
+          data_exporter.exe install --username <user> --password <pass> --source-dir <path> --api-url <url>
+          ```
+
+          ### Checksums
+          SHA256 checksums are provided in the `.sha256` file.
+
+          ### Platform Support
+          - Windows 10 or higher
+          - Windows Server 2016 or higher
+          - x86_64 architecture
+
+          Built with Rust 1.79.0
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

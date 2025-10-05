@@ -3,7 +3,11 @@
     "allow": [
       "WebSearch",
       "Bash(.specify/scripts/bash/update-agent-context.sh:*)",
-      "Bash(cargo:*)"
+      "Bash(cargo:*)",
+      "Read(//Users/boris/.cargo/registry/src/**)",
+      "Bash(cat:*)",
+      "Bash(./target/release/data_exporter:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

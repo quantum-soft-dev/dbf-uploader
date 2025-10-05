@@ -59,6 +59,22 @@ impl Config {
         Ok(config)
     }
 
+    /// Save configuration to TOML file
+    pub fn to_file(&self, path: &std::path::Path) -> Result<(), crate::error::ProcessingError> {
+        let toml_string = toml::to_string_pretty(self).map_err(|e| {
+            crate::error::ProcessingError::ConfigurationError(format!(
+                "Failed to serialize config: {}",
+                e
+            ))
+        })?;
+
+        std::fs::write(path, toml_string).map_err(|e| {
+            crate::error::ProcessingError::FileReadError(e)
+        })?;
+
+        Ok(())
+    }
+
     /// Validate configuration
     pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
         // Validate crontab expression can be parsed
