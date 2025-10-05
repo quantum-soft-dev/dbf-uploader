@@ -40,12 +40,12 @@
 
 ## Phase 3.1: Project Setup & Foundation
 
-- [ ] **T001** Initialize Cargo project with Rust 1.79.0, edition 2021, targeting Windows x86_64
+- [x] **T001** Initialize Cargo project with Rust 1.79.0, edition 2021, targeting Windows x86_64
   - Create `Cargo.toml` with package metadata
   - Set `name = "data-exporter"`, `version = "0.1.0"`
   - Configure `[[bin]]` section with `name = "data_exporter"`, `path = "src/main.rs"`
 
-- [ ] **T002** Add all required dependencies to `Cargo.toml`
+- [x] **T002** Add all required dependencies to `Cargo.toml`
   - Add `windows-service = "0.7"` for Windows service integration
   - Add `tokio = { version = "1", features = ["full"] }` for async runtime
   - Add `tokio-cron-scheduler = "0.13"` for cron scheduling
@@ -62,7 +62,7 @@
   - Add `uuid = { version = "1", features = ["v4", "serde"] }` for batch IDs
   - Add `chrono = { version = "0.4", features = ["serde"] }` for timestamps
 
-- [ ] **T003** [P] Create project directory structure in `src/`
+- [x] **T003** [P] Create project directory structure in `src/`
   - Create `src/main.rs` (CLI entry point placeholder)
   - Create `src/lib.rs` (library exports placeholder)
   - Create `src/service/mod.rs`
@@ -72,12 +72,12 @@
   - Create `src/models/mod.rs`
   - Create `src/error/mod.rs`
 
-- [ ] **T004** [P] Create test directory structure in `tests/`
+- [x] **T004** [P] Create test directory structure in `tests/`
   - Create `tests/contract/mod.rs`
   - Create `tests/integration/mod.rs`
   - Create `tests/unit/mod.rs`
 
-- [ ] **T005** [P] Define custom error types in `src/error/mod.rs`
+- [x] **T005** [P] Define custom error types in `src/error/mod.rs`
   - Use `thiserror` to define `ServiceError` enum
   - Add variants: `DbfParse`, `HttpRequest`, `Config`, `Schedule`, `Io`, `Auth`, `Encoding`, `Compression`, `Upload`, `DiskFull`
   - Implement `From` conversions for underlying error types
@@ -90,7 +90,7 @@
 
 ### Contract Tests (API Endpoints)
 
-- [ ] **T006** [P] Write contract test for Auth API in `tests/contract/auth_test.rs`
+- [x] **T006** [P] Write contract test for Auth API in `tests/contract/auth_test.rs`
   - Test POST `/api/auth/token` with Basic auth
   - Assert 200 response with `token` and `expires_in` fields
   - Test 401 response for invalid credentials
@@ -99,7 +99,7 @@
   - Use `reqwest` client with HTTPS-only enforcement
   - **Test MUST fail** (no auth client implementation yet)
 
-- [ ] **T007** [P] Write contract test for Upload API in `tests/contract/upload_test.rs`
+- [x] **T007** [P] Write contract test for Upload API in `tests/contract/upload_test.rs`
   - Test POST `/api/files/upload` with multipart/form-data
   - Assert JWT Bearer token in Authorization header
   - Test successful upload returns 200/201
@@ -109,7 +109,7 @@
   - Use mock gzip file for upload
   - **Test MUST fail** (no uploader implementation yet)
 
-- [ ] **T008** [P] Write contract test for Error Report API in `tests/contract/error_test.rs`
+- [x] **T008** [P] Write contract test for Error Report API in `tests/contract/error_test.rs`
   - Test POST `/api/errors/report` with JSON body
   - Assert required fields: filename, error_type, message, timestamp, client_version
   - Test 200/204 successful receipt
@@ -119,14 +119,14 @@
 
 ### Integration Tests
 
-- [ ] **T009** [P] Write integration test for service lifecycle in `tests/integration/service_lifecycle_test.rs`
+- [x] **T009** [P] Write integration test for service lifecycle in `tests/integration/service_lifecycle_test.rs`
   - Test install command: registers service, creates config, validates credentials
   - Test service start: initializes runtime, loads config, starts scheduler
   - Test service stop: graceful shutdown, cancels in-flight operations
   - Test uninstall command: stops service, unregisters, cleans up directory
   - **Test MUST fail** (no service implementation yet)
 
-- [ ] **T010** [P] Write integration test for batch processing in `tests/integration/batch_processing_test.rs`
+- [x] **T010** [P] Write integration test for batch processing in `tests/integration/batch_processing_test.rs`
   - Create test DBF files in temp directory
   - Start scheduled batch execution
   - Assert all DBF files discovered recursively
@@ -137,14 +137,14 @@
   - Assert source DBF files preserved
   - **Test MUST fail** (no processor implementation yet)
 
-- [ ] **T011** [P] Write integration test for config reload in `tests/integration/config_reload_test.rs`
+- [x] **T011** [P] Write integration test for config reload in `tests/integration/config_reload_test.rs`
   - Start service with initial config (crontab = "*/5 * * * *")
   - Modify config.toml during operation (change crontab to "*/10 * * * *")
   - Assert config change detected by file watcher
   - Assert new config applied at START of next scheduled run (not mid-batch)
   - **Test MUST fail** (no config watcher implementation yet)
 
-- [ ] **T012** [P] Write integration test for locked file retry in `tests/integration/locked_file_retry_test.rs`
+- [x] **T012** [P] Write integration test for locked file retry in `tests/integration/locked_file_retry_test.rs`
   - Create test DBF file and lock it (simulate file in use)
   - Start batch processing
   - Assert locked file deferred to end of batch
@@ -154,7 +154,7 @@
   - Release lock and verify file processed on next batch
   - **Test MUST fail** (no locked file handling yet)
 
-- [ ] **T013** [P] Write integration test for error handling in `tests/integration/error_handling_test.rs`
+- [x] **T013** [P] Write integration test for error handling in `tests/integration/error_handling_test.rs`
   - Create corrupted DBF file (invalid format)
   - Start batch processing
   - Assert error report sent to mock server
@@ -167,7 +167,7 @@
 
 ## Phase 3.3: Core Models (ONLY after tests are failing)
 
-- [ ] **T014** [P] Implement Configuration model in `src/models/config.rs`
+- [x] **T014** [P] Implement Configuration model in `src/models/config.rs`
   - Define `Config` struct with `serde::Deserialize`
   - Add fields: `scheduler.crontab`, `src.source_dir`, `credential.username`, `credential.password`, `api.base_url`, `encoding.dbf_encoding`
   - Implement validation: crontab parses, source_dir exists, base_url starts with https://
@@ -175,13 +175,13 @@
   - Implement `Config::default()` with default values
   - Add unit tests for validation logic
 
-- [ ] **T015** [P] Implement JWT Token model in `src/models/token.rs`
+- [x] **T015** [P] Implement JWT Token model in `src/models/token.rs`
   - Define `JwtToken` struct with fields: `token`, `expires_in`, `obtained_at`
   - Implement `is_expired()` method (check if current time > obtained_at + expires_in)
   - Implement `should_renew()` method (expires in < 5 minutes)
   - Add unit tests for expiration logic
 
-- [ ] **T016** [P] Implement Error Report model in `src/models/error_report.rs`
+- [x] **T016** [P] Implement Error Report model in `src/models/error_report.rs`
   - Define `ErrorReport` struct with `serde::Serialize`
   - Add fields: `filename`, `error_type`, `message`, `timestamp` (ISO 8601), `client_version`
   - Implement `ErrorReport::new(filename, error_type, message)` constructor
@@ -189,14 +189,14 @@
   - Auto-populate `client_version` from Cargo.toml version
   - Add unit tests for JSON serialization
 
-- [ ] **T017** [P] Implement Batch model in `src/models/batch.rs`
+- [x] **T017** [P] Implement Batch model in `src/models/batch.rs`
   - Define `Batch` struct with fields: `batch_id` (UUID), `started_at`, `config_snapshot`, `files`, `locked_files`, `processed_count`, `failed_count`, `status`
   - Define `BatchStatus` enum: `Scanning`, `Processing`, `RetryingLocked`, `Completed`, `Aborted`
   - Define `ProcessingStatus` enum: `Pending`, `Locked`, `Converting`, `Compressing`, `Uploading`, `Completed`, `Failed`
   - Implement `Batch::new(config)` constructor (generates UUID, sets started_at)
   - Add methods: `add_file()`, `defer_locked_file()`, `mark_completed()`, `mark_failed()`
 
-- [ ] **T018** [P] Implement DBF File model in `src/models/dbf_file.rs`
+- [x] **T018** [P] Implement DBF File model in `src/models/dbf_file.rs`
   - Define `DbfFile` struct with fields: `path`, `relative_path`, `encoding`, `status`
   - Define `Encoding` enum: `CP866`, `Windows1251`, `UTF8`
   - Implement `DbfFile::new(path, source_dir)` to calculate relative path
@@ -282,7 +282,7 @@
   - **Makes T007 contract test pass**
   - **COMPLETED**: Full uploader with retry logic and backoff
 
-- [ ] **T026** Implement locked file deferral in `src/processor/mod.rs`
+- [x] **T026** Implement locked file deferral in `src/processor/mod.rs`
   - In batch processing loop, wrap file operations in lock detection
   - Catch I/O errors with `ErrorKind::PermissionDenied` or lock-related codes
   - Move locked files to `batch.locked_files` list
@@ -290,7 +290,7 @@
   - After main processing, retry each locked file once
   - Skip files still locked after retry
 
-- [ ] **T027** Implement CSV cleanup in `src/processor/mod.rs`
+- [x] **T027** Implement CSV cleanup in `src/processor/mod.rs`
   - After upload attempt (success or failure), delete local CSV file
   - Use `std::fs::remove_file(csv_path)`
   - Log deletion with file path
@@ -301,7 +301,7 @@
 
 ## Phase 3.6: Scheduler & Windows Service
 
-- [ ] **T028** Implement cron scheduler in `src/service/scheduler.rs`
+- [x] **T028** Implement cron scheduler in `src/service/scheduler.rs`
   - Use `tokio-cron-scheduler` to create scheduler
   - Parse cron expression from config (`config.scheduler.crontab`)
   - Add job with cron schedule to trigger batch processing
@@ -310,7 +310,7 @@
   - Implement graceful shutdown (stop scheduler, wait for in-flight jobs)
   - Add unit tests for schedule parsing
 
-- [ ] **T029** Implement config file watcher in `src/config/watcher.rs`
+- [x] **T029** Implement config file watcher in `src/config/watcher.rs`
   - Use `notify-debouncer-mini` to watch `config.toml`
   - Set debounce duration to 1-2 seconds
   - On file change event, set flag for config reload
@@ -319,7 +319,7 @@
   - Keep debouncer alive for service lifetime
   - Handle watcher errors (log and continue)
 
-- [ ] **T030** Implement Windows service lifecycle in `src/service/lifecycle.rs`
+- [x] **T030** Implement Windows service lifecycle in `src/service/lifecycle.rs`
   - Use `windows-service` crate with `define_windows_service!` macro
   - Implement service_main function:
     - Initialize Tokio runtime
@@ -333,7 +333,7 @@
   - Proper cleanup on exit
   - **Makes T009 integration test pass**
 
-- [ ] **T031** Implement Windows service registration in `src/service/mod.rs`
+- [x] **T031** Implement Windows service registration in `src/service/mod.rs`
   - Implement `register_service()` function
   - Use Windows API (via `windows-service` crate) to register service
   - Set service name: "data-exporter"
@@ -342,7 +342,7 @@
   - Set service binary path
   - Handle errors: access denied (needs admin), already exists
 
-- [ ] **T032** Implement Windows service unregistration in `src/service/mod.rs`
+- [x] **T032** Implement Windows service unregistration in `src/service/mod.rs`
   - Implement `unregister_service()` function
   - Stop service if running
   - Delete service from Service Control Manager
@@ -352,7 +352,7 @@
 
 ## Phase 3.7: Error Handling & Reporting
 
-- [ ] **T033** Implement error reporter in `src/error/reporter.rs`
+- [x] **T033** Implement error reporter in `src/error/reporter.rs`
   - Implement `send_error_report(error_report: ErrorReport, token: Option<&JwtToken>, config: &Config) -> Result<()>`
   - Send POST to `/api/errors/report` with JSON body
   - Include JWT token if available (may be optional for error reports)
@@ -360,14 +360,14 @@
   - Never retry error reports (fire-and-forget to avoid loops)
   - **Makes T008 contract test pass**
 
-- [ ] **T034** Implement fallback local logger in `src/error/logger.rs`
+- [x] **T034** Implement fallback local logger in `src/error/logger.rs`
   - Implement `log_error_locally(error_report: ErrorReport, fallback_reason: String) -> Result<()>`
   - Append to `C:\Program Files\data-exporter\error.log`
   - Format: `[timestamp] ERROR: {fallback_reason}\n  Filename: {filename}\n  Error Type: {error_type}\n  Message: {message}\n`
   - Create file if doesn't exist
   - Handle write errors (log to tracing but don't fail)
 
-- [ ] **T035** Integrate error handling in batch processing (`src/processor/mod.rs`)
+- [x] **T035** Integrate error handling in batch processing (`src/processor/mod.rs`)
   - Wrap each file operation in error handling
   - On error: Create `ErrorReport`, send to server (or log locally)
   - Continue processing remaining files (don't abort batch)
@@ -379,14 +379,14 @@
 
 ## Phase 3.8: CLI Interface
 
-- [ ] **T036** Implement CLI argument parsing in `src/main.rs`
+- [x] **T036** Implement CLI argument parsing in `src/main.rs`
   - Use `clap` crate (add to Cargo.toml)
   - Define CLI structure with subcommands: `install`, `uninstall`
   - Install command args: `--username`, `--password`, `--source-dir`, `--crontab`, `--api-url`, `--encoding`
   - Uninstall command args: none
   - Parse args and route to appropriate function
 
-- [ ] **T037** Implement install command in `src/cli/install.rs`
+- [x] **T037** Implement install command in `src/cli/install.rs`
   - Create function `install(username, password, source_dir, crontab, api_url, encoding) -> Result<()>`
   - Step 1: Copy current executable to `C:\Program Files\data-exporter\data_exporter.exe`
   - Step 2: Create config.toml at `C:\Program Files\data-exporter\config.toml`
@@ -396,7 +396,7 @@
   - Handle errors at each step, rollback on failure
   - **Makes T009 integration test pass (install portion)**
 
-- [ ] **T038** Implement uninstall command in `src/cli/uninstall.rs`
+- [x] **T038** Implement uninstall command in `src/cli/uninstall.rs`
   - Create function `uninstall() -> Result<()>`
   - Step 1: Stop service if running
   - Step 2: Unregister service from SCM
@@ -404,7 +404,7 @@
   - Handle errors: service not found (not an error), access denied
   - **Makes T009 integration test pass (uninstall portion)**
 
-- [ ] **T039** Set file permissions on config.toml in install command
+- [x] **T039** Set file permissions on config.toml in install command
   - After creating config.toml, restrict access to Administrators only
   - Use Windows API to set ACL (Access Control List)
   - Deny read access to non-admin users
@@ -414,7 +414,7 @@
 
 ## Phase 3.9: Logging & Observability
 
-- [ ] **T040** Set up structured logging with tracing in `src/main.rs` and `src/service/lifecycle.rs`
+- [x] **T040** Set up structured logging with tracing in `src/main.rs` and `src/service/lifecycle.rs`
   - Initialize `tracing-subscriber` with env filter
   - Configure log levels: ERROR, WARN, INFO, DEBUG
   - Log to stdout and stderr
@@ -422,7 +422,7 @@
   - Add spans for file processing (with file path)
   - Include error chains in error logs
 
-- [ ] **T041** Add logging throughout all modules
+- [x] **T041** Add logging throughout all modules
   - Log batch start/completion (INFO)
   - Log file processing stages (DEBUG)
   - Log errors with full context (ERROR)
@@ -434,7 +434,7 @@
 
 ## Phase 3.10: Integration & Polish
 
-- [ ] **T042** Implement batch orchestration in `src/processor/mod.rs`
+- [x] **T042** Implement batch orchestration in `src/processor/mod.rs`
   - Create `run_batch(config: Config, token_manager: Arc<TokenManager>) -> Result<Batch>`
   - Step 1: Create new Batch with UUID
   - Step 2: Scan directory for DBF files
@@ -444,7 +444,7 @@
   - Integrate all processor components (scanner, converter, compressor, uploader)
   - **Makes T010 integration test pass**
 
-- [ ] **T043** Wire scheduler to batch processing in `src/service/scheduler.rs`
+- [x] **T043** Wire scheduler to batch processing in `src/service/scheduler.rs`
   - In cron job handler, call `run_batch()`
   - Reload config at start of each batch (respect config file changes)
   - Pass TokenManager to batch processing
@@ -452,14 +452,14 @@
   - Handle batch errors (log but don't stop scheduler)
   - **Makes T011 integration test pass (config reload portion)**
 
-- [ ] **T044** Add unit tests for all modules in `tests/unit/`
+- [x] **T044** Add unit tests for all modules in `tests/unit/`
   - Create `tests/unit/converter_test.rs` for DBF conversion logic
   - Create `tests/unit/scanner_test.rs` for directory scanning
   - Create `tests/unit/scheduler_test.rs` for cron parsing
   - Create `tests/unit/filename_encoding_test.rs` for path → filename conversion
   - Use temp files and directories for test isolation
 
-- [ ] **T045** Validate against quickstart guide and finalize documentation
+- [x] **T045** Validate against quickstart guide and finalize documentation
   - Run through all quickstart.md scenarios manually or automated
   - Verify all 8 acceptance scenarios work as expected
   - Update documentation with any implementation notes
