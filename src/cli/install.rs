@@ -154,7 +154,7 @@ fn install_service(config: &Config) -> Result<()> {
 
 /// Set permissions on config.toml (Windows only)
 #[cfg(target_os = "windows")]
-fn set_config_permissions(config_path: &PathBuf) -> Result<()> {
+fn set_config_permissions(config_path: &Path) -> Result<()> {
     // TODO: Implement Windows ACL permissions
     // For now, just log that this should be done
     info!("TODO: Set ACL permissions on {}", config_path.display());
@@ -163,7 +163,7 @@ fn set_config_permissions(config_path: &PathBuf) -> Result<()> {
 
 /// Register Windows service
 #[cfg(target_os = "windows")]
-fn register_windows_service(exe_path: &PathBuf) -> Result<()> {
+fn register_windows_service(exe_path: &Path) -> Result<()> {
     // TODO: Implement Windows service registration
     // For now, just log that this should be done
     info!("TODO: Register Windows service for {}", exe_path.display());

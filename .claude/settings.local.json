@@ -8,7 +8,9 @@
       "Bash(cat:*)",
       "Bash(./target/release/data_exporter:*)",
       "Bash(git add:*)",
-      "Bash(gh run view:*)"
+      "Bash(gh run view:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
