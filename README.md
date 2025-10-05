@@ -1,7 +1,7 @@
 # Data Exporter Service
 
-[![Windows Build](https://github.com/bit-bi/dbf-uploader/workflows/Windows%20Build/badge.svg)](https://github.com/bit-bi/dbf-uploader/actions)
-[![Release](https://github.com/bit-bi/dbf-uploader/workflows/Release/badge.svg)](https://github.com/bit-bi/dbf-uploader/releases)
+[![Windows Build](https://github.com/quantum-soft-dev/dbf-uploader/workflows/Windows%20Build/badge.svg)](https://github.com/quantum-soft-dev/dbf-uploader/actions)
+[![Release](https://github.com/quantum-soft-dev/dbf-uploader/workflows/Release/badge.svg)](https://github.com/quantum-soft-dev/dbf-uploader/releases)
 
 Windows сервис для автоматического экспорта DBF файлов в CSV, сжатия в gzip и загрузки на облачный сервер по расписанию.
 
@@ -26,7 +26,7 @@ Windows сервис для автоматического экспорта DBF 
 
 ### Скачать релиз
 
-Скачайте последнюю версию из [Releases](https://github.com/bit-bi/dbf-uploader/releases).
+Скачайте последнюю версию из [Releases](https://github.com/quantum-soft-dev/dbf-uploader/releases).
 
 ### Установить сервис
 
@@ -231,7 +231,7 @@ cargo clippy --all-targets --all-features
 
 ## 📞 Поддержка
 
-- Issues: [GitHub Issues](https://github.com/bit-bi/dbf-uploader/issues)
+- Issues: [GitHub Issues](https://github.com/quantum-soft-dev/dbf-uploader/issues)
 - Email: support@example.com
 
 ## 🗺️ Roadmap
