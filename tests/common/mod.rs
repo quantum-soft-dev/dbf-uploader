@@ -72,15 +72,16 @@ impl MockMiddleware {
     }
 
     /// Create a mock for batch start
-    pub fn mock_batch_start(&mut self, token: &str, batch_id: Uuid) -> Mock {
+    /// Returns full BatchResponseDto matching server's BatchController.java
+    pub fn mock_batch_start(&mut self, token: &str, batch_id: Uuid, site_id: Uuid) -> Mock {
         self.server
             .mock("POST", "/api/dfc/batch/start")
             .match_header("authorization", format!("Bearer {}", token).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(format!(
-                r#"{{"batchId": "{}"}}"#,
-                batch_id
+                r#"{{"id": "{}", "batchId": "{}", "siteId": "{}", "status": "IN_PROGRESS", "s3Path": "account123/site456/2025-10-17/batch123", "uploadedFilesCount": 0, "totalSize": 0, "hasErrors": false, "startedAt": "2025-10-17T10:00:00Z", "completedAt": null}}"#,
+                batch_id, batch_id, site_id
             ))
             .create()
     }
@@ -102,38 +103,48 @@ impl MockMiddleware {
     }
 
     /// Create a mock for batch complete
-    pub fn mock_batch_complete(&mut self, token: &str, batch_id: Uuid, uploaded_count: u32, total_size: u64) -> Mock {
+    /// Returns full BatchResponseDto matching server's BatchController.java
+    pub fn mock_batch_complete(&mut self, token: &str, batch_id: Uuid, site_id: Uuid, uploaded_count: i32, total_size: i64) -> Mock {
         self.server
             .mock("POST", format!("/api/dfc/batch/{}/complete", batch_id).as_str())
             .match_header("authorization", format!("Bearer {}", token).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(format!(
-                r#"{{"batchId": "{}", "status": "completed", "uploadedFilesCount": {}, "totalSize": {}, "hasErrors": false}}"#,
-                batch_id, uploaded_count, total_size
+                r#"{{"id": "{}", "batchId": "{}", "siteId": "{}", "status": "COMPLETED", "s3Path": "account123/site456/2025-10-17/batch123", "uploadedFilesCount": {}, "totalSize": {}, "hasErrors": false, "startedAt": "2025-10-17T10:00:00Z", "completedAt": "2025-10-17T11:30:00Z"}}"#,
+                batch_id, batch_id, site_id, uploaded_count, total_size
             ))
             .create()
     }
 
     /// Create a mock for batch fail
-    pub fn mock_batch_fail(&mut self, token: &str, batch_id: Uuid) -> Mock {
+    /// Returns full BatchResponseDto matching server's BatchController.java
+    /// Note: Server does NOT accept request body
+    pub fn mock_batch_fail(&mut self, token: &str, batch_id: Uuid, site_id: Uuid) -> Mock {
         self.server
             .mock("POST", format!("/api/dfc/batch/{}/fail", batch_id).as_str())
             .match_header("authorization", format!("Bearer {}", token).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(format!(r#"{{"batchId": "{}", "status": "failed"}}"#, batch_id))
+            .with_body(format!(
+                r#"{{"id": "{}", "batchId": "{}", "siteId": "{}", "status": "FAILED", "s3Path": "account123/site456/2025-10-17/batch123", "uploadedFilesCount": 0, "totalSize": 0, "hasErrors": true, "startedAt": "2025-10-17T10:00:00Z", "completedAt": "2025-10-17T10:15:00Z"}}"#,
+                batch_id, batch_id, site_id
+            ))
             .create()
     }
 
     /// Create a mock for batch cancel
-    pub fn mock_batch_cancel(&mut self, token: &str, batch_id: Uuid) -> Mock {
+    /// Returns full BatchResponseDto matching server's BatchController.java
+    pub fn mock_batch_cancel(&mut self, token: &str, batch_id: Uuid, site_id: Uuid) -> Mock {
         self.server
             .mock("POST", format!("/api/dfc/batch/{}/cancel", batch_id).as_str())
             .match_header("authorization", format!("Bearer {}", token).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(format!(r#"{{"batchId": "{}", "status": "cancelled"}}"#, batch_id))
+            .with_body(format!(
+                r#"{{"id": "{}", "batchId": "{}", "siteId": "{}", "status": "CANCELLED", "s3Path": "account123/site456/2025-10-17/batch123", "uploadedFilesCount": 0, "totalSize": 0, "hasErrors": false, "startedAt": "2025-10-17T10:00:00Z", "completedAt": "2025-10-17T10:10:00Z"}}"#,
+                batch_id, batch_id, site_id
+            ))
             .create()
     }
 

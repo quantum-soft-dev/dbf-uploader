@@ -269,7 +269,7 @@ impl UploaderService {
             batch_id,
             processed_count: complete_response.uploaded_files_count as usize,
             failed_count,
-            total_size: complete_response.total_size,
+            total_size: complete_response.total_size as u64,
             duration_secs,
         })
     }

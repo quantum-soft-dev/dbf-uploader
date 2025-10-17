@@ -89,9 +89,9 @@ async fn test_full_upload_workflow_success() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _upload_mock = mock.mock_batch_upload(&token, batch_id, 3, 1024);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, 3, 1024);
+    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 3, 1024);
 
     // Create configuration
     let config = create_test_config(base_url, source_dir.clone(), &temp_dir);
@@ -143,8 +143,8 @@ async fn test_full_workflow_with_empty_directory() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
-    let _cancel_mock = mock.mock_batch_cancel(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
+    let _cancel_mock = mock.mock_batch_cancel(&token, batch_id, test_data::test_site_id());
 
     // Create configuration
     let config = create_test_config(base_url, source_dir, &temp_dir);
@@ -205,7 +205,7 @@ async fn test_full_workflow_with_upload_failure() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     // Mock upload failure (all retries will fail because mock returns 500)
     let _upload_mock = mock
@@ -218,7 +218,7 @@ async fn test_full_workflow_with_upload_failure() {
         .expect_at_least(3) // Should retry 3 times
         .create();
 
-    let _fail_mock = mock.mock_batch_fail(&token, batch_id);
+    let _fail_mock = mock.mock_batch_fail(&token, batch_id, test_data::test_site_id());
 
     // Create configuration with max_retries = 3
     let mut config = create_test_config(base_url, source_dir, &temp_dir);
@@ -280,7 +280,7 @@ async fn test_full_workflow_with_chunked_uploads() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     // Mock upload endpoint to accept any number of files
     let _upload_mock = mock
@@ -293,7 +293,7 @@ async fn test_full_workflow_with_chunked_uploads() {
         .expect_at_least(1)
         .create();
 
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, 5, 2048);
+    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 5, 2048);
 
     // Create configuration with small chunk size (2 files per batch)
     let mut config = create_test_config(base_url, source_dir, &temp_dir);
@@ -416,9 +416,9 @@ async fn test_multiple_operations_with_same_token() {
         .expect(1) // Should be called exactly once
         .create();
 
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _upload_mock = mock.mock_batch_upload(&token, batch_id, 2, 1024);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, 2, 1024);
+    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 2, 1024);
 
     // Create configuration
     let config = create_test_config(base_url, source_dir, &temp_dir);
@@ -544,7 +544,7 @@ async fn test_upload_retry_on_transient_failure() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     // First 2 upload attempts fail, 3rd succeeds
     let _upload_mock_fail = mock
@@ -558,7 +558,7 @@ async fn test_upload_retry_on_transient_failure() {
         .create();
 
     let _upload_mock_success = mock.mock_batch_upload(&token, batch_id, 1, 512);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, 1, 512);
+    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 1, 512);
 
     // Create configuration with 3 retries
     let mut config = create_test_config(base_url, source_dir, &temp_dir);
@@ -618,7 +618,7 @@ async fn test_batch_complete_failure_handling() {
         &token,
         3600,
     );
-    let _start_mock = mock.mock_batch_start(&token, batch_id);
+    let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _upload_mock = mock.mock_batch_upload(&token, batch_id, 1, 512);
 
     let _complete_mock = mock

@@ -1,5 +1,5 @@
 use super::Batch;
-use super::dto::{BatchCompleteResponse, BatchStartResponse, UploadResponse};
+use super::dto::{BatchResponseDto, UploadResponse};
 use crate::auth::TokenManager;
 use crate::error::{ProcessingError, Result};
 use reqwest::{multipart, Client};
@@ -92,7 +92,7 @@ impl BatchManager {
             )));
         }
 
-        let start_response: BatchStartResponse = response.json().await.map_err(|e| {
+        let start_response: BatchResponseDto = response.json().await.map_err(|e| {
             ProcessingError::BatchError(format!("Failed to parse batch start response: {}", e))
         })?;
 
@@ -240,7 +240,7 @@ impl BatchManager {
     }
 
     /// Complete the current batch
-    pub async fn complete_batch(&self) -> Result<BatchCompleteResponse> {
+    pub async fn complete_batch(&self) -> Result<BatchResponseDto> {
         // Get current batch
         let batch_id = {
             let current = self.current_batch.lock().map_err(|e| {
@@ -291,7 +291,7 @@ impl BatchManager {
             )));
         }
 
-        let complete_response: BatchCompleteResponse = response.json().await.map_err(|e| {
+        let complete_response: BatchResponseDto = response.json().await.map_err(|e| {
             ProcessingError::BatchError(format!("Failed to parse complete response: {}", e))
         })?;
 
@@ -356,11 +356,10 @@ impl BatchManager {
             .http_client
             .post(&url)
             .header("Authorization", format!("Bearer {}", token.token))
-            .json(&serde_json::json!({ "reason": reason }))
             .send()
             .await
             .map_err(|e| {
-                error!("Failed to send fail request: {}", e);
+                error!("Failed to send fail request for reason '{}': {}", reason, e);
                 ProcessingError::NetworkError(format!("Failed to send fail request: {}", e))
             })?;
 
