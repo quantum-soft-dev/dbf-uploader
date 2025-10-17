@@ -23,7 +23,7 @@ async fn create_batch_manager_with_mock(mock: &MockMiddleware) -> BatchManager {
     );
     let token_manager = Arc::new(TokenManager::from_auth_client(auth_client));
 
-    BatchManager::new(base_url, token_manager).expect("Failed to create BatchManager")
+    BatchManager::new(base_url, token_manager, 300).expect("Failed to create BatchManager")
 }
 
 #[tokio::test]

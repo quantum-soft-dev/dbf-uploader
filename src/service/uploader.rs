@@ -50,10 +50,11 @@ impl UploaderService {
         // Create TokenManager from AuthClient
         let token_manager = Arc::new(TokenManager::from_auth_client(Arc::clone(&auth_client)));
 
-        // Create BatchManager with TokenManager
+        // Create BatchManager with TokenManager and configurable timeout
         let batch_manager = Arc::new(Mutex::new(BatchManager::new(
             config.api.base_url.clone(),
             token_manager,
+            config.batch.http_timeout_secs,
         )?));
 
         // Create ErrorReporter (TODO Phase 1.3: update when ErrorReporter v2 is implemented)
@@ -147,8 +148,8 @@ impl UploaderService {
         if self.config.batch.retry_locked_files && !locked_files.is_empty() {
             info!(locked_count = locked_files.len(), "Retrying locked files");
 
-            // Wait a bit before retry
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            // Wait before retry (configurable delay)
+            tokio::time::sleep(std::time::Duration::from_secs(self.config.batch.locked_file_retry_delay_secs)).await;
 
             for dbf_file in &locked_files {
                 match self.convert_and_compress(dbf_file).await {

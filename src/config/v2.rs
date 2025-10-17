@@ -99,6 +99,12 @@ pub struct BatchConfig {
     /// Maximum retry attempts for failed operations (default: 3)
     #[serde(default = "default_max_retries")]
     pub max_retries: u32,
+    /// HTTP request timeout in seconds (default: 300 = 5 minutes)
+    #[serde(default = "default_http_timeout_secs")]
+    pub http_timeout_secs: u64,
+    /// Delay in seconds before retrying locked files (default: 5)
+    #[serde(default = "default_locked_file_retry_delay_secs")]
+    pub locked_file_retry_delay_secs: u64,
 }
 
 /// Logging configuration
@@ -157,6 +163,14 @@ fn default_max_retries() -> u32 {
     3
 }
 
+fn default_http_timeout_secs() -> u64 {
+    300 // 5 minutes
+}
+
+fn default_locked_file_retry_delay_secs() -> u64 {
+    5 // 5 seconds
+}
+
 impl Default for BatchConfig {
     fn default() -> Self {
         Self {
@@ -164,6 +178,8 @@ impl Default for BatchConfig {
             retry_locked_files: default_retry_locked_files(),
             batch_timeout: default_batch_timeout_secs(),
             max_retries: default_max_retries(),
+            http_timeout_secs: default_http_timeout_secs(),
+            locked_file_retry_delay_secs: default_locked_file_retry_delay_secs(),
         }
     }
 }
@@ -380,6 +396,8 @@ error_log_path = "/tmp/error.log"
                 retry_locked_files: false,
                 batch_timeout: 1800,
                 max_retries: 5,
+                http_timeout_secs: 300,
+                locked_file_retry_delay_secs: 5,
             },
             logging: LoggingConfig {
                 error_log_path: PathBuf::from("/tmp/test_error.log"),

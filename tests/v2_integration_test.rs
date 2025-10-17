@@ -38,12 +38,7 @@ fn create_test_config(base_url: String, source_dir: PathBuf, temp_dir: &TempDir)
         encoding: EncodingConfig {
             fallback: "CP866".to_string(),
         },
-        batch: BatchConfig {
-            max_files_per_batch: 500,
-            retry_locked_files: true,
-            batch_timeout: 3600,
-            max_retries: 3,
-        },
+        batch: BatchConfig::default(),
         logging: LoggingConfig {
             error_log_path: temp_dir.path().join("error.log"),
         },

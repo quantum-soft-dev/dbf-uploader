@@ -97,12 +97,7 @@ fn generate_v2_template(v1_config: &ConfigV1) -> ConfigV2 {
         encoding: EncodingConfig {
             fallback: v1_config.encoding.dbf_encoding.clone(),
         },
-        batch: BatchConfig {
-            max_files_per_batch: 500,
-            retry_locked_files: true,
-            batch_timeout: 3600,
-            max_retries: 3,
-        },
+        batch: BatchConfig::default(),
         logging: LoggingConfig {
             error_log_path: PathBuf::from("C:\\Program Files\\dbf-uploader\\error.log"),
         },

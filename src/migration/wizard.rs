@@ -223,12 +223,7 @@ pub async fn run_wizard() -> MigrationResult<ConfigV2> {
         encoding: EncodingConfig {
             fallback: "CP866".to_string(),
         },
-        batch: BatchConfig {
-            max_files_per_batch: 500,
-            retry_locked_files: true,
-            batch_timeout: 3600,
-            max_retries: 3,
-        },
+        batch: BatchConfig::default(),
         logging: LoggingConfig {
             error_log_path: PathBuf::from("C:\\Program Files\\dbf-uploader\\error.log"),
         },

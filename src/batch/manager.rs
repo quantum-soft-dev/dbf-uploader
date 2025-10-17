@@ -23,15 +23,15 @@ pub struct BatchManager {
 }
 
 impl BatchManager {
-    /// Create a new BatchManager
-    pub fn new(base_url: String, token_manager: Arc<TokenManager>) -> Result<Self> {
+    /// Create a new BatchManager with configurable timeout
+    pub fn new(base_url: String, token_manager: Arc<TokenManager>, http_timeout_secs: u64) -> Result<Self> {
         // Allow HTTP for localhost (for testing), otherwise require HTTPS
         let is_localhost = base_url.starts_with("http://localhost")
             || base_url.starts_with("http://127.0.0.1")
             || base_url.starts_with("http://[::1]");
 
         let http_client = Client::builder()
-            .timeout(Duration::from_secs(300)) // 5 minute timeout for large uploads
+            .timeout(Duration::from_secs(http_timeout_secs))
             .https_only(!is_localhost) // Allow HTTP for localhost testing
             .build()
             .map_err(|e| {
