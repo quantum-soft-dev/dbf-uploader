@@ -9,6 +9,10 @@ pub use converter::convert_dbf_to_csv;
 pub use scanner::scan_directory;
 pub use uploader::upload_file;
 
+// NOTE: The following code is commented out as it uses v1 batch protocol
+// It will be completely replaced in Phase 3 with new BatchManager-based implementation
+
+/*
 use crate::auth::TokenManager;
 use crate::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
 use crate::models::{Batch, BatchStatus, Config, ErrorReport};
@@ -19,9 +23,18 @@ use tracing::{debug, error, info, warn};
 
 /// Run a complete batch processing cycle
 /// This orchestrates: scan → convert → compress → upload for all DBF files
+///
+/// NOTE: This function uses old v1 batch protocol and will be replaced in Phase 3
+/// with new BatchManager-based implementation
+#[allow(dead_code)]
 pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Result<Batch> {
     let mut batch = Batch::new(config.clone());
-    let error_reporter = ErrorReporter::new()?;
+
+    // TODO Phase 3: Replace with new ErrorReporter::new()
+    let error_reporter = ErrorReporter::without_auth(
+        config.api.base_url.clone(),
+        PathBuf::from("./error.log"),
+    )?;
 
     info!(
         batch_id = %batch.batch_id,
@@ -289,3 +302,4 @@ async fn report_processing_error(
         }
     }
 }
+*/

@@ -1,4 +1,8 @@
 // Cron scheduler module
+// NOTE: This module is commented out as it uses v1 batch protocol
+// It will be completely replaced in Phase 3 with new BatchManager-based implementation
+
+/*
 use crate::auth::TokenManager;
 use crate::config::ConfigWatcher;
 use crate::error::{ProcessingError, Result};
@@ -182,3 +186,4 @@ mod tests {
         assert_eq!(current_config.scheduler.crontab, "0 30 * * * *");
     }
 }
+*/

@@ -1,8 +1,8 @@
-// CLI entry point for data_exporter service
-// Handles install and uninstall commands
+// CLI entry point for data_exporter service v2.0
+// Handles install, migrate, and uninstall commands
 
 use clap::Parser;
-use data_exporter::cli::{install, uninstall, Cli, Commands};
+use data_exporter::cli::{install, migrate, uninstall, Cli, Commands};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
@@ -19,22 +19,25 @@ async fn main() {
         .with_line_number(true)
         .init();
 
-    tracing::info!("Data Exporter Service starting");
+    tracing::info!("Data Exporter Service v2.0 starting");
 
     // Parse CLI arguments
     let cli = Cli::parse();
 
     // Execute command
     let result = match cli.command {
-        Commands::Install {
-            username,
-            password,
-            source_dir,
-            crontab,
-            api_url,
-            encoding,
-        } => install(username, password, source_dir, crontab, api_url, encoding).await,
-        Commands::Uninstall => uninstall().await,
+        Commands::Install => {
+            // Interactive installation wizard for fresh installs
+            install().await
+        }
+        Commands::Migrate => {
+            // Migration wizard for v1.0 → v2.0 upgrades
+            migrate().await
+        }
+        Commands::Uninstall => {
+            // Uninstall service and cleanup
+            uninstall().await
+        }
     };
 
     // Handle result

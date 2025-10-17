@@ -1,8 +1,12 @@
-# API Contract: Error Reporting
+# API Contract: Error Reporting v2.0
 
-**Endpoint**: `POST /api/errors/report`
-**Purpose**: Send error reports to server for monitoring and diagnostics
-**Used By**: Error Reporter (when processing errors occur)
+**Endpoints**:
+- `POST /api/v1/error` - Report standalone errors (not associated with batch)
+- `POST /api/v1/error/{batchId}` - Report batch-specific errors
+
+**Purpose**: Send error reports to middleware for monitoring and diagnostics
+**Used By**: ErrorReporter (when processing errors occur)
+**Version**: 2.0
 
 ## Request
 
@@ -22,28 +26,20 @@ Content-Type: application/json
 - `Content-Type`: JSON payload
   - Value: `application/json`
 
-### Request Body Schema
+### Request Body Schema (camelCase)
 
 ```json
 {
-  "filename": "string",
-  "error_type": "string",
+  "type": "string",
   "message": "string",
-  "timestamp": "string (ISO 8601)",
-  "client_version": "string"
+  "clientVersion": "string (optional)"
 }
 ```
 
 #### Field Descriptions
 
-- `filename`: Name/path of file that caused error
-  - Format: Relative path from source directory
-  - Example: `"subdir\\data.dbf"` (Windows path)
-  - Required: Yes
-  - Validation: Non-empty string
-
-- `error_type`: Classification of error
-  - Values: `"FileReadError"`, `"EncodingError"`, `"ConversionError"`, `"CompressionError"`, `"UploadError"`, `"DiskFullError"`, `"DirectoryInaccessible"`, `"AuthenticationError"`, `"ConfigurationError"`, `"NetworkError"`
+- `type`: Classification of error
+  - Values: `"FileReadError"`, `"EncodingError"`, `"ConversionError"`, `"CompressionError"`, `"UploadError"`, `"BatchError"`, `"DiskFullError"`, `"DirectoryInaccessible"`, `"AuthenticationError"`, `"ConfigurationError"`, `"NetworkError"`
   - Required: Yes
   - Purpose: Allows server to categorize and aggregate errors
 
@@ -54,78 +50,86 @@ Content-Type: application/json
   - Max Length: 2000 characters (recommended)
   - Should Include: Error details, operation context, error chain
 
-- `timestamp`: When error occurred
-  - Format: ISO 8601 (UTC): `YYYY-MM-DDTHH:MM:SSZ`
-  - Example: `"2025-10-05T14:30:00Z"`
-  - Required: Yes
-  - Validation: Valid ISO 8601 timestamp
-
-- `client_version`: Version of data exporter service
+- `clientVersion`: Version of data exporter service
   - Format: Semantic versioning (MAJOR.MINOR.PATCH)
-  - Example: `"1.0.0"`
-  - Required: Yes
+  - Example: `"2.0.0"`
+  - Required: Optional (auto-populated by client)
   - Purpose: Server-side diagnostics, compatibility tracking
 
-### Example Request
+### Example Requests
 
+#### Standalone Error (No Batch Context)
 ```http
-POST /api/errors/report HTTP/1.1
-Host: api.example.com
+POST /api/v1/error HTTP/1.1
+Host: middleware.example.com
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
 
 {
-  "filename": "archive\\2024\\sales.dbf",
-  "error_type": "FileReadError",
-  "message": "Failed to read DBF file: Permission denied (OS Error 5)",
-  "timestamp": "2025-10-05T14:30:00Z",
-  "client_version": "1.0.0"
+  "type": "ConfigurationError",
+  "message": "Invalid configuration: Missing required field 'auth.domain'",
+  "clientVersion": "2.0.0"
+}
+```
+
+#### Batch Error (With Batch Context)
+```http
+POST /api/v1/error/abcdef12-3456-7890-abcd-ef1234567890 HTTP/1.1
+Host: middleware.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+  "type": "BatchError",
+  "message": "Failed to complete batch: Upload timeout exceeded",
+  "clientVersion": "2.0.0"
 }
 ```
 
 ### Additional Example Requests
 
-**Encoding Error**:
+**File Processing Error (Standalone)**:
 ```json
 {
-  "filename": "reports\\monthly.dbf",
-  "error_type": "EncodingError",
+  "type": "EncodingError",
   "message": "Failed to detect encoding from DBF header, fallback encoding CP866 also failed",
-  "timestamp": "2025-10-05T14:35:12Z",
-  "client_version": "1.0.0"
+  "clientVersion": "2.0.0"
 }
 ```
 
-**Disk Full Error**:
+**Disk Space Error (Standalone)**:
 ```json
 {
-  "filename": "data\\large_file.dbf",
-  "error_type": "DiskFullError",
+  "type": "DiskFullError",
   "message": "Failed to write CSV during conversion: No space left on device (OS Error 28)",
-  "timestamp": "2025-10-05T14:40:00Z",
-  "client_version": "1.0.0"
+  "clientVersion": "2.0.0"
 }
 ```
 
-**Directory Inaccessible**:
+**Directory Error (Standalone)**:
 ```json
 {
-  "filename": "N/A",
-  "error_type": "DirectoryInaccessible",
+  "type": "DirectoryInaccessible",
   "message": "Cannot access source directory: Network path not found (OS Error 53)",
-  "timestamp": "2025-10-05T14:45:00Z",
-  "client_version": "1.0.0"
+  "clientVersion": "2.0.0"
 }
 ```
 
-**Authentication Error**:
+**Authentication Error (Standalone)**:
 ```json
 {
-  "filename": "N/A",
-  "error_type": "AuthenticationError",
+  "type": "AuthenticationError",
   "message": "Failed to obtain JWT token: Invalid credentials",
-  "timestamp": "2025-10-05T14:50:00Z",
-  "client_version": "1.0.0"
+  "clientVersion": "2.0.0"
+}
+```
+
+**Batch Upload Error (With Batch ID)**:
+```json
+{
+  "type": "UploadError",
+  "message": "Failed to upload file data.csv.gz: Server returned 503 Service Unavailable",
+  "clientVersion": "2.0.0"
 }
 ```
 
@@ -167,7 +171,7 @@ No response body. Status code indicates successful receipt.
 ```json
 {
   "error": "bad_request",
-  "message": "Missing required field: filename"
+  "message": "Missing required field: type"
 }
 ```
 
@@ -176,7 +180,7 @@ No response body. Status code indicates successful receipt.
 ```json
 {
   "error": "bad_request",
-  "message": "Invalid timestamp format"
+  "message": "Invalid error type value"
 }
 ```
 
@@ -209,15 +213,20 @@ No response body. Status code indicates successful receipt.
 
 ### When to Send Error Reports
 
-Send error reports for the following scenarios:
+**Standalone Errors** (`POST /api/v1/error`):
+1. Configuration errors (invalid config.toml)
+2. Authentication failures
+3. Source directory inaccessible
+4. Disk space errors
+5. Service startup errors
+
+**Batch Errors** (`POST /api/v1/error/{batchId}`):
 1. DBF file is corrupted or unreadable
 2. Encoding detection and conversion fails
 3. CSV conversion fails
 4. Compression fails
-5. File upload fails (non-network errors)
-6. Disk full during processing
-7. Source directory inaccessible
-8. Authentication fails (when reporting is possible)
+5. File upload fails
+6. Batch operation failures
 
 ### Do NOT Send Error Reports For
 
@@ -226,11 +235,12 @@ Send error reports for the following scenarios:
 3. Expected conditions (locked files that will retry)
 
 ### Pre-Send Checks
-1. Verify error report has all required fields
-2. Verify timestamp is in ISO 8601 format
-3. Truncate message if > 2000 characters
+1. Verify error report has all required fields (type, message)
+2. Truncate message if > 2000 characters
+3. Auto-populate clientVersion field
 4. If JWT token available and valid, include in Authorization header
-5. If JWT token unavailable, attempt without (server may accept for error reports)
+5. If JWT token unavailable, attempt without (server may accept unauthenticated error reports)
+6. Choose correct endpoint: /api/v1/error vs /api/v1/error/{batchId}
 
 ### On Success (200/204)
 1. Log successful error report transmission
@@ -261,18 +271,16 @@ When error report cannot be sent to server:
 
 **Format** (plain text):
 ```
-[2025-10-05T14:30:00Z] ERROR: Failed to send error report to server: Connection refused
-  Filename: archive\2024\sales.dbf
-  Error Type: FileReadError
-  Message: Failed to read DBF file: Permission denied (OS Error 5)
-  Context: Batch processing at 2025-10-05 14:30:00
+[2025-10-05T14:30:00Z] FileReadError - Failed to read DBF file: Permission denied (OS Error 5)
+[2025-10-05T14:35:12Z] BatchError - Failed to complete batch abc-123: Upload timeout
+[2025-10-05T14:40:00Z] ConfigurationError - Invalid config: Missing auth.domain
 ```
 
 **Behavior**:
 - Append to file (don't overwrite)
 - Create file if it doesn't exist
-- Include timestamp, error type, filename, message
-- Include reason why server report failed
+- Format: `[timestamp] type - message`
+- Include timestamp (ISO 8601), error type, message
 - No automatic rotation or cleanup (manual admin task)
 
 ## Security Requirements
@@ -288,13 +296,14 @@ When error report cannot be sent to server:
 Client                          Server
   │                               │
   │  Error occurs during          │
-  │  file processing              │
+  │  batch processing             │
   │                               │
   │  Build error report JSON      │
+  │  (type, message, clientVersion)
   │                               │
-  │  POST /api/errors/report      │
+  │  POST /api/v1/error/{batchId} │
   │  Authorization: Bearer ...    │
-  │  { error details }            │
+  │  { type, message }            │
   ├──────────────────────────────►│
   │                               │
   │                               │ Validate token (optional)
@@ -311,11 +320,12 @@ Client                          Server
 
 Alternative: Server Unavailable
   │                               X
-  │  POST /api/errors/report      │
+  │  POST /api/v1/error/{batchId} │
   │  [Network timeout]            │
   ├─────────────────────────────► X
   │                               │
   │  Write to local error.log     │
+  │  [timestamp] type - message   │
   │  Continue processing          │
   │                               │
 ```
@@ -324,66 +334,80 @@ Alternative: Server Unavailable
 
 The following test scenarios must be implemented:
 
-1. **Successful Error Report**
+1. **Successful Standalone Error Report**
    - Given: Valid JWT token and valid error report JSON
-   - When: POST to /api/errors/report
+   - When: POST to /api/v1/error
    - Then: Receive 200/204 success response
 
-2. **Missing Authorization**
+2. **Successful Batch Error Report**
+   - Given: Valid JWT token, batch ID, and valid error report JSON
+   - When: POST to /api/v1/error/{batchId}
+   - Then: Receive 200/204 success response
+
+3. **Missing Authorization (Optional)**
    - Given: No Authorization header
-   - When: POST to /api/errors/report
+   - When: POST to /api/v1/error
    - Then: Receive 401 Unauthorized OR 200 (if server allows unauthenticated error reports)
 
-3. **Missing Required Field**
-   - Given: Error report missing "filename" field
-   - When: POST to /api/errors/report
+4. **Missing Required Field**
+   - Given: Error report missing "type" field
+   - When: POST to /api/v1/error
    - Then: Receive 400 Bad Request
 
-4. **Invalid Timestamp Format**
-   - Given: Timestamp not in ISO 8601 format
-   - When: POST to /api/errors/report
+5. **Invalid Error Type**
+   - Given: Unknown error type value
+   - When: POST to /api/v1/error
    - Then: Receive 400 Bad Request
 
-5. **All Error Types**
-   - Given: Error reports for each error_type value
-   - When: POST to /api/errors/report
+6. **All Error Types**
+   - Given: Error reports for each type value
+   - When: POST to /api/v1/error
    - Then: All accepted (200/204)
 
-6. **Local Fallback on Network Error**
+7. **Local Fallback on Network Error**
    - Given: Server unreachable
    - When: Attempt to send error report
-   - Then: Error written to local error.log
+   - Then: Error written to local error.log with correct format
 
-7. **HTTPS Enforcement**
-   - Given: HTTP URL (not HTTPS)
+8. **HTTPS Enforcement**
+   - Given: Production HTTPS URL
    - When: Attempt to send error report
-   - Then: Client rejects request
+   - Then: Client uses HTTPS-only
 
-8. **No Infinite Loop**
+9. **No Infinite Loop**
    - Given: Error reporting endpoint is down
    - When: Error occurs during processing
    - Then: Write to local log, do NOT retry error report
 
+10. **camelCase Field Serialization**
+    - Given: Error report with clientVersion field
+    - When: Serialize to JSON
+    - Then: JSON contains "clientVersion" (camelCase), not "client_version"
+
 ## Error Type Catalog
 
-| Error Type              | When to Use |
-|------------------------|-------------|
-| `FileReadError`         | Cannot read DBF file (permissions, not found, corrupted) |
-| `EncodingError`         | Failed to detect or convert encoding |
-| `ConversionError`       | DBF to CSV conversion failed |
-| `CompressionError`      | Gzip compression failed |
-| `UploadError`           | File upload failed (server rejected, validation) |
-| `DiskFullError`         | No space left on device |
-| `DirectoryInaccessible` | Cannot access source directory |
-| `AuthenticationError`   | Failed to obtain JWT token |
-| `ConfigurationError`    | Invalid configuration detected |
-| `NetworkError`          | Network communication failed (for operations other than error reporting) |
+| Error Type              | When to Use | Endpoint |
+|------------------------|-------------|----------|
+| `FileReadError`         | Cannot read DBF file (permissions, not found, corrupted) | Batch |
+| `EncodingError`         | Failed to detect or convert encoding | Batch |
+| `ConversionError`       | DBF to CSV conversion failed | Batch |
+| `CompressionError`      | Gzip compression failed | Batch |
+| `UploadError`           | File upload failed (server rejected, validation) | Batch |
+| `BatchError`            | Batch operation failed (start, complete, timeout) | Batch |
+| `DiskFullError`         | No space left on device | Standalone |
+| `DirectoryInaccessible` | Cannot access source directory | Standalone |
+| `AuthenticationError`   | Failed to obtain JWT token | Standalone |
+| `ConfigurationError`    | Invalid configuration detected | Standalone |
+| `NetworkError`          | Network communication failed | Both |
 
 ## Notes
 
 - Error reports are fire-and-forget (no retry on failure)
-- Duplicate error reports for same file/error acceptable (server deduplicates)
+- Duplicate error reports for same error acceptable (server deduplicates)
 - Error reporting should never block main processing flow
-- Timestamp should be error occurrence time, not report send time
-- Client version helps server track which client versions have issues
+- Client version auto-populated from binary version
 - Local error log is append-only, requires manual administrator cleanup
+- Batch errors use `/api/v1/error/{batchId}` endpoint
+- Standalone errors use `/api/v1/error` endpoint
+- All request/response fields use camelCase naming convention
+- Server may accept unauthenticated error reports for reliability

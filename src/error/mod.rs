@@ -1,9 +1,11 @@
 // Error types for data_exporter
 use thiserror::Error;
 
+pub mod dto;
 pub mod logger;
 pub mod reporter;
 
+pub use dto::ErrorLogRequest;
 pub use logger::log_error_locally;
 pub use reporter::ErrorReporter;
 
@@ -39,6 +41,9 @@ pub enum ProcessingError {
 
     #[error("Network error: {0}")]
     NetworkError(String),
+
+    #[error("Batch error: {0}")]
+    BatchError(String),
 }
 
 impl ProcessingError {
@@ -55,6 +60,7 @@ impl ProcessingError {
             ProcessingError::AuthenticationError(_) => "AuthenticationError",
             ProcessingError::ConfigurationError(_) => "ConfigurationError",
             ProcessingError::NetworkError(_) => "NetworkError",
+            ProcessingError::BatchError(_) => "BatchError",
         }
     }
 }

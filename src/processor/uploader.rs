@@ -198,6 +198,9 @@ mod tests {
             let token = JwtToken {
                 token: "test_token".to_string(),
                 expires_at: 9999999999,
+                site_id: uuid::Uuid::new_v4(),
+                account_id: uuid::Uuid::new_v4(),
+                domain: "test.example.com".to_string(),
             };
 
             let result = upload_file(

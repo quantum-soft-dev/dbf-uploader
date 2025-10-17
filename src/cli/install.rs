@@ -1,101 +1,98 @@
-// Install command implementation
-use crate::auth::AuthClient;
+// Install command implementation for v2.0
+use crate::cli::wizard;
+use crate::config::v2::ConfigV2;
 use crate::error::{ProcessingError, Result};
-use crate::models::Config;
 #[cfg(target_os = "windows")]
 use std::path::Path;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{info, warn};
 
-/// Install the data exporter service
-pub async fn install(
-    username: String,
-    password: String,
-    source_dir: String,
-    crontab: String,
-    api_url: String,
-    encoding: String,
-) -> Result<()> {
-    info!("Starting installation");
+/// Install the data exporter service v2.0
+///
+/// This function checks for existing v1.0 installations and either:
+/// - Guides user to use `migrate` command for upgrades
+/// - Runs interactive wizard for fresh installations
+pub async fn install() -> Result<()> {
+    info!("Starting Data Exporter Service installation (v2.0)");
 
-    // Step 1: Validate inputs
-    info!("Validating installation parameters");
+    // Check if v1.0 config exists
+    let config_path = get_config_path()?;
 
-    if !api_url.starts_with("https://") {
+    if config_path.exists() {
+        warn!("Found existing configuration at {}", config_path.display());
+        println!("\n⚠️  Existing installation detected!");
+        println!("\nIt appears you have an existing Data Exporter Service installation.");
+        println!("To upgrade from v1.0 to v2.0, please use the migration command:");
+        println!("\n  data_exporter.exe migrate");
+        println!("\nThis will:");
+        println!("  1. Detect your existing v1.0 configuration");
+        println!("  2. Guide you through the upgrade process");
+        println!("  3. Migrate your settings to v2.0 format");
+        println!("  4. Create a backup of your old configuration");
+        println!("\nIf you want to perform a fresh installation instead, please:");
+        println!("  1. Backup your current config.toml");
+        println!("  2. Uninstall the existing service: data_exporter.exe uninstall");
+        println!("  3. Run this install command again");
+
         return Err(ProcessingError::ConfigurationError(
-            "API URL must use HTTPS".to_string(),
+            "Existing installation detected. Use 'migrate' command to upgrade from v1.0.".to_string()
         ));
     }
 
-    let source_path = PathBuf::from(&source_dir);
-    if !source_path.exists() {
-        return Err(ProcessingError::ConfigurationError(format!(
-            "Source directory does not exist: {}",
-            source_dir
-        )));
-    }
+    // No existing config, run interactive wizard for fresh install
+    println!("\n🚀 Data Exporter Service v2.0 Installation Wizard");
+    println!("{}", "=".repeat(50));
+    println!("\nThis wizard will guide you through setting up the service.");
+    println!("You will need:");
+    println!("  - Your site domain (e.g., store-01.example.com)");
+    println!("  - Your client secret (UUID format, from middleware panel)");
+    println!("  - Path to your DBF files directory");
+    println!("  - Middleware API URL (HTTPS)");
+    println!("  - Schedule (cron format)");
+    println!("\nPress Enter to continue...");
 
-    // Step 2: Create configuration
-    let config = create_config(username, password, source_dir, crontab, api_url, encoding)?;
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).map_err(|e| {
+        ProcessingError::ConfigurationError(format!("Failed to read input: {}", e))
+    })?;
 
-    // Step 3: Validate credentials by requesting token
-    info!("Validating credentials with API");
-    validate_credentials(&config).await?;
+    // Run interactive wizard
+    let config = wizard::run_installation_wizard().await?;
 
-    // Step 4: Install service (platform-specific)
+    // Install service with the new configuration
     install_service(&config)?;
 
     info!("Installation complete");
+    println!("\n✅ Installation completed successfully!");
+    println!("\nThe Data Exporter Service has been installed and configured.");
+    println!("Configuration saved to: {}", config_path.display());
+    println!("\nNext steps:");
+    println!("  1. Start the service: sc start data-exporter");
+    println!("  2. Check service status: sc query data-exporter");
+    println!("  3. View logs in Event Viewer (Application log, source: data-exporter)");
+
     Ok(())
 }
 
-/// Create configuration from install parameters
-fn create_config(
-    username: String,
-    password: String,
-    source_dir: String,
-    crontab: String,
-    api_url: String,
-    encoding: String,
-) -> Result<Config> {
-    use crate::models::config::{
-        ApiConfig, CredentialConfig, EncodingConfig, SchedulerConfig, SourceConfig,
-    };
+/// Get the configuration file path
+fn get_config_path() -> Result<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        Ok(PathBuf::from(r"C:\Program Files\data-exporter\config.toml"))
+    }
 
-    let config = Config {
-        scheduler: SchedulerConfig { crontab },
-        src: SourceConfig {
-            source_dir: PathBuf::from(source_dir),
-        },
-        credential: CredentialConfig { username, password },
-        api: ApiConfig { base_url: api_url },
-        encoding: EncodingConfig {
-            dbf_encoding: encoding,
-        },
-    };
-
-    Ok(config)
-}
-
-/// Validate credentials by attempting to get a token
-async fn validate_credentials(config: &Config) -> Result<()> {
-    let auth_client = AuthClient::new(config)?;
-
-    match auth_client.get_token().await {
-        Ok(_token) => {
-            info!("Credentials validated successfully");
-            Ok(())
-        }
-        Err(e) => {
-            error!(error = %e, "Credential validation failed");
-            Err(e)
-        }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(PathBuf::from("./data-exporter-dev/config.toml"))
     }
 }
 
+// Note: create_config and validate_credentials functions removed
+// These are now handled by the installation wizard
+
 /// Install the service (platform-specific)
 #[cfg(target_os = "windows")]
-fn install_service(config: &Config) -> Result<()> {
+fn install_service(config: &ConfigV2) -> Result<()> {
     use std::fs;
 
     info!("Installing Windows service");
@@ -118,7 +115,9 @@ fn install_service(config: &Config) -> Result<()> {
 
     // Write config file
     let config_path = install_dir.join("config.toml");
-    config.to_file(&config_path)?;
+    config.to_file(&config_path).map_err(|e| {
+        ProcessingError::ConfigurationError(format!("Failed to write config file: {}", e))
+    })?;
 
     // Set file permissions on config.toml (restrict to administrators)
     set_config_permissions(&config_path)?;
@@ -132,7 +131,7 @@ fn install_service(config: &Config) -> Result<()> {
 
 /// Install the service (macOS/Linux stub for development)
 #[cfg(not(target_os = "windows"))]
-fn install_service(config: &Config) -> Result<()> {
+fn install_service(config: &ConfigV2) -> Result<()> {
     use std::fs;
 
     info!("Installing service (development mode - not a real Windows service)");
@@ -145,7 +144,9 @@ fn install_service(config: &Config) -> Result<()> {
 
     // Write config file
     let config_path = install_dir.join("config.toml");
-    config.to_file(&config_path)?;
+    config.to_file(&config_path).map_err(|e| {
+        ProcessingError::ConfigurationError(format!("Failed to write config file: {}", e))
+    })?;
 
     info!("Service installed successfully (development mode)");
     info!("Config written to: {}", config_path.display());
@@ -177,32 +178,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_config() {
-        let config = create_config(
-            "testuser".to_string(),
-            "testpass".to_string(),
-            "/tmp".to_string(),
-            "*/5 * * * *".to_string(),
-            "https://api.example.com".to_string(),
-            "CP866".to_string(),
-        );
+    fn test_get_config_path() {
+        let path = get_config_path();
+        assert!(path.is_ok());
 
-        assert!(config.is_ok());
-        let config = config.unwrap();
-        assert_eq!(config.credential.username, "testuser");
-        assert_eq!(config.scheduler.crontab, "*/5 * * * *");
-    }
+        #[cfg(target_os = "windows")]
+        assert!(path.unwrap().to_string_lossy().contains("data-exporter"));
 
-    #[test]
-    fn test_https_validation() {
-        let result = create_config(
-            "test".to_string(),
-            "test".to_string(),
-            "/tmp".to_string(),
-            "*/5 * * * *".to_string(),
-            "https://api.example.com".to_string(),
-            "CP866".to_string(),
-        );
-        assert!(result.is_ok());
+        #[cfg(not(target_os = "windows"))]
+        assert!(path.unwrap().to_string_lossy().contains("data-exporter-dev"));
     }
 }
