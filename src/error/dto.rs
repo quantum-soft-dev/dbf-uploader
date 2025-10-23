@@ -117,10 +117,7 @@ mod tests {
 
     #[test]
     fn test_validate_empty_type() {
-        let request = ErrorLogRequest::new(
-            "".to_string(),
-            "Failed to read file".to_string(),
-        );
+        let request = ErrorLogRequest::new("".to_string(), "Failed to read file".to_string());
 
         let result = request.validate();
         assert!(result.is_err());
@@ -129,10 +126,7 @@ mod tests {
 
     #[test]
     fn test_validate_type_too_long() {
-        let request = ErrorLogRequest::new(
-            "x".repeat(101),
-            "Failed to read file".to_string(),
-        );
+        let request = ErrorLogRequest::new("x".repeat(101), "Failed to read file".to_string());
 
         let result = request.validate();
         assert!(result.is_err());
@@ -141,10 +135,7 @@ mod tests {
 
     #[test]
     fn test_validate_empty_message() {
-        let request = ErrorLogRequest::new(
-            "FileReadError".to_string(),
-            "".to_string(),
-        );
+        let request = ErrorLogRequest::new("FileReadError".to_string(), "".to_string());
 
         let result = request.validate();
         assert!(result.is_err());
@@ -153,10 +144,7 @@ mod tests {
 
     #[test]
     fn test_validate_message_too_long() {
-        let request = ErrorLogRequest::new(
-            "FileReadError".to_string(),
-            "x".repeat(1001),
-        );
+        let request = ErrorLogRequest::new("FileReadError".to_string(), "x".repeat(1001));
 
         let result = request.validate();
         assert!(result.is_err());

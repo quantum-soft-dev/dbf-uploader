@@ -43,12 +43,17 @@ impl SiteCredentials {
             return Err("Domain cannot be empty".to_string());
         }
         if domain.len() > 253 {
-            return Err(format!("Domain too long: {} characters (max 253)", domain.len()));
+            return Err(format!(
+                "Domain too long: {} characters (max 253)",
+                domain.len()
+            ));
         }
 
         // Must contain at least one dot
         if !domain.contains('.') {
-            return Err("Domain must contain at least one dot (e.g., subdomain.example.com)".to_string());
+            return Err(
+                "Domain must contain at least one dot (e.g., subdomain.example.com)".to_string(),
+            );
         }
 
         // Validate each label
@@ -58,7 +63,11 @@ impl SiteCredentials {
                 return Err(format!("Domain label {} is empty", i + 1));
             }
             if label.len() > 63 {
-                return Err(format!("Domain label '{}' too long: {} characters (max 63)", label, label.len()));
+                return Err(format!(
+                    "Domain label '{}' too long: {} characters (max 63)",
+                    label,
+                    label.len()
+                ));
             }
 
             // Check valid characters and structure
@@ -78,7 +87,10 @@ impl SiteCredentials {
                     }
                     continue;
                 }
-                return Err(format!("Domain label '{}' contains invalid character: '{}'", label, ch));
+                return Err(format!(
+                    "Domain label '{}' contains invalid character: '{}'",
+                    label, ch
+                ));
             }
         }
 
@@ -122,7 +134,12 @@ mod tests {
                 client_secret: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             }
             .validate_domain();
-            assert!(result.is_ok(), "Domain '{}' should be valid: {:?}", domain, result);
+            assert!(
+                result.is_ok(),
+                "Domain '{}' should be valid: {:?}",
+                domain,
+                result
+            );
         }
     }
 
@@ -216,7 +233,12 @@ mod tests {
                 client_secret: uuid.to_string(),
             };
             let result = creds.validate_client_secret();
-            assert!(result.is_ok(), "UUID '{}' should be valid: {:?}", uuid, result);
+            assert!(
+                result.is_ok(),
+                "UUID '{}' should be valid: {:?}",
+                uuid,
+                result
+            );
         }
     }
 
@@ -261,10 +283,8 @@ mod tests {
 
     #[test]
     fn test_new_with_invalid_uuid() {
-        let result = SiteCredentials::new(
-            "store.example.com".to_string(),
-            "not-a-uuid".to_string(),
-        );
+        let result =
+            SiteCredentials::new("store.example.com".to_string(), "not-a-uuid".to_string());
         assert!(result.is_err());
     }
 }

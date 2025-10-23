@@ -149,7 +149,10 @@ impl UploaderService {
             info!(locked_count = locked_files.len(), "Retrying locked files");
 
             // Wait before retry (configurable delay)
-            tokio::time::sleep(std::time::Duration::from_secs(self.config.batch.locked_file_retry_delay_secs)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(
+                self.config.batch.locked_file_retry_delay_secs,
+            ))
+            .await;
 
             for dbf_file in &locked_files {
                 match self.convert_and_compress(dbf_file).await {
@@ -168,9 +171,7 @@ impl UploaderService {
         if converted_files.is_empty() {
             warn!("No files to upload, failing batch");
             let batch_mgr = self.batch_manager.lock().await;
-            batch_mgr
-                .fail_batch("No files could be converted")
-                .await?;
+            batch_mgr.fail_batch("No files could be converted").await?;
             return Ok(BatchSummary {
                 batch_id,
                 processed_count: 0,
@@ -276,10 +277,7 @@ impl UploaderService {
     }
 
     /// Convert DBF to CSV and compress
-    async fn convert_and_compress(
-        &self,
-        dbf_file: &crate::models::DbfFile,
-    ) -> Result<PathBuf> {
+    async fn convert_and_compress(&self, dbf_file: &crate::models::DbfFile) -> Result<PathBuf> {
         // Step 1: Convert DBF to CSV
         let csv_path = convert_dbf_to_csv(dbf_file, &self.config_v1_compat())?;
 

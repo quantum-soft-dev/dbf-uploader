@@ -20,14 +20,18 @@ pub async fn migrate() -> Result<()> {
 
     // Check if v1.0 config exists
     if !config_path.exists() {
-        warn!("No existing configuration found at {}", config_path.display());
+        warn!(
+            "No existing configuration found at {}",
+            config_path.display()
+        );
         println!("\n⚠️  No existing installation detected!");
         println!("\nThe migration command is for upgrading existing v1.0 installations.");
         println!("If you are installing for the first time, please use:");
         println!("\n  data_exporter.exe install");
 
         return Err(ProcessingError::ConfigurationError(
-            "No existing v1.0 configuration found. Use 'install' command for fresh installations.".to_string()
+            "No existing v1.0 configuration found. Use 'install' command for fresh installations."
+                .to_string(),
         ));
     }
 
@@ -42,9 +46,9 @@ pub async fn migrate() -> Result<()> {
     println!("\nPress Enter to continue...");
 
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).map_err(|e| {
-        ProcessingError::ConfigurationError(format!("Failed to read input: {}", e))
-    })?;
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Failed to read input: {}", e)))?;
 
     // TODO: Implement full migration logic:
     // - Read v1.0 config.toml
@@ -68,6 +72,12 @@ pub async fn migrate() -> Result<()> {
 fn get_config_path() -> Result<PathBuf> {
     #[cfg(target_os = "windows")]
     {
+        if let Ok(path) = std::env::var("DATA_EXPORTER_CONFIG") {
+            let trimmed = path.trim();
+            if !trimmed.is_empty() {
+                return Ok(PathBuf::from(trimmed));
+            }
+        }
         Ok(PathBuf::from(r"C:\Program Files\data-exporter\config.toml"))
     }
 
@@ -80,9 +90,13 @@ fn get_config_path() -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_get_config_path() {
+        std::env::remove_var("DATA_EXPORTER_CONFIG");
         let path = get_config_path();
         assert!(path.is_ok());
 
@@ -90,6 +104,21 @@ mod tests {
         assert!(path.unwrap().to_string_lossy().contains("data-exporter"));
 
         #[cfg(not(target_os = "windows"))]
-        assert!(path.unwrap().to_string_lossy().contains("data-exporter-dev"));
+        assert!(path
+            .unwrap()
+            .to_string_lossy()
+            .contains("data-exporter-dev"));
+    }
+
+    #[test]
+    fn test_get_config_path_env_override() {
+        let _env_guard = ENV_MUTEX.lock().unwrap();
+        let custom = std::env::temp_dir().join("migrate-config.toml");
+        std::env::set_var("DATA_EXPORTER_CONFIG", &custom);
+
+        let path = get_config_path().unwrap();
+        assert_eq!(path, custom);
+
+        std::env::remove_var("DATA_EXPORTER_CONFIG");
     }
 }

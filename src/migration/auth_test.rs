@@ -54,9 +54,7 @@ pub async fn test_auth(
         .header("Authorization", format!("Basic {}", basic_auth_encoded))
         .send()
         .await
-        .map_err(|e| {
-            MigrationError::AuthTestFailed(format!("Network error: {}", e))
-        })?;
+        .map_err(|e| MigrationError::AuthTestFailed(format!("Network error: {}", e)))?;
 
     // Check response status
     let status = response.status();
@@ -81,12 +79,16 @@ pub async fn test_auth(
         }
     } else {
         // Authentication failed
-        let error_text = response.text().await.unwrap_or_else(|_| {
-            format!("HTTP {}: Authentication failed", status.as_u16())
-        });
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| format!("HTTP {}: Authentication failed", status.as_u16()));
 
         let message = match status.as_u16() {
-            401 => format!("Authentication failed: Invalid credentials ({})", error_text),
+            401 => format!(
+                "Authentication failed: Invalid credentials ({})",
+                error_text
+            ),
             403 => format!("Authentication failed: Access forbidden ({})", error_text),
             404 => "Authentication failed: Endpoint not found. Check your base_url.".to_string(),
             _ => format!("Authentication failed: {} ({})", status, error_text),
@@ -180,28 +182,40 @@ mod tests {
     async fn test_test_auth_empty_base_url() {
         let result = test_auth("", "test.com", "test-secret").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MigrationError::InvalidConfig(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            MigrationError::InvalidConfig(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_test_auth_empty_domain() {
         let result = test_auth("https://api.example.com", "", "test-secret").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MigrationError::InvalidConfig(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            MigrationError::InvalidConfig(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_test_auth_empty_client_secret() {
         let result = test_auth("https://api.example.com", "test.com", "").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MigrationError::InvalidConfig(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            MigrationError::InvalidConfig(_)
+        ));
     }
 
     #[tokio::test]
     async fn test_test_auth_invalid_url_format() {
         let result = test_auth("not-a-url", "test.com", "test-secret").await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MigrationError::InvalidConfig(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            MigrationError::InvalidConfig(_)
+        ));
     }
 
     #[tokio::test]

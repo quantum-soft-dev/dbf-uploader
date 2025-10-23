@@ -303,7 +303,10 @@ error_log_path = "/tmp/error.log"
         let config = ConfigV2::from_file(temp_file.path()).unwrap();
 
         assert_eq!(config.auth.domain, "store-01.example.com");
-        assert_eq!(config.auth.client_secret, "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+        assert_eq!(
+            config.auth.client_secret,
+            "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        );
         assert_eq!(config.api.base_url, "https://api.example.com");
         assert_eq!(config.api.auth_endpoint, "/api/v1/auth/token");
         assert_eq!(config.source.directory, PathBuf::from("/tmp/data"));
@@ -313,7 +316,10 @@ error_log_path = "/tmp/error.log"
         assert_eq!(config.batch.retry_locked_files, true);
         assert_eq!(config.batch.batch_timeout, 3600);
         assert_eq!(config.batch.max_retries, 3);
-        assert_eq!(config.logging.error_log_path, PathBuf::from("/tmp/error.log"));
+        assert_eq!(
+            config.logging.error_log_path,
+            PathBuf::from("/tmp/error.log")
+        );
     }
 
     #[test]
@@ -350,7 +356,10 @@ error_log_path = "/tmp/error.log"
         assert_eq!(config.api.auth_endpoint, "/api/v1/auth/token");
         assert_eq!(config.api.batch_start, "/api/v1/batch/start");
         assert_eq!(config.api.batch_upload, "/api/v1/batch/{batchId}/upload");
-        assert_eq!(config.api.batch_complete, "/api/v1/batch/{batchId}/complete");
+        assert_eq!(
+            config.api.batch_complete,
+            "/api/v1/batch/{batchId}/complete"
+        );
         assert_eq!(config.api.batch_fail, "/api/v1/batch/{batchId}/fail");
         assert_eq!(config.api.batch_cancel, "/api/v1/batch/{batchId}/cancel");
         assert_eq!(config.api.error_log, "/api/v1/error");

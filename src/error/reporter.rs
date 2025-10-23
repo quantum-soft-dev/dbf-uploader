@@ -74,16 +74,9 @@ impl ErrorReporter {
     }
 
     /// Report error associated with a batch
-    pub async fn report_batch_error(
-        &self,
-        batch_id: Uuid,
-        error: &ProcessingError,
-    ) -> Result<()> {
-        let error_request = ErrorLogRequest::new(
-            error.error_type().to_string(),
-            error.to_string(),
-        )
-        .with_client_version(CLIENT_VERSION.to_string());
+    pub async fn report_batch_error(&self, batch_id: Uuid, error: &ProcessingError) -> Result<()> {
+        let error_request = ErrorLogRequest::new(error.error_type().to_string(), error.to_string())
+            .with_client_version(CLIENT_VERSION.to_string());
 
         // Validate request
         if let Err(e) = error_request.validate() {
@@ -113,11 +106,8 @@ impl ErrorReporter {
 
     /// Report standalone error (not associated with a batch)
     pub async fn report_standalone_error(&self, error: &ProcessingError) -> Result<()> {
-        let error_request = ErrorLogRequest::new(
-            error.error_type().to_string(),
-            error.to_string(),
-        )
-        .with_client_version(CLIENT_VERSION.to_string());
+        let error_request = ErrorLogRequest::new(error.error_type().to_string(), error.to_string())
+            .with_client_version(CLIENT_VERSION.to_string());
 
         // Validate request
         if let Err(e) = error_request.validate() {
@@ -224,10 +214,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let log_path = temp_dir.path().join("error.log");
 
-        let reporter = ErrorReporter::without_auth(
-            "https://api.example.com".to_string(),
-            log_path,
-        );
+        let reporter = ErrorReporter::without_auth("https://api.example.com".to_string(), log_path);
 
         assert!(reporter.is_ok());
     }
@@ -237,16 +224,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let log_path = temp_dir.path().join("error.log");
 
-        let reporter = ErrorReporter::without_auth(
-            "https://api.example.com".to_string(),
-            log_path.clone(),
-        )
-        .unwrap();
+        let reporter =
+            ErrorReporter::without_auth("https://api.example.com".to_string(), log_path.clone())
+                .unwrap();
 
-        let request = ErrorLogRequest::new(
-            "TestError".to_string(),
-            "Test message".to_string(),
-        );
+        let request = ErrorLogRequest::new("TestError".to_string(), "Test message".to_string());
 
         let result = reporter.log_to_local_file(&request).await;
         assert!(result.is_ok());

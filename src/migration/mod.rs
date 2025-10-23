@@ -82,10 +82,7 @@ pub struct MigrationGuide {
 
 impl MigrationGuide {
     /// Create a new migration guide
-    pub fn new(
-        old_config_path: PathBuf,
-        template_config: String,
-    ) -> Self {
+    pub fn new(old_config_path: PathBuf, template_config: String) -> Self {
         Self {
             old_config_path,
             template_config,
@@ -196,10 +193,8 @@ mod tests {
 
     #[test]
     fn test_migration_guide_creation() {
-        let guide = MigrationGuide::new(
-            PathBuf::from("old_config.toml"),
-            "# v2 config".to_string(),
-        );
+        let guide =
+            MigrationGuide::new(PathBuf::from("old_config.toml"), "# v2 config".to_string());
 
         assert_eq!(guide.old_config_path, PathBuf::from("old_config.toml"));
         assert_eq!(guide.template_config, "# v2 config");
@@ -210,10 +205,7 @@ mod tests {
 
     #[test]
     fn test_migration_guide_add_instruction() {
-        let mut guide = MigrationGuide::new(
-            PathBuf::from("config.toml"),
-            String::new(),
-        );
+        let mut guide = MigrationGuide::new(PathBuf::from("config.toml"), String::new());
 
         guide.add_instruction("Step 1".to_string());
         guide.add_instruction("Step 2".to_string());
@@ -225,10 +217,7 @@ mod tests {
 
     #[test]
     fn test_migration_guide_add_preserved_setting() {
-        let mut guide = MigrationGuide::new(
-            PathBuf::from("config.toml"),
-            String::new(),
-        );
+        let mut guide = MigrationGuide::new(PathBuf::from("config.toml"), String::new());
 
         guide.add_preserved_setting("source directory".to_string());
         guide.add_preserved_setting("cron schedule".to_string());
@@ -238,10 +227,7 @@ mod tests {
 
     #[test]
     fn test_migration_guide_add_manual_action() {
-        let mut guide = MigrationGuide::new(
-            PathBuf::from("config.toml"),
-            String::new(),
-        );
+        let mut guide = MigrationGuide::new(PathBuf::from("config.toml"), String::new());
 
         guide.add_manual_action("Get site credentials".to_string());
 

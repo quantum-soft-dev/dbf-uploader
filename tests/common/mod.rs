@@ -29,7 +29,13 @@ impl MockMiddleware {
     }
 
     /// Create a mock for successful authentication (v2 protocol)
-    pub fn mock_auth_success(&mut self, domain: &str, client_secret: &str, token: &str, expires_in: u64) -> Mock {
+    pub fn mock_auth_success(
+        &mut self,
+        domain: &str,
+        client_secret: &str,
+        token: &str,
+        expires_in: u64,
+    ) -> Mock {
         let credentials = format!("{}:{}", domain, client_secret);
         let encoded = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
         let auth_header = format!("Basic {}", encoded);
@@ -88,7 +94,13 @@ impl MockMiddleware {
 
     /// Create a mock for batch upload
     /// Matches server response from FileUploadController.java
-    pub fn mock_batch_upload(&mut self, token: &str, batch_id: Uuid, uploaded_count: u32, total_size: u64) -> Mock {
+    pub fn mock_batch_upload(
+        &mut self,
+        token: &str,
+        batch_id: Uuid,
+        uploaded_count: u32,
+        total_size: u64,
+    ) -> Mock {
         self.server
             .mock("POST", format!("/api/dfc/batch/{}/upload", batch_id).as_str())
             .match_header("authorization", format!("Bearer {}", token).as_str())
@@ -104,7 +116,14 @@ impl MockMiddleware {
 
     /// Create a mock for batch complete
     /// Returns full BatchResponseDto matching server's BatchController.java
-    pub fn mock_batch_complete(&mut self, token: &str, batch_id: Uuid, site_id: Uuid, uploaded_count: i32, total_size: i64) -> Mock {
+    pub fn mock_batch_complete(
+        &mut self,
+        token: &str,
+        batch_id: Uuid,
+        site_id: Uuid,
+        uploaded_count: i32,
+        total_size: i64,
+    ) -> Mock {
         self.server
             .mock("POST", format!("/api/dfc/batch/{}/complete", batch_id).as_str())
             .match_header("authorization", format!("Bearer {}", token).as_str())
@@ -326,7 +345,9 @@ mod tests {
 
         // Decode and verify
         let encoded = auth.strip_prefix("Basic ").unwrap();
-        let decoded = base64::engine::general_purpose::STANDARD.decode(encoded).unwrap();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .unwrap();
         let decoded_str = String::from_utf8(decoded).unwrap();
         assert_eq!(decoded_str, "test.com:secret123");
     }

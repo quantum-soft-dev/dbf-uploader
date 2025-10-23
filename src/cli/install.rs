@@ -35,7 +35,8 @@ pub async fn install() -> Result<()> {
         println!("  3. Run this install command again");
 
         return Err(ProcessingError::ConfigurationError(
-            "Existing installation detected. Use 'migrate' command to upgrade from v1.0.".to_string()
+            "Existing installation detected. Use 'migrate' command to upgrade from v1.0."
+                .to_string(),
         ));
     }
 
@@ -52,9 +53,9 @@ pub async fn install() -> Result<()> {
     println!("\nPress Enter to continue...");
 
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).map_err(|e| {
-        ProcessingError::ConfigurationError(format!("Failed to read input: {}", e))
-    })?;
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Failed to read input: {}", e)))?;
 
     // Run interactive wizard
     let config = wizard::run_installation_wizard().await?;
@@ -75,9 +76,15 @@ pub async fn install() -> Result<()> {
 }
 
 /// Get the configuration file path
-fn get_config_path() -> Result<PathBuf> {
+pub fn get_config_path() -> Result<PathBuf> {
     #[cfg(target_os = "windows")]
     {
+        if let Ok(path) = std::env::var("DATA_EXPORTER_CONFIG") {
+            let trimmed = path.trim();
+            if !trimmed.is_empty() {
+                return Ok(PathBuf::from(trimmed));
+            }
+        }
         Ok(PathBuf::from(r"C:\Program Files\data-exporter\config.toml"))
     }
 
@@ -176,9 +183,13 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_get_config_path() {
+        std::env::remove_var("DATA_EXPORTER_CONFIG");
         let path = get_config_path();
         assert!(path.is_ok());
 
@@ -186,6 +197,21 @@ mod tests {
         assert!(path.unwrap().to_string_lossy().contains("data-exporter"));
 
         #[cfg(not(target_os = "windows"))]
-        assert!(path.unwrap().to_string_lossy().contains("data-exporter-dev"));
+        assert!(path
+            .unwrap()
+            .to_string_lossy()
+            .contains("data-exporter-dev"));
+    }
+
+    #[test]
+    fn test_get_config_path_env_override() {
+        let _env_guard = ENV_MUTEX.lock().unwrap();
+        let custom = std::env::temp_dir().join("custom-config.toml");
+        std::env::set_var("DATA_EXPORTER_CONFIG", &custom);
+
+        let path = get_config_path().unwrap();
+        assert_eq!(path, custom);
+
+        std::env::remove_var("DATA_EXPORTER_CONFIG");
     }
 }

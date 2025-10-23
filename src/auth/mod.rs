@@ -6,6 +6,7 @@ pub use credentials::SiteCredentials;
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
 use base64::Engine;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
@@ -48,10 +49,7 @@ impl JwtToken {
         let payload_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(payload_b64)
             .map_err(|e| {
-                ProcessingError::AuthenticationError(format!(
-                    "Failed to decode JWT payload: {}",
-                    e
-                ))
+                ProcessingError::AuthenticationError(format!("Failed to decode JWT payload: {}", e))
             })?;
 
         // Parse JSON payload
@@ -90,7 +88,10 @@ pub struct JwtPayload {
 #[serde(rename_all = "camelCase")]
 struct TokenResponse {
     token: String,
-    expires_in: u64, // Seconds until expiration
+    #[serde(default)]
+    expires_in: Option<u64>, // Seconds until expiration (legacy format)
+    #[serde(default)]
+    expires_at: Option<String>, // RFC3339 timestamp (current format)
 }
 
 pub struct AuthClient {
@@ -155,10 +156,7 @@ impl AuthClient {
     }
 
     /// Create a new authentication client directly from SiteCredentials (v2)
-    pub fn from_credentials(
-        base_url: String,
-        credentials: SiteCredentials,
-    ) -> Result<Self> {
+    pub fn from_credentials(base_url: String, credentials: SiteCredentials) -> Result<Self> {
         // Validate URL is secure
         Self::validate_base_url(&base_url)?;
 
@@ -186,7 +184,10 @@ impl AuthClient {
         let url = format!("{}/api/v1/auth/token", self.base_url);
 
         // Create Basic auth header with domain:clientSecret format
-        let credentials_str = format!("{}:{}", self.credentials.domain, self.credentials.client_secret);
+        let credentials_str = format!(
+            "{}:{}",
+            self.credentials.domain, self.credentials.client_secret
+        );
         let encoded = base64::engine::general_purpose::STANDARD.encode(credentials_str.as_bytes());
         let auth_header = format!("Basic {}", encoded);
 
@@ -216,10 +217,31 @@ impl AuthClient {
                     .expect("System time before UNIX epoch")
                     .as_secs();
 
-                JwtToken::from_token_string(
-                    token_response.token,
-                    now + token_response.expires_in,
-                )
+                let expires_at = if let Some(expires_in) = token_response.expires_in {
+                    now + expires_in
+                } else if let Some(ref expires_at_str) = token_response.expires_at {
+                    let parsed = DateTime::parse_from_rfc3339(expires_at_str)
+                        .map_err(|e| {
+                            ProcessingError::AuthenticationError(format!(
+                                "Failed to parse expiresAt timestamp: {}",
+                                e
+                            ))
+                        })?
+                        .with_timezone(&Utc)
+                        .timestamp();
+                    if parsed < 0 {
+                        return Err(ProcessingError::AuthenticationError(
+                            "Parsed expiresAt timestamp is negative".to_string(),
+                        ));
+                    }
+                    parsed as u64
+                } else {
+                    return Err(ProcessingError::AuthenticationError(
+                        "Token response missing expiresIn/expiresAt".to_string(),
+                    ));
+                };
+
+                JwtToken::from_token_string(token_response.token, expires_at)
             }
             401 => Err(ProcessingError::AuthenticationError(
                 "Invalid credentials".to_string(),
@@ -352,7 +374,8 @@ mod tests {
         );
 
         let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(header.as_bytes());
-        let payload_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
+        let payload_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload.as_bytes());
 
         format!("{}.{}.fake_signature", header_b64, payload_b64)
     }

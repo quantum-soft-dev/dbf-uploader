@@ -1,5 +1,5 @@
-use super::Batch;
 use super::dto::{BatchResponseDto, UploadResponse};
+use super::Batch;
 use crate::auth::TokenManager;
 use crate::error::{ProcessingError, Result};
 use reqwest::{multipart, Client};
@@ -24,7 +24,11 @@ pub struct BatchManager {
 
 impl BatchManager {
     /// Create a new BatchManager with configurable timeout
-    pub fn new(base_url: String, token_manager: Arc<TokenManager>, http_timeout_secs: u64) -> Result<Self> {
+    pub fn new(
+        base_url: String,
+        token_manager: Arc<TokenManager>,
+        http_timeout_secs: u64,
+    ) -> Result<Self> {
         // Allow HTTP for localhost (for testing), otherwise require HTTPS
         let is_localhost = base_url.starts_with("http://localhost")
             || base_url.starts_with("http://127.0.0.1")
@@ -132,9 +136,7 @@ impl BatchManager {
                     )));
                 }
                 None => {
-                    return Err(ProcessingError::BatchError(
-                        "No active batch".to_string()
-                    ));
+                    return Err(ProcessingError::BatchError("No active batch".to_string()));
                 }
             }
         };
@@ -166,10 +168,7 @@ impl BatchManager {
                 .file_name()
                 .and_then(|n| n.to_str())
                 .ok_or_else(|| {
-                    ProcessingError::BatchError(format!(
-                        "Invalid filename: {:?}",
-                        file_path
-                    ))
+                    ProcessingError::BatchError(format!("Invalid filename: {:?}", file_path))
                 })?
                 .to_string();
 
@@ -256,9 +255,7 @@ impl BatchManager {
                     )));
                 }
                 None => {
-                    return Err(ProcessingError::BatchError(
-                        "No active batch".to_string()
-                    ));
+                    return Err(ProcessingError::BatchError("No active batch".to_string()));
                 }
             }
         };
@@ -309,10 +306,7 @@ impl BatchManager {
                 let duration = batch.duration().map(|d| d.num_seconds()).unwrap_or(0);
                 info!(
                     "Batch {} completed successfully in {}s, {} files, {} bytes",
-                    batch.id,
-                    duration,
-                    batch.uploaded_files_count,
-                    batch.total_size_bytes
+                    batch.id, duration, batch.uploaded_files_count, batch.total_size_bytes
                 );
             }
 
@@ -334,7 +328,10 @@ impl BatchManager {
             match *current {
                 Some(ref batch) if batch.is_in_progress() => batch.id,
                 Some(ref batch) => {
-                    warn!("Batch {} is not in progress (state: {}), cannot fail", batch.id, batch.state);
+                    warn!(
+                        "Batch {} is not in progress (state: {}), cannot fail",
+                        batch.id, batch.state
+                    );
                     return Ok(());
                 }
                 None => {
@@ -367,7 +364,10 @@ impl BatchManager {
         let status = response.status();
         if !status.is_success() {
             let error_body = response.text().await.unwrap_or_default();
-            error!("Batch fail request failed with status {}: {}", status, error_body);
+            error!(
+                "Batch fail request failed with status {}: {}",
+                status, error_body
+            );
         }
 
         // Update batch state
@@ -398,7 +398,10 @@ impl BatchManager {
             match *current {
                 Some(ref batch) if batch.is_in_progress() => batch.id,
                 Some(ref batch) => {
-                    warn!("Batch {} is not in progress (state: {}), cannot cancel", batch.id, batch.state);
+                    warn!(
+                        "Batch {} is not in progress (state: {}), cannot cancel",
+                        batch.id, batch.state
+                    );
                     return Ok(());
                 }
                 None => {
@@ -431,7 +434,10 @@ impl BatchManager {
         let status = response.status();
         if !status.is_success() {
             let error_body = response.text().await.unwrap_or_default();
-            warn!("Batch cancel request failed with status {}: {}", status, error_body);
+            warn!(
+                "Batch cancel request failed with status {}: {}",
+                status, error_body
+            );
         }
 
         // Update batch state

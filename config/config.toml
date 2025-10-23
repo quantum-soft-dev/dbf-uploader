@@ -1,0 +1,36 @@
+﻿version = "2.0"
+
+[auth]
+domain = "store01.example.com"
+client_secret = "cba2c32a-f332-45d3-9956-b7f6c6eda423"
+
+[api]
+base_url = "http://localhost:8080"
+# Optional: override endpoints only if middleware changes paths
+auth_endpoint = "/api/v1/auth/token"
+batch_start = "/api/v1/batch/start"
+batch_upload = "/api/v1/batch/{batchId}/upload"
+batch_complete = "/api/v1/batch/{batchId}/complete"
+batch_fail = "/api/v1/batch/{batchId}/fail"
+batch_cancel = "/api/v1/batch/{batchId}/cancel"
+error_log = "/api/v1/error"
+
+[source]
+directory = "C:\\Users\\white\\DBF\\dbf-uploader\\data\\dbf"
+
+[schedule]
+cron = "*/5 * * * *"
+
+[encoding]
+fallback = "CP866"
+
+[batch]
+max_files_per_batch = 100
+retry_locked_files = true
+batch_timeout_secs = 3600
+max_retries = 3
+http_timeout_secs = 300
+locked_file_retry_delay_secs = 5
+
+[logging]
+error_log_path = "C:\\Users\\white\\DBF\\dbf-uploader\\logs\\error.log"

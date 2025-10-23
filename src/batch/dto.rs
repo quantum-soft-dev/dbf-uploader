@@ -14,7 +14,7 @@ pub struct BatchResponseDto {
     pub uploaded_files_count: i32,
     pub total_size: i64,
     pub has_errors: bool,
-    pub started_at: String, // ISO 8601 timestamp
+    pub started_at: String,           // ISO 8601 timestamp
     pub completed_at: Option<String>, // Nullable - null for active batches
 }
 
@@ -34,7 +34,7 @@ pub struct UploadedFileInfo {
 #[serde(rename_all = "camelCase")]
 pub struct UploadResponse {
     pub status: String,
-    pub uploaded_files: usize, // Count of files, not array
+    pub uploaded_files: usize,        // Count of files, not array
     pub files: Vec<UploadedFileInfo>, // Actual file info array
 }
 
@@ -57,8 +57,14 @@ mod tests {
             "completedAt": null
         }"#;
         let response: BatchResponseDto = serde_json::from_str(json).unwrap();
-        assert_eq!(response.id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
-        assert_eq!(response.batch_id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+        assert_eq!(
+            response.id.to_string(),
+            "550e8400-e29b-41d4-a716-446655440000"
+        );
+        assert_eq!(
+            response.batch_id.to_string(),
+            "550e8400-e29b-41d4-a716-446655440000"
+        );
         assert_eq!(response.status, "IN_PROGRESS");
         assert_eq!(response.uploaded_files_count, 0);
         assert_eq!(response.total_size, 0);
@@ -84,7 +90,10 @@ mod tests {
         assert_eq!(response.uploaded_files_count, 5);
         assert_eq!(response.total_size, 5120);
         assert!(!response.has_errors);
-        assert_eq!(response.completed_at, Some("2025-10-17T11:30:00Z".to_string()));
+        assert_eq!(
+            response.completed_at,
+            Some("2025-10-17T11:30:00Z".to_string())
+        );
     }
 
     #[test]

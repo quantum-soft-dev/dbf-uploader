@@ -10,69 +10,39 @@ use std::path::{Path, PathBuf};
 /// Migrate v1 configuration to v2 format
 pub fn migrate_v1_to_v2(v1_config_path: &Path) -> MigrationResult<MigrationGuide> {
     // Read v1 configuration
-    let v1_config = ConfigV1::from_file(v1_config_path).map_err(|e| {
-        MigrationError::ParseError(format!("Failed to load v1 config: {}", e))
-    })?;
+    let v1_config = ConfigV1::from_file(v1_config_path)
+        .map_err(|e| MigrationError::ParseError(format!("Failed to load v1 config: {}", e)))?;
 
     // Generate v2 configuration template
     let v2_config = generate_v2_template(&v1_config);
 
     // Serialize to TOML
-    let template_toml = toml::to_string_pretty(&v2_config).map_err(|e| {
-        MigrationError::ParseError(format!("Failed to serialize v2 config: {}", e))
-    })?;
+    let template_toml = toml::to_string_pretty(&v2_config)
+        .map_err(|e| MigrationError::ParseError(format!("Failed to serialize v2 config: {}", e)))?;
 
     // Create migration guide
     let mut guide = MigrationGuide::new(v1_config_path.to_path_buf(), template_toml);
 
     // Add preserved settings
-    guide.add_preserved_setting(format!(
-        "Source directory: {:?}",
-        v1_config.src.source_dir
-    ));
+    guide.add_preserved_setting(format!("Source directory: {:?}", v1_config.src.source_dir));
     guide.add_preserved_setting(format!("Cron schedule: {}", v1_config.scheduler.crontab));
-    guide.add_preserved_setting(format!(
-        "DBF encoding: {}",
-        v1_config.encoding.dbf_encoding
-    ));
+    guide.add_preserved_setting(format!("DBF encoding: {}", v1_config.encoding.dbf_encoding));
     guide.add_preserved_setting(format!("API base URL: {}", v1_config.api.base_url));
 
     // Add manual actions
-    guide.add_manual_action(
-        "Log in to middleware admin UI at your base_url".to_string(),
-    );
-    guide.add_manual_action(
-        "Navigate to Accounts → Your Account → Sites".to_string(),
-    );
-    guide.add_manual_action(
-        "Create a new Site for this uploader instance".to_string(),
-    );
-    guide.add_manual_action(
-        "Copy the site domain and clientSecret UUID".to_string(),
-    );
-    guide.add_manual_action(
-        "Update config.toml with your domain and client_secret".to_string(),
-    );
+    guide.add_manual_action("Log in to middleware admin UI at your base_url".to_string());
+    guide.add_manual_action("Navigate to Accounts → Your Account → Sites".to_string());
+    guide.add_manual_action("Create a new Site for this uploader instance".to_string());
+    guide.add_manual_action("Copy the site domain and clientSecret UUID".to_string());
+    guide.add_manual_action("Update config.toml with your domain and client_secret".to_string());
 
     // Add migration instructions
-    guide.add_instruction(
-        "Backup your current config.toml file".to_string(),
-    );
-    guide.add_instruction(
-        "Create site credentials in middleware admin UI".to_string(),
-    );
-    guide.add_instruction(
-        "Replace config.toml with the new v2 template".to_string(),
-    );
-    guide.add_instruction(
-        "Update [auth] section with your domain and client_secret".to_string(),
-    );
-    guide.add_instruction(
-        "Test authentication: dbf-uploader test-auth".to_string(),
-    );
-    guide.add_instruction(
-        "Restart the Windows service to apply changes".to_string(),
-    );
+    guide.add_instruction("Backup your current config.toml file".to_string());
+    guide.add_instruction("Create site credentials in middleware admin UI".to_string());
+    guide.add_instruction("Replace config.toml with the new v2 template".to_string());
+    guide.add_instruction("Update [auth] section with your domain and client_secret".to_string());
+    guide.add_instruction("Test authentication: dbf-uploader test-auth".to_string());
+    guide.add_instruction("Restart the Windows service to apply changes".to_string());
 
     Ok(guide)
 }
@@ -240,10 +210,7 @@ dbf_encoding = "CP866"
         assert_eq!(v2_config.source.directory, temp_dir.path());
 
         // Check new v2 values
-        assert_eq!(
-            v2_config.auth.domain,
-            "REPLACE_WITH_YOUR_SITE_DOMAIN"
-        );
+        assert_eq!(v2_config.auth.domain, "REPLACE_WITH_YOUR_SITE_DOMAIN");
         assert_eq!(
             v2_config.auth.client_secret,
             "REPLACE_WITH_CLIENT_SECRET_UUID"

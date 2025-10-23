@@ -42,22 +42,27 @@ where
 
 /// Prompt for domain with validation
 pub fn prompt_domain() -> MigrationResult<String> {
-    prompt_with_validation("Enter site domain (e.g., store-01.example.com): ", |input| {
-        if input.is_empty() {
-            return Err("Domain cannot be empty".to_string());
-        }
+    prompt_with_validation(
+        "Enter site domain (e.g., store-01.example.com): ",
+        |input| {
+            if input.is_empty() {
+                return Err("Domain cannot be empty".to_string());
+            }
 
-        if !input.contains('.') {
-            return Err("Domain must be a fully qualified domain name (e.g., store-01.example.com)"
-                .to_string());
-        }
+            if !input.contains('.') {
+                return Err(
+                    "Domain must be a fully qualified domain name (e.g., store-01.example.com)"
+                        .to_string(),
+                );
+            }
 
-        if input.contains(' ') {
-            return Err("Domain cannot contain spaces".to_string());
-        }
+            if input.contains(' ') {
+                return Err("Domain cannot contain spaces".to_string());
+            }
 
-        Ok(())
-    })
+            Ok(())
+        },
+    )
 }
 
 /// Prompt for client secret with UUID validation
@@ -81,7 +86,10 @@ pub fn prompt_client_secret() -> MigrationResult<String> {
                 || parts[3].len() != 4
                 || parts[4].len() != 12
             {
-                return Err("Invalid UUID format. Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx".to_string());
+                return Err(
+                    "Invalid UUID format. Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        .to_string(),
+                );
             }
 
             // Check all characters are hexadecimal
@@ -96,21 +104,24 @@ pub fn prompt_client_secret() -> MigrationResult<String> {
 
 /// Prompt for base URL with validation
 pub fn prompt_base_url() -> MigrationResult<String> {
-    prompt_with_validation("Enter API base URL (e.g., https://api.example.com): ", |input| {
-        if input.is_empty() {
-            return Err("Base URL cannot be empty".to_string());
-        }
+    prompt_with_validation(
+        "Enter API base URL (e.g., https://api.example.com): ",
+        |input| {
+            if input.is_empty() {
+                return Err("Base URL cannot be empty".to_string());
+            }
 
-        if !input.starts_with("https://") && !input.starts_with("http://") {
-            return Err("Base URL must start with https:// or http://".to_string());
-        }
+            if !input.starts_with("https://") && !input.starts_with("http://") {
+                return Err("Base URL must start with https:// or http://".to_string());
+            }
 
-        if input.len() < 10 {
-            return Err("Base URL is too short".to_string());
-        }
+            if input.len() < 10 {
+                return Err("Base URL is too short".to_string());
+            }
 
-        Ok(())
-    })
+            Ok(())
+        },
+    )
 }
 
 /// Prompt for source directory with validation
@@ -239,9 +250,8 @@ pub async fn run_wizard() -> MigrationResult<ConfigV2> {
 /// Write configuration to file
 pub fn write_config(config: &ConfigV2, config_path: &Path) -> MigrationResult<()> {
     // Serialize to TOML
-    let toml_string = toml::to_string_pretty(config).map_err(|e| {
-        MigrationError::InvalidConfig(format!("Failed to serialize config: {}", e))
-    })?;
+    let toml_string = toml::to_string_pretty(config)
+        .map_err(|e| MigrationError::InvalidConfig(format!("Failed to serialize config: {}", e)))?;
 
     // Write to file
     std::fs::write(config_path, toml_string)?;

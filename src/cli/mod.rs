@@ -1,11 +1,13 @@
 // CLI module for data_exporter v2.0
 pub mod install;
 pub mod migrate;
+pub mod run;
 pub mod uninstall;
 pub mod wizard;
 
 pub use install::install;
 pub use migrate::migrate;
+pub use run::run_once;
 pub use uninstall::uninstall;
 
 use clap::{Parser, Subcommand};
@@ -49,4 +51,10 @@ pub enum Commands {
     /// Removes the Windows service and cleans up installation files.
     /// Configuration files are preserved for potential reinstallation.
     Uninstall,
+
+    /// Run a single batch upload using the current configuration.
+    ///
+    /// Loads `config.toml`, validates settings, and executes one batch cycle
+    /// against the middleware API.
+    Run,
 }

@@ -104,8 +104,7 @@ fn validate_domain(domain: &str) -> Result<(), ValidationError> {
     // Domain should contain at least one dot for FQDN
     if !domain.contains('.') {
         return Err(ValidationError::InvalidDomain(
-            "Domain must be a fully qualified domain name (e.g., store-01.example.com)"
-                .to_string(),
+            "Domain must be a fully qualified domain name (e.g., store-01.example.com)".to_string(),
         ));
     }
 
@@ -164,20 +163,47 @@ fn validate_uuid(client_secret: &str) -> Result<(), ValidationError> {
 
 /// Validate base URL format
 fn validate_base_url(base_url: &str) -> Result<(), ValidationError> {
-    if !base_url.starts_with("https://") {
+    const MIN_HTTPS_LENGTH: usize = 10; // "https://x"
+    const MIN_HTTP_LENGTH: usize = 9; // "http://x"
+
+    if base_url.starts_with("https://") {
+        if base_url.len() < MIN_HTTPS_LENGTH {
+            return Err(ValidationError::InvalidBaseUrl(
+                "Base URL is too short".to_string(),
+            ));
+        }
+        return Ok(());
+    }
+
+    if base_url.starts_with("http://") {
+        const ALLOWED_HTTP_PREFIXES: [&str; 5] = [
+            "http://localhost",
+            "http://127.0.0.1",
+            "http://0.0.0.0",
+            "http://dfm-backend",
+            "http://host.docker.internal",
+        ];
+
+        if ALLOWED_HTTP_PREFIXES
+            .iter()
+            .any(|prefix| base_url.starts_with(prefix))
+        {
+            if base_url.len() < MIN_HTTP_LENGTH {
+                return Err(ValidationError::InvalidBaseUrl(
+                    "Base URL is too short".to_string(),
+                ));
+            }
+            return Ok(());
+        }
+
         return Err(ValidationError::InvalidBaseUrl(
-            "Base URL must start with https://".to_string(),
+            "HTTP base URL is only allowed for localhost or development hosts".to_string(),
         ));
     }
 
-    if base_url.len() < 10 {
-        // "https://x" is minimum valid URL
-        return Err(ValidationError::InvalidBaseUrl(
-            "Base URL is too short".to_string(),
-        ));
-    }
-
-    Ok(())
+    Err(ValidationError::InvalidBaseUrl(
+        "Base URL must start with https:// (or http://localhost for development)".to_string(),
+    ))
 }
 
 /// Validate directory exists
@@ -281,6 +307,9 @@ mod tests {
         assert!(validate_base_url("https://api.example.com").is_ok());
         assert!(validate_base_url("https://localhost:8080").is_ok());
         assert!(validate_base_url("https://192.168.1.1").is_ok());
+        assert!(validate_base_url("http://localhost:8080").is_ok());
+        assert!(validate_base_url("http://127.0.0.1:3000").is_ok());
+        assert!(validate_base_url("http://dfm-backend:8080").is_ok());
     }
 
     #[test]

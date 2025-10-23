@@ -22,11 +22,10 @@ pub fn detect_version(config_path: &Path) -> MigrationResult<ConfigVersion> {
 /// Detect version from normalized configuration content
 fn detect_version_from_content(content: &str) -> MigrationResult<ConfigVersion> {
     // V2 indicators (check these first as they are more specific)
-    let has_domain_field = content.contains("[auth]")
-        && (content.contains("domain =") || content.contains("domain="));
+    let has_domain_field =
+        content.contains("[auth]") && (content.contains("domain =") || content.contains("domain="));
 
-    let has_client_secret = content.contains("client_secret")
-        || content.contains("clientSecret");
+    let has_client_secret = content.contains("client_secret") || content.contains("clientSecret");
 
     let has_batch_section = content.contains("[batch]");
 
@@ -165,7 +164,10 @@ cron = "*/5 * * * *"
         let temp_file = create_temp_config(content);
         let result = detect_version(temp_file.path());
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), MigrationError::UnknownVersion));
+        assert!(matches!(
+            result.unwrap_err(),
+            MigrationError::UnknownVersion
+        ));
     }
 
     #[test]

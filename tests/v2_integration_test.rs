@@ -86,7 +86,8 @@ async fn test_full_upload_workflow_success() {
     );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _upload_mock = mock.mock_batch_upload(&token, batch_id, 3, 1024);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 3, 1024);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 3, 1024);
 
     // Create configuration
     let config = create_test_config(base_url, source_dir.clone(), &temp_dir);
@@ -205,7 +206,10 @@ async fn test_full_workflow_with_upload_failure() {
     // Mock upload failure (all retries will fail because mock returns 500)
     let _upload_mock = mock
         .get_server()
-        .mock("POST", format!("/api/dfc/batch/{}/upload", batch_id).as_str())
+        .mock(
+            "POST",
+            format!("/api/dfc/batch/{}/upload", batch_id).as_str(),
+        )
         .match_header("authorization", format!("Bearer {}", token).as_str())
         .with_status(500)
         .with_header("content-type", "application/json")
@@ -288,7 +292,8 @@ async fn test_full_workflow_with_chunked_uploads() {
         .expect_at_least(1)
         .create();
 
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 5, 2048);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 5, 2048);
 
     // Create configuration with small chunk size (2 files per batch)
     let mut config = create_test_config(base_url, source_dir, &temp_dir);
@@ -413,7 +418,8 @@ async fn test_multiple_operations_with_same_token() {
 
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _upload_mock = mock.mock_batch_upload(&token, batch_id, 2, 1024);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 2, 1024);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 2, 1024);
 
     // Create configuration
     let config = create_test_config(base_url, source_dir, &temp_dir);
@@ -544,7 +550,10 @@ async fn test_upload_retry_on_transient_failure() {
     // First 2 upload attempts fail, 3rd succeeds
     let _upload_mock_fail = mock
         .get_server()
-        .mock("POST", format!("/api/dfc/batch/{}/upload", batch_id).as_str())
+        .mock(
+            "POST",
+            format!("/api/dfc/batch/{}/upload", batch_id).as_str(),
+        )
         .match_header("authorization", format!("Bearer {}", token).as_str())
         .with_status(503)
         .with_header("content-type", "application/json")
@@ -553,7 +562,8 @@ async fn test_upload_retry_on_transient_failure() {
         .create();
 
     let _upload_mock_success = mock.mock_batch_upload(&token, batch_id, 1, 512);
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 1, 512);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 1, 512);
 
     // Create configuration with 3 retries
     let mut config = create_test_config(base_url, source_dir, &temp_dir);
@@ -618,7 +628,10 @@ async fn test_batch_complete_failure_handling() {
 
     let _complete_mock = mock
         .get_server()
-        .mock("POST", format!("/api/dfc/batch/{}/complete", batch_id).as_str())
+        .mock(
+            "POST",
+            format!("/api/dfc/batch/{}/complete", batch_id).as_str(),
+        )
         .match_header("authorization", format!("Bearer {}", token).as_str())
         .with_status(500)
         .with_header("content-type", "application/json")

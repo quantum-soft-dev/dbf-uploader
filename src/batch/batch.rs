@@ -88,7 +88,8 @@ impl Batch {
 
     /// Get batch duration if completed
     pub fn duration(&self) -> Option<chrono::Duration> {
-        self.completed_at.map(|completed| completed - self.started_at)
+        self.completed_at
+            .map(|completed| completed - self.started_at)
     }
 
     /// Check if batch has errors

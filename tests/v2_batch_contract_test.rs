@@ -4,8 +4,8 @@
 mod common;
 
 use common::{test_data, MockMiddleware};
-use data_exporter::batch::{BatchManager, BatchState};
 use data_exporter::auth::{AuthClient, SiteCredentials, TokenManager};
+use data_exporter::batch::{BatchManager, BatchState};
 use std::sync::Arc;
 use tempfile::TempDir;
 
@@ -40,7 +40,12 @@ async fn test_batch_start_success() {
     );
 
     // Setup mocks: auth + batch start
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let batch_id = test_data::test_batch_id();
     let _batch_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
@@ -48,7 +53,10 @@ async fn test_batch_start_success() {
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
 
     // Act
-    let batch = batch_manager.start_batch().await.expect("Failed to start batch");
+    let batch = batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Assert
     assert_eq!(batch.id, batch_id);
@@ -69,11 +77,19 @@ async fn test_batch_upload_success() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
-    batch_manager.start_batch().await.expect("Failed to start batch");
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Create test file to upload
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -107,12 +123,21 @@ async fn test_batch_complete_success() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 5, 1024);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 5, 1024);
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
-    batch_manager.start_batch().await.expect("Failed to start batch");
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Act
     let result = batch_manager.complete_batch().await;
@@ -138,12 +163,20 @@ async fn test_batch_fail_success() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _fail_mock = mock.mock_batch_fail(&token, batch_id, test_data::test_site_id());
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
-    batch_manager.start_batch().await.expect("Failed to start batch");
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Act
     let result = batch_manager.fail_batch("Test failure reason").await;
@@ -164,12 +197,20 @@ async fn test_batch_cancel_success() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
     let _cancel_mock = mock.mock_batch_cancel(&token, batch_id, test_data::test_site_id());
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
-    batch_manager.start_batch().await.expect("Failed to start batch");
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Act
     let result = batch_manager.cancel_batch().await;
@@ -190,30 +231,55 @@ async fn test_batch_state_transitions() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
 
     // Initial state
-    assert!(batch_manager.get_current_batch().expect("Failed to get current batch").is_none());
+    assert!(batch_manager
+        .get_current_batch()
+        .expect("Failed to get current batch")
+        .is_none());
 
     // After start
-    batch_manager.start_batch().await.expect("Failed to start batch");
-    assert!(batch_manager.get_current_batch().expect("Failed to get current batch").is_some());
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
+    assert!(batch_manager
+        .get_current_batch()
+        .expect("Failed to get current batch")
+        .is_some());
     assert_eq!(
-        batch_manager.get_current_batch().expect("Failed to get current batch").unwrap().state,
+        batch_manager
+            .get_current_batch()
+            .expect("Failed to get current batch")
+            .unwrap()
+            .state,
         BatchState::InProgress
     );
 
     // Setup complete mock
-    let _complete_mock = mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 0, 0);
+    let _complete_mock =
+        mock.mock_batch_complete(&token, batch_id, test_data::test_site_id(), 0, 0);
 
     // After complete
-    batch_manager.complete_batch().await.expect("Failed to complete batch");
+    batch_manager
+        .complete_batch()
+        .await
+        .expect("Failed to complete batch");
 
     // After completion, current batch is cleared
-    assert!(batch_manager.get_current_batch().expect("Failed to get current batch").is_none());
+    assert!(batch_manager
+        .get_current_batch()
+        .expect("Failed to get current batch")
+        .is_none());
 }
 
 #[tokio::test]
@@ -230,7 +296,12 @@ async fn test_batch_endpoints_use_bearer_token() {
     let batch_id = test_data::test_batch_id();
 
     // Setup mocks that expect Bearer token
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _batch_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
@@ -254,7 +325,12 @@ async fn test_batch_complete_with_errors() {
     );
 
     let batch_id = test_data::test_batch_id();
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
     let _start_mock = mock.mock_batch_start(&token, batch_id, test_data::test_site_id());
 
     // Mock complete response with errors (full BatchResponseDto)
@@ -270,7 +346,10 @@ async fn test_batch_complete_with_errors() {
         .create();
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
-    batch_manager.start_batch().await.expect("Failed to start batch");
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch");
 
     // Act
     let result = batch_manager.complete_batch().await;
@@ -296,27 +375,60 @@ async fn test_multiple_batch_operations_sequential() {
     let batch_id_1 = test_data::test_batch_id();
     let batch_id_2 = uuid::Uuid::new_v4();
 
-    let _auth_mock = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _auth_mock = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
 
     // First batch
     let _start_mock_1 = mock.mock_batch_start(&token, batch_id_1, test_data::test_site_id());
-    let _complete_mock_1 = mock.mock_batch_complete(&token, batch_id_1, test_data::test_site_id(), 1, 100);
+    let _complete_mock_1 =
+        mock.mock_batch_complete(&token, batch_id_1, test_data::test_site_id(), 1, 100);
 
     let mut batch_manager = create_batch_manager_with_mock(&mock).await;
 
     // Start and complete first batch
-    batch_manager.start_batch().await.expect("Failed to start batch 1");
-    assert_eq!(batch_manager.get_current_batch().expect("Failed to get current batch").unwrap().id, batch_id_1);
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch 1");
+    assert_eq!(
+        batch_manager
+            .get_current_batch()
+            .expect("Failed to get current batch")
+            .unwrap()
+            .id,
+        batch_id_1
+    );
 
-    batch_manager.complete_batch().await.expect("Failed to complete batch 1");
+    batch_manager
+        .complete_batch()
+        .await
+        .expect("Failed to complete batch 1");
 
     // Second batch
     let _start_mock_2 = mock.mock_batch_start(&token, batch_id_2, test_data::test_site_id());
-    let _complete_mock_2 = mock.mock_batch_complete(&token, batch_id_2, test_data::test_site_id(), 2, 200);
+    let _complete_mock_2 =
+        mock.mock_batch_complete(&token, batch_id_2, test_data::test_site_id(), 2, 200);
 
     // Start and complete second batch
-    batch_manager.start_batch().await.expect("Failed to start batch 2");
-    assert_eq!(batch_manager.get_current_batch().expect("Failed to get current batch").unwrap().id, batch_id_2);
+    batch_manager
+        .start_batch()
+        .await
+        .expect("Failed to start batch 2");
+    assert_eq!(
+        batch_manager
+            .get_current_batch()
+            .expect("Failed to get current batch")
+            .unwrap()
+            .id,
+        batch_id_2
+    );
 
-    batch_manager.complete_batch().await.expect("Failed to complete batch 2");
+    batch_manager
+        .complete_batch()
+        .await
+        .expect("Failed to complete batch 2");
 }

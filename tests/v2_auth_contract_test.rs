@@ -22,7 +22,12 @@ async fn test_auth_with_valid_site_credentials() {
     );
 
     // Setup mock response
-    let _m = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _m = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
 
     // Create AuthClient with site credentials
     let credentials = SiteCredentials {
@@ -30,8 +35,8 @@ async fn test_auth_with_valid_site_credentials() {
         client_secret: test_data::TEST_CLIENT_SECRET.to_string(),
     };
 
-    let auth_client = AuthClient::from_credentials(base_url, credentials)
-        .expect("Failed to create AuthClient");
+    let auth_client =
+        AuthClient::from_credentials(base_url, credentials).expect("Failed to create AuthClient");
 
     // Act
     let jwt_token = auth_client.get_token().await.expect("Failed to get token");
@@ -59,8 +64,8 @@ async fn test_auth_with_invalid_credentials() {
         client_secret: "wrong-secret".to_string(),
     };
 
-    let auth_client = AuthClient::from_credentials(base_url, credentials)
-        .expect("Failed to create AuthClient");
+    let auth_client =
+        AuthClient::from_credentials(base_url, credentials).expect("Failed to create AuthClient");
 
     // Act
     let result = auth_client.get_token().await;
@@ -78,7 +83,8 @@ async fn test_auth_inactive_subscription() {
     let base_url = mock.url();
 
     // Setup mock response for inactive subscription
-    let _m = mock.mock_auth_inactive_subscription(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET);
+    let _m =
+        mock.mock_auth_inactive_subscription(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET);
 
     // Create AuthClient
     let credentials = SiteCredentials {
@@ -86,8 +92,8 @@ async fn test_auth_inactive_subscription() {
         client_secret: test_data::TEST_CLIENT_SECRET.to_string(),
     };
 
-    let auth_client = AuthClient::from_credentials(base_url, credentials)
-        .expect("Failed to create AuthClient");
+    let auth_client =
+        AuthClient::from_credentials(base_url, credentials).expect("Failed to create AuthClient");
 
     // Act
     let result = auth_client.get_token().await;
@@ -113,7 +119,12 @@ async fn test_auth_endpoint_url() {
     );
 
     // Setup mock - verify it's calling /api/v1/auth/token (not v1.0 /api/auth/token)
-    let _m = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token, 3600);
+    let _m = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token,
+        3600,
+    );
 
     // Create AuthClient
     let credentials = SiteCredentials {
@@ -121,8 +132,8 @@ async fn test_auth_endpoint_url() {
         client_secret: test_data::TEST_CLIENT_SECRET.to_string(),
     };
 
-    let auth_client = AuthClient::from_credentials(base_url, credentials)
-        .expect("Failed to create AuthClient");
+    let auth_client =
+        AuthClient::from_credentials(base_url, credentials).expect("Failed to create AuthClient");
 
     // Act - this will call /api/v1/auth/token
     let result = auth_client.get_token().await;
@@ -142,8 +153,8 @@ async fn test_jwt_payload_parsing() {
     let token = common::create_test_jwt(site_id, account_id, domain, exp);
 
     // Parse the payload
-    let payload = data_exporter::auth::JwtToken::parse_payload(&token)
-        .expect("Failed to parse JWT payload");
+    let payload =
+        data_exporter::auth::JwtToken::parse_payload(&token).expect("Failed to parse JWT payload");
 
     // Assert
     assert_eq!(payload.site_id, site_id);
@@ -180,7 +191,12 @@ async fn test_token_manager_renewal_logic() {
     );
 
     // Setup mock to be called twice (initial + renewal)
-    let _m1 = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &token1, 3600);
+    let _m1 = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &token1,
+        3600,
+    );
 
     // Create v1 config for TokenManager (compatibility layer)
     let config = Config {
@@ -194,9 +210,7 @@ async fn test_token_manager_renewal_logic() {
             username: test_data::TEST_DOMAIN.to_string(),
             password: test_data::TEST_CLIENT_SECRET.to_string(),
         },
-        api: data_exporter::models::config::ApiConfig {
-            base_url,
-        },
+        api: data_exporter::models::config::ApiConfig { base_url },
         encoding: data_exporter::models::config::EncodingConfig {
             dbf_encoding: "CP866".to_string(),
         },
@@ -239,7 +253,12 @@ async fn test_token_manager_with_expired_token() {
     );
 
     // Setup mocks - first call returns expired, second call returns fresh
-    let _m1 = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &expired_token, 1);
+    let _m1 = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &expired_token,
+        1,
+    );
 
     // Create config
     let config = Config {
@@ -274,7 +293,12 @@ async fn test_token_manager_with_expired_token() {
 
     // Setup mock for renewal
     drop(_m1); // Drop first mock
-    let _m2 = mock.mock_auth_success(test_data::TEST_DOMAIN, test_data::TEST_CLIENT_SECRET, &fresh_token, 3600);
+    let _m2 = mock.mock_auth_success(
+        test_data::TEST_DOMAIN,
+        test_data::TEST_CLIENT_SECRET,
+        &fresh_token,
+        3600,
+    );
 
     // Get token again - should trigger renewal because first one is expired
     let token_result2 = token_manager.get_valid_token().await;

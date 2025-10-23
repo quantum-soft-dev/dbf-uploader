@@ -2,7 +2,7 @@
 // Handles install, migrate, and uninstall commands
 
 use clap::Parser;
-use data_exporter::cli::{install, migrate, uninstall, Cli, Commands};
+use data_exporter::cli::{install, migrate, run_once, uninstall, Cli, Commands};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
@@ -37,6 +37,10 @@ async fn main() {
         Commands::Uninstall => {
             // Uninstall service and cleanup
             uninstall().await
+        }
+        Commands::Run => {
+            // Execute a single batch upload immediately
+            run_once().await
         }
     };
 

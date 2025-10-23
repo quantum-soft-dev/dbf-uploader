@@ -43,7 +43,10 @@ impl BatchState {
 
     /// Check if this is a terminal state
     pub fn is_terminal(&self) -> bool {
-        matches!(self, BatchState::Completed | BatchState::Failed | BatchState::Cancelled)
+        matches!(
+            self,
+            BatchState::Completed | BatchState::Failed | BatchState::Cancelled
+        )
     }
 
     /// Check if batch is active (can accept uploads)
