@@ -2,7 +2,7 @@
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
 use base64::Engine;
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
@@ -33,10 +33,6 @@ struct TokenResponse {
     token: String,
     #[serde(rename = "expiresAt")]
     expires_at: String, // ISO 8601 timestamp
-    #[serde(default)]
-    site_id: Option<String>,
-    #[serde(default)]
-    domain: Option<String>,
 }
 
 pub struct AuthClient {

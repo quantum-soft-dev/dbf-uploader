@@ -3,7 +3,7 @@ use crate::auth::JwtToken;
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::time::Duration;
 use tracing::{debug, info};
 

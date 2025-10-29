@@ -91,34 +91,68 @@ fn service_main(_arguments: Vec<OsString>) {
 
 #[cfg(windows)]
 fn run_service_impl() -> Result<()> {
-    // Setup file logging for debugging
     use std::fs::OpenOptions;
-    use std::io::Write;
 
+    // Initialize tracing with file logging
     let log_path = PathBuf::from(r"C:\Program Files\data-exporter\service.log");
-    let mut log_file = OpenOptions::new()
+
+    // Create a file appender for the log file
+    let _file = OpenOptions::new()
         .create(true)
         .append(true)
         .open(&log_path)
         .unwrap_or_else(|e| {
-            eprintln!("Failed to open log file: {}", e);
+            let _ = std::fs::write(
+                r"C:\Windows\Temp\data_exporter_log_error.txt",
+                format!("Failed to open log file: {}\n", e),
+            );
             std::process::exit(1);
         });
 
-    let _ = writeln!(log_file, "[{}] Starting Data Exporter Service", chrono::Utc::now());
+    // Setup tracing subscriber with file output
+    use tracing_subscriber::fmt::writer::MakeWriter;
+
+    // Create a writer that clones the file handle for each write
+    struct FileWriter {
+        path: PathBuf,
+    }
+
+    impl<'a> MakeWriter<'a> for FileWriter {
+        type Writer = std::fs::File;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&self.path)
+                .expect("Failed to open log file")
+        }
+    }
+
+    let file_writer = FileWriter { path: log_path.clone() };
+
+    tracing_subscriber::fmt()
+        .with_writer(file_writer)
+        .with_ansi(false)
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true)
+        .with_level(true)
+        .init();
 
     info!("Starting Data Exporter Service");
 
     // Load configuration
     let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
-    let _ = writeln!(log_file, "[{}] Loading config from: {}", chrono::Utc::now(), config_path.display());
+    info!("Loading config from: {}", config_path.display());
     let config = match Config::from_file(&config_path) {
         Ok(cfg) => {
-            let _ = writeln!(log_file, "[{}] Config loaded successfully", chrono::Utc::now());
+            info!("Config loaded successfully");
             cfg
         }
         Err(e) => {
-            let _ = writeln!(log_file, "[{}] ERROR: Failed to load config: {}", chrono::Utc::now(), e);
+            error!("Failed to load config: {}", e);
             return Err(crate::error::ProcessingError::ConfigurationError(format!(
                 "Failed to load config: {}",
                 e
@@ -147,14 +181,14 @@ fn run_service_impl() -> Result<()> {
     };
 
     // Register service control handler
-    let _ = writeln!(log_file, "[{}] Registering service control handler", chrono::Utc::now());
+    info!("Registering service control handler");
     let status_handle = match service_control_handler::register(SERVICE_NAME, event_handler) {
         Ok(handle) => {
-            let _ = writeln!(log_file, "[{}] Service control handler registered", chrono::Utc::now());
+            info!("Service control handler registered");
             handle
         }
         Err(e) => {
-            let _ = writeln!(log_file, "[{}] ERROR: Failed to register service control handler: {}", chrono::Utc::now(), e);
+            error!("Failed to register service control handler: {}", e);
             return Err(crate::error::ProcessingError::ConfigurationError(format!(
                 "Failed to register service control handler: {}",
                 e
@@ -163,7 +197,7 @@ fn run_service_impl() -> Result<()> {
     };
 
     // Tell Windows we're running
-    let _ = writeln!(log_file, "[{}] Setting service status to RUNNING", chrono::Utc::now());
+    info!("Setting service status to RUNNING");
     if let Err(e) = status_handle.set_service_status(ServiceStatus {
         service_type: SERVICE_TYPE,
         current_state: ServiceState::Running,
@@ -173,25 +207,25 @@ fn run_service_impl() -> Result<()> {
         wait_hint: Duration::default(),
         process_id: None,
     }) {
-        let _ = writeln!(log_file, "[{}] ERROR: Failed to set service status to running: {}", chrono::Utc::now(), e);
+        error!("Failed to set service status to running: {}", e);
         return Err(crate::error::ProcessingError::ConfigurationError(format!(
             "Failed to set service status to running: {}",
             e
         )));
     }
-    let _ = writeln!(log_file, "[{}] Service status set to RUNNING", chrono::Utc::now());
+    info!("Service status set to RUNNING");
 
     info!("Service is running");
 
     // Create and start the scheduler
-    let _ = writeln!(log_file, "[{}] Creating tokio runtime", chrono::Utc::now());
+    info!("Creating tokio runtime");
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => {
-            let _ = writeln!(log_file, "[{}] Tokio runtime created", chrono::Utc::now());
+            info!("Tokio runtime created");
             rt
         }
         Err(e) => {
-            let _ = writeln!(log_file, "[{}] ERROR: Failed to create tokio runtime: {}", chrono::Utc::now(), e);
+            error!("Failed to create tokio runtime: {}", e);
             return Err(crate::error::ProcessingError::ConfigurationError(format!(
                 "Failed to create tokio runtime: {}",
                 e
@@ -199,26 +233,16 @@ fn run_service_impl() -> Result<()> {
         }
     };
 
-    let _ = writeln!(log_file, "[{}] Creating BatchScheduler", chrono::Utc::now());
+    info!("Creating BatchScheduler");
 
     runtime.block_on(async {
         match BatchScheduler::new(config).await {
             Ok(mut sched) => {
-                let _ = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(r"C:\Program Files\data-exporter\service.log")
-                    .and_then(|mut f| writeln!(f, "[{}] Scheduler created successfully", chrono::Utc::now()));
                 info!("Scheduler created successfully");
 
                 // Start the scheduler
                 match sched.start().await {
                     Ok(_) => {
-                        let _ = std::fs::OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(r"C:\Program Files\data-exporter\service.log")
-                            .and_then(|mut f| writeln!(f, "[{}] Scheduler started successfully", chrono::Utc::now()));
                         info!("Scheduler started successfully");
                         *scheduler.lock().unwrap() = Some(sched);
 
@@ -234,21 +258,11 @@ fn run_service_impl() -> Result<()> {
                         }
                     }
                     Err(e) => {
-                        let _ = std::fs::OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open(r"C:\Program Files\data-exporter\service.log")
-                            .and_then(|mut f| writeln!(f, "[{}] ERROR: Failed to start scheduler: {}", chrono::Utc::now(), e));
                         error!("Failed to start scheduler: {}", e);
                     }
                 }
             }
             Err(e) => {
-                let _ = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(r"C:\Program Files\data-exporter\service.log")
-                    .and_then(|mut f| writeln!(f, "[{}] ERROR: Failed to create scheduler: {}", chrono::Utc::now(), e));
                 error!("Failed to create scheduler: {}", e);
             }
         }

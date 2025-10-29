@@ -11,8 +11,6 @@ use data_exporter::service::run_service;
 // When running as a Windows service, use this entry point
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use std::ffi::OsString;
-    use windows_service::service_dispatcher;
 
     // VERY FIRST THING: Write to log to prove we even start
     let _ = std::fs::write(
