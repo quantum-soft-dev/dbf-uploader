@@ -36,13 +36,18 @@ pub enum Commands {
         #[arg(long, default_value = "*/5 * * * *")]
         crontab: String,
 
-        /// API base URL (must be HTTPS)
+        /// API base URL
         #[arg(long, default_value = "https://api.example.com")]
         api_url: String,
 
         /// DBF encoding (CP866, Windows1251, UTF8)
         #[arg(long, default_value = "CP866")]
         encoding: String,
+
+        /// Disable HTTPS-only connections (insecure, for local testing only)
+        /// By default, HTTPS is enforced. Use this flag to allow HTTP connections.
+        #[arg(long, default_value = "false")]
+        no_https: bool,
     },
 
     /// Uninstall the service

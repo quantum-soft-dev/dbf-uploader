@@ -72,9 +72,57 @@ fn uninstall_service() -> Result<()> {
 /// Unregister Windows service
 #[cfg(target_os = "windows")]
 fn unregister_windows_service() -> Result<()> {
-    // TODO: Implement Windows service unregistration
-    // For now, just log that this should be done
-    info!("TODO: Unregister Windows service");
+    use std::process::Command;
+
+    info!("Unregistering Windows service");
+
+    let service_name = "data-exporter";
+
+    // First, try to stop the service if it's running
+    let stop_output = Command::new("sc.exe")
+        .args(["stop", service_name])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to execute sc.exe stop: {}", e))
+        })?;
+
+    if !stop_output.status.success() {
+        let stderr = String::from_utf8_lossy(&stop_output.stderr);
+        info!("Service stop command returned error (may not be running): {}", stderr);
+        // Continue anyway - service might not be running
+    }
+
+    // Delete the service
+    let delete_output = Command::new("sc.exe")
+        .args(["delete", service_name])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to execute sc.exe delete: {}", e))
+        })?;
+
+    if !delete_output.status.success() {
+        let stderr = String::from_utf8_lossy(&delete_output.stderr);
+        let stdout = String::from_utf8_lossy(&delete_output.stdout);
+
+        // Check if service doesn't exist (not an error)
+        if stderr.contains("1060") || stdout.contains("does not exist") {
+            info!("Service does not exist, skipping deletion");
+            return Ok(());
+        }
+
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to delete service: stdout={}, stderr={}",
+            stdout, stderr
+        )));
+    }
+
+    info!("Windows service deletion initiated");
+
+    // Wait a few seconds for Windows to complete the deletion
+    info!("Waiting for service deletion to complete...");
+    std::thread::sleep(std::time::Duration::from_secs(3));
+
+    info!("Windows service unregistered successfully");
     Ok(())
 }
 

@@ -34,8 +34,16 @@ pub struct CredentialConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ApiConfig {
-    /// Base URL for API server (must start with https://)
+    /// Base URL for API server (must start with https:// if https_only is true)
     pub base_url: String,
+    /// Enforce HTTPS-only connections (default: true)
+    /// WARNING: Setting this to false is insecure and should only be used for local testing
+    #[serde(default = "default_https_only")]
+    pub https_only: bool,
+}
+
+fn default_https_only() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -88,9 +96,14 @@ impl Config {
             );
         }
 
-        // Validate API base URL starts with https://
-        if !self.api.base_url.starts_with("https://") {
-            return Err("API base URL must start with https://".into());
+        // Validate API base URL starts with https:// if https_only is true
+        if self.api.https_only && !self.api.base_url.starts_with("https://") {
+            return Err("API base URL must start with https:// when https_only is enabled".into());
+        }
+
+        // Validate API base URL has valid protocol
+        if !self.api.base_url.starts_with("http://") && !self.api.base_url.starts_with("https://") {
+            return Err("API base URL must start with http:// or https://".into());
         }
 
         // Validate credentials are not empty
@@ -131,6 +144,7 @@ password = "test_password"
 
 [api]
 base_url = "https://api.example.com"
+https_only = true
 
 [encoding]
 dbf_encoding = "CP866"
@@ -172,6 +186,7 @@ password = "test_password"
 
 [api]
 base_url = "http://api.example.com"
+https_only = true
 
 [encoding]
 dbf_encoding = "CP866"
@@ -186,6 +201,43 @@ dbf_encoding = "CP866"
         let result = Config::from_file(temp_file.path());
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("https://"));
+    }
+
+    #[test]
+    fn test_config_http_allowed_when_https_only_disabled() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "http://localhost:8080"
+https_only = false
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let config = Config::from_file(temp_file.path()).unwrap();
+        assert_eq!(config.api.base_url, "http://localhost:8080");
+        assert!(!config.api.https_only);
     }
 
     #[test]

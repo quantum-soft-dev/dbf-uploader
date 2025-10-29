@@ -138,6 +138,7 @@ mod tests {
             },
             api: crate::models::config::ApiConfig {
                 base_url: "https://api.example.com".to_string(),
+                https_only: true,
             },
             encoding: crate::models::config::EncodingConfig {
                 dbf_encoding: "CP866".to_string(),

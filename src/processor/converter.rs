@@ -202,6 +202,7 @@ mod tests {
             },
             api: ApiConfig {
                 base_url: "https://api.test.com".to_string(),
+                https_only: true,
             },
             encoding: EncodingConfig {
                 dbf_encoding: "CP866".to_string(),

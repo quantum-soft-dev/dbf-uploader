@@ -35,13 +35,24 @@ Windows сервис для автоматического экспорта DBF 
 Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 # Установите сервис (требуются права администратора)
+# ВАЖНО: API URL должен включать версию API (например /api/v1)
 .\data_exporter.exe install `
   --username your_username `
   --password your_password `
   --source-dir "C:\Data\DBF" `
   --crontab "0 8,12,16,18 * * *" `
-  --api-url https://api.example.com `
+  --api-url https://api.example.com/api/v1 `
   --encoding CP866
+
+# Для локального тестирования с HTTP (небезопасно!)
+.\data_exporter.exe install `
+  --username your_username `
+  --password your_password `
+  --source-dir "C:\Data\DBF" `
+  --crontab "*/5 * * * *" `
+  --api-url http://localhost:8080/api/v1 `
+  --encoding CP866 `
+  --no-https
 ```
 
 ### Проверка установки
@@ -71,6 +82,8 @@ password = "api_password"
 
 [api]
 base_url = "https://api.example.com"
+https_only = true  # Принудительно использовать только HTTPS (по умолчанию: true)
+                   # ВНИМАНИЕ: Установка в false небезопасна! Используйте только для локального тестирования
 
 [encoding]
 dbf_encoding = "CP866"  # Fallback кодировка

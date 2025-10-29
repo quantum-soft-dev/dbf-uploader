@@ -2,6 +2,7 @@
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
 use base64::Engine;
+use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
@@ -27,9 +28,15 @@ impl JwtToken {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TokenResponse {
     token: String,
-    expires_in: u64, // Seconds until expiration
+    #[serde(rename = "expiresAt")]
+    expires_at: String, // ISO 8601 timestamp
+    #[serde(default)]
+    site_id: Option<String>,
+    #[serde(default)]
+    domain: Option<String>,
 }
 
 pub struct AuthClient {
@@ -40,18 +47,18 @@ pub struct AuthClient {
 }
 
 impl AuthClient {
-    /// Create a new authentication client with HTTPS-only enforcement
+    /// Create a new authentication client with optional HTTPS-only enforcement
     pub fn new(config: &Config) -> Result<Self> {
-        // Validate HTTPS-only URL
-        if !config.api.base_url.starts_with("https://") {
+        // Validate HTTPS-only URL if https_only is enabled
+        if config.api.https_only && !config.api.base_url.starts_with("https://") {
             return Err(ProcessingError::ConfigurationError(
-                "API base URL must use HTTPS".to_string(),
+                "API base URL must use HTTPS when https_only is enabled".to_string(),
             ));
         }
 
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
-            .https_only(true) // Enforce HTTPS-only connections
+            .https_only(config.api.https_only) // Enforce HTTPS-only connections if configured
             .build()
             .map_err(|e| {
                 ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
@@ -67,7 +74,7 @@ impl AuthClient {
 
     /// Retrieve a JWT token from the server
     pub async fn get_token(&self) -> Result<JwtToken> {
-        let url = format!("{}/api/auth/token", self.base_url);
+        let url = format!("{}/auth/token", self.base_url);
 
         // Create Basic auth header
         let credentials = format!("{}:{}", self.username, self.password);
@@ -95,14 +102,20 @@ impl AuthClient {
                     ))
                 })?;
 
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("System time before UNIX epoch")
-                    .as_secs();
+                // Parse ISO 8601 timestamp
+                let expires_at_dt = DateTime::parse_from_rfc3339(&token_response.expires_at)
+                    .map_err(|e| {
+                        ProcessingError::AuthenticationError(format!(
+                            "Failed to parse expiration timestamp: {}",
+                            e
+                        ))
+                    })?;
+
+                let expires_at = expires_at_dt.timestamp() as u64;
 
                 Ok(JwtToken {
                     token: token_response.token,
-                    expires_at: now + token_response.expires_in,
+                    expires_at,
                 })
             }
             401 => Err(ProcessingError::AuthenticationError(

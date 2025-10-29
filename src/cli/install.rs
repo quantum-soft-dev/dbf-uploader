@@ -15,15 +15,23 @@ pub async fn install(
     crontab: String,
     api_url: String,
     encoding: String,
+    https_only: bool,
 ) -> Result<()> {
     info!("Starting installation");
 
     // Step 1: Validate inputs
     info!("Validating installation parameters");
 
-    if !api_url.starts_with("https://") {
+    // Validate HTTPS/HTTP consistency
+    if https_only && !api_url.starts_with("https://") {
         return Err(ProcessingError::ConfigurationError(
-            "API URL must use HTTPS".to_string(),
+            "API URL must use HTTPS when https_only is enabled (https_only=true)".to_string(),
+        ));
+    }
+
+    if !https_only && api_url.starts_with("https://") {
+        return Err(ProcessingError::ConfigurationError(
+            "API URL uses HTTPS but https_only is disabled. Either use http:// URL or remove --no-https flag".to_string(),
         ));
     }
 
@@ -36,7 +44,7 @@ pub async fn install(
     }
 
     // Step 2: Create configuration
-    let config = create_config(username, password, source_dir, crontab, api_url, encoding)?;
+    let config = create_config(username, password, source_dir, crontab, api_url, encoding, https_only)?;
 
     // Step 3: Validate credentials by requesting token
     info!("Validating credentials with API");
@@ -57,6 +65,7 @@ fn create_config(
     crontab: String,
     api_url: String,
     encoding: String,
+    https_only: bool,
 ) -> Result<Config> {
     use crate::models::config::{
         ApiConfig, CredentialConfig, EncodingConfig, SchedulerConfig, SourceConfig,
@@ -68,7 +77,10 @@ fn create_config(
             source_dir: PathBuf::from(source_dir),
         },
         credential: CredentialConfig { username, password },
-        api: ApiConfig { base_url: api_url },
+        api: ApiConfig {
+            base_url: api_url,
+            https_only,
+        },
         encoding: EncodingConfig {
             dbf_encoding: encoding,
         },
@@ -166,9 +178,60 @@ fn set_config_permissions(config_path: &Path) -> Result<()> {
 /// Register Windows service
 #[cfg(target_os = "windows")]
 fn register_windows_service(exe_path: &Path) -> Result<()> {
-    // TODO: Implement Windows service registration
-    // For now, just log that this should be done
-    info!("TODO: Register Windows service for {}", exe_path.display());
+    use std::process::Command;
+
+    info!("Registering Windows service for {}", exe_path.display());
+
+    let service_name = "data-exporter";
+    let display_name = "Data Exporter Service";
+    let description = "Automatically exports DBF files to CSV, compresses to gzip, and uploads to cloud server";
+
+    // Use sc.exe to create the service
+    // Note: sc.exe requires VERY specific syntax:
+    // - Exactly one space after =
+    // - Path should be without quotes for sc.exe (it adds them internally if needed)
+    let exe_path_str = exe_path.to_string_lossy().to_string();
+    let bin_path = format!("binPath={}", exe_path_str);  // No space after = to avoid ERROR 87
+
+    info!("Creating service with binPath: '{}'", bin_path);
+    info!("Exe path: '{}'", exe_path_str);
+
+    let output = Command::new("sc.exe")
+        .args([
+            "create",
+            service_name,
+            &bin_path,
+            &format!("DisplayName={}", display_name),
+            "start=demand",
+            "type=own",
+        ])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to execute sc.exe: {}", e))
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to create service: stdout={}, stderr={}",
+            stdout, stderr
+        )));
+    }
+
+    // Set service description
+    let desc_output = Command::new("sc.exe")
+        .args(["description", service_name, description])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to set service description: {}", e))
+        })?;
+
+    if !desc_output.status.success() {
+        error!("Failed to set service description (non-critical)");
+    }
+
+    info!("Windows service registered successfully");
     Ok(())
 }
 
@@ -185,12 +248,14 @@ mod tests {
             "*/5 * * * *".to_string(),
             "https://api.example.com".to_string(),
             "CP866".to_string(),
+            true,
         );
 
         assert!(config.is_ok());
         let config = config.unwrap();
         assert_eq!(config.credential.username, "testuser");
         assert_eq!(config.scheduler.crontab, "*/5 * * * *");
+        assert!(config.api.https_only);
     }
 
     #[test]
@@ -202,7 +267,25 @@ mod tests {
             "*/5 * * * *".to_string(),
             "https://api.example.com".to_string(),
             "CP866".to_string(),
+            true,
         );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_http_allowed_when_https_only_disabled() {
+        let result = create_config(
+            "test".to_string(),
+            "test".to_string(),
+            "/tmp".to_string(),
+            "*/5 * * * *".to_string(),
+            "http://localhost:8080".to_string(),
+            "CP866".to_string(),
+            false,
+        );
+        assert!(result.is_ok());
+        let config = result.unwrap();
+        assert!(!config.api.https_only);
+        assert_eq!(config.api.base_url, "http://localhost:8080");
     }
 }
