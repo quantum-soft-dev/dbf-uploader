@@ -1,9 +1,11 @@
 // File processing module
+pub mod batch_client;
 pub mod compressor;
 pub mod converter;
 pub mod scanner;
 pub mod uploader;
 
+pub use batch_client::BatchClient;
 pub use compressor::compress_csv;
 pub use converter::convert_dbf_to_csv;
 pub use scanner::scan_directory;
@@ -21,10 +23,23 @@ use tracing::{debug, error, info, warn};
 /// This orchestrates: scan → convert → compress → upload for all DBF files
 pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Result<Batch> {
     let mut batch = Batch::new(config.clone());
-    let error_reporter = ErrorReporter::new()?;
+    let error_reporter = ErrorReporter::new(config.api.https_only)?;
+    let batch_client = BatchClient::new(config.api.https_only)?;
+
+    // Start batch on server and get batch ID
+    let token = token_manager.get_valid_token().await?;
+    let server_batch_id = match batch_client.start_batch(&token, &config).await {
+        Ok(id) => id,
+        Err(e) => {
+            error!(error = %e, "Failed to start batch on server");
+            batch.status = BatchStatus::Aborted;
+            return Err(e);
+        }
+    };
 
     info!(
         batch_id = %batch.batch_id,
+        server_batch_id = %server_batch_id,
         "Starting batch processing"
     );
 
@@ -70,7 +85,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         );
 
         // Process the file, handling locked files specially
-        match process_single_file(&dbf_file, &config, &token_manager, &error_reporter).await {
+        match process_single_file(&dbf_file, &server_batch_id, &config, &token_manager, &error_reporter).await {
             Ok(_) => {
                 batch.mark_completed();
                 info!(
@@ -100,6 +115,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                 report_processing_error(
                     &dbf_file.path,
                     &e,
+                    Some(&server_batch_id),
                     &token_manager,
                     &error_reporter,
                     &config,
@@ -129,7 +145,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
             // Recreate DbfFile for retry
             let dbf_file = crate::models::DbfFile::new(file_path.clone(), &config.src.source_dir);
 
-            match process_single_file(&dbf_file, &config, &token_manager, &error_reporter).await {
+            match process_single_file(&dbf_file, &server_batch_id, &config, &token_manager, &error_reporter).await {
                 Ok(_) => {
                     batch.mark_completed();
                     info!(
@@ -158,6 +174,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                     report_processing_error(
                         &file_path,
                         &e,
+                        Some(&server_batch_id),
                         &token_manager,
                         &error_reporter,
                         &config,
@@ -168,10 +185,24 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         }
     }
 
-    // Step 4: Complete batch
+    // Step 4: Complete or fail batch on server
+    let token = token_manager.get_valid_token().await?;
+    if batch.failed_count > 0 {
+        // Mark batch as failed if any files failed
+        if let Err(e) = batch_client.fail_batch(&server_batch_id, &token, &config).await {
+            warn!(error = %e, "Failed to mark batch as failed on server");
+        }
+    } else {
+        // Mark batch as completed
+        if let Err(e) = batch_client.complete_batch(&server_batch_id, &token, &config).await {
+            warn!(error = %e, "Failed to mark batch as completed on server");
+        }
+    }
+
     batch.status = BatchStatus::Completed;
     info!(
         batch_id = %batch.batch_id,
+        server_batch_id = %server_batch_id,
         processed = batch.processed_count,
         failed = batch.failed_count,
         "Batch processing complete"
@@ -183,6 +214,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
 /// Process a single DBF file through the complete pipeline
 async fn process_single_file(
     dbf_file: &crate::models::DbfFile,
+    server_batch_id: &str,
     config: &Config,
     token_manager: &Arc<TokenManager>,
     _error_reporter: &ErrorReporter,
@@ -194,9 +226,9 @@ async fn process_single_file(
     let compressed_filename = dbf_file.generate_compressed_filename();
     let gzip_path = compress_csv(csv_path.clone(), compressed_filename.clone())?;
 
-    // Step 3: Upload compressed file
+    // Step 3: Upload compressed file with batch ID
     let token = token_manager.get_valid_token().await?;
-    upload_file(gzip_path, compressed_filename, &token, config).await?;
+    upload_file(gzip_path, compressed_filename, server_batch_id, &token, config).await?;
 
     // Step 4: Cleanup - delete CSV file (keep source DBF, delete gzip after upload)
     cleanup_intermediate_files(&csv_path)?;
@@ -242,6 +274,7 @@ fn is_file_locked(error: &ProcessingError) -> bool {
 async fn report_processing_error(
     file_path: &std::path::Path,
     error: &ProcessingError,
+    batch_id: Option<&str>,
     token_manager: &Arc<TokenManager>,
     error_reporter: &ErrorReporter,
     config: &Config,
@@ -258,7 +291,7 @@ async fn report_processing_error(
 
     // Try to send error report to server
     match error_reporter
-        .send_error_report(&error_report, token.as_ref(), config)
+        .send_error_report(&error_report, batch_id, token.as_ref(), config)
         .await
     {
         Ok(_) => {

@@ -10,11 +10,11 @@ pub struct ErrorReporter {
 }
 
 impl ErrorReporter {
-    /// Create a new error reporter
-    pub fn new() -> Result<Self> {
+    /// Create a new error reporter with https_only setting from config
+    pub fn new(https_only: bool) -> Result<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
-            .https_only(true)
+            .https_only(https_only)
             .build()
             .map_err(|e| {
                 ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
@@ -29,10 +29,16 @@ impl ErrorReporter {
     pub async fn send_error_report(
         &self,
         error_report: &ErrorReport,
+        batch_id: Option<&str>,
         token: Option<&JwtToken>,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/errors/report", config.api.base_url);
+        // Use batch-specific endpoint if batch_id provided, otherwise standalone
+        let url = if let Some(bid) = batch_id {
+            format!("{}/api/dfc/error/{}", config.api.base_url, bid)
+        } else {
+            format!("{}/api/dfc/error", config.api.base_url)
+        };
 
         // Build the request
         let mut request = self.client.post(&url).json(error_report);
@@ -63,7 +69,7 @@ impl ErrorReporter {
 
 impl Default for ErrorReporter {
     fn default() -> Self {
-        Self::new().expect("Failed to create error reporter")
+        Self::new(true).expect("Failed to create error reporter")
     }
 }
 
@@ -73,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_error_reporter_creation() {
-        let reporter = ErrorReporter::new();
+        let reporter = ErrorReporter::new(true);
         assert!(reporter.is_ok());
     }
 

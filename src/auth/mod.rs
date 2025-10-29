@@ -74,7 +74,7 @@ impl AuthClient {
 
     /// Retrieve a JWT token from the server
     pub async fn get_token(&self) -> Result<JwtToken> {
-        let url = format!("{}/auth/token", self.base_url);
+        let url = format!("{}/api/v1/auth/token", self.base_url);
 
         // Create Basic auth header
         let credentials = format!("{}:{}", self.username, self.password);

@@ -1,26 +1,23 @@
 // Error Report model for data_exporter
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorReport {
-    /// Name/path of file that caused error
-    pub filename: String,
-
-    /// Classification of error
+    /// Classification of error (maps to API 'type' field)
+    #[serde(rename = "type")]
     pub error_type: String,
 
     /// Human-readable error description
     pub message: String,
 
-    /// When error occurred (ISO 8601 format)
-    pub timestamp: String,
-
-    /// Version of data exporter service
-    pub client_version: String,
+    /// Optional additional error context
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<HashMap<String, serde_json::Value>>,
 }
 
 impl ErrorReport {
-    /// Create a new error report
+    /// Create a new error report with metadata
     pub fn new(
         filename: String,
         error_type: String,
@@ -28,16 +25,21 @@ impl ErrorReport {
         client_version: String,
     ) -> Self {
         let timestamp = chrono::Utc::now().to_rfc3339();
+
+        // Build metadata with all context info
+        let mut metadata = HashMap::new();
+        metadata.insert("filename".to_string(), serde_json::Value::String(filename));
+        metadata.insert("clientVersion".to_string(), serde_json::Value::String(client_version));
+        metadata.insert("timestamp".to_string(), serde_json::Value::String(timestamp));
+
         Self {
-            filename,
             error_type,
             message,
-            timestamp,
-            client_version,
+            metadata: Some(metadata),
         }
     }
 
-    /// Truncate message to maximum length (2000 characters as recommended)
+    /// Truncate message to maximum length (1000 characters per API spec)
     pub fn truncate_message(&mut self, max_len: usize) {
         if self.message.len() > max_len {
             self.message.truncate(max_len);
@@ -59,11 +61,14 @@ mod tests {
             "1.0.0".to_string(),
         );
 
-        assert_eq!(report.filename, "test.dbf");
         assert_eq!(report.error_type, "FileReadError");
         assert_eq!(report.message, "Failed to read file");
-        assert_eq!(report.client_version, "1.0.0");
-        assert!(!report.timestamp.is_empty());
+        assert!(report.metadata.is_some());
+
+        let metadata = report.metadata.unwrap();
+        assert_eq!(metadata.get("filename").unwrap().as_str().unwrap(), "test.dbf");
+        assert_eq!(metadata.get("clientVersion").unwrap().as_str().unwrap(), "1.0.0");
+        assert!(metadata.contains_key("timestamp"));
     }
 
     #[test]
@@ -82,16 +87,18 @@ mod tests {
 
     #[test]
     fn test_error_report_serialization() {
+        let mut metadata = HashMap::new();
+        metadata.insert("filename".to_string(), serde_json::Value::String("test.dbf".to_string()));
+
         let report = ErrorReport {
-            filename: "test.dbf".to_string(),
             error_type: "FileReadError".to_string(),
             message: "Failed to read file".to_string(),
-            timestamp: "2025-10-05T14:30:00Z".to_string(),
-            client_version: "1.0.0".to_string(),
+            metadata: Some(metadata),
         };
 
         let json = serde_json::to_string(&report).unwrap();
-        assert!(json.contains("\"filename\":\"test.dbf\""));
-        assert!(json.contains("\"error_type\":\"FileReadError\""));
+        assert!(json.contains("\"type\":\"FileReadError\""));
+        assert!(json.contains("\"message\":\"Failed to read file\""));
+        assert!(json.contains("\"metadata\""));
     }
 }

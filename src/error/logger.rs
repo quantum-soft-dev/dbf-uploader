@@ -48,15 +48,37 @@ pub fn log_error_locally(
             )))
         })?;
 
+    // Extract metadata
+    let filename = error_report
+        .metadata
+        .as_ref()
+        .and_then(|m| m.get("filename"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let client_version = error_report
+        .metadata
+        .as_ref()
+        .and_then(|m| m.get("clientVersion"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let timestamp = error_report
+        .metadata
+        .as_ref()
+        .and_then(|m| m.get("timestamp"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
     // Format error report entry
     let log_entry = format!(
         "[{}] ERROR: {}\n  Filename: {}\n  Error Type: {}\n  Message: {}\n  Client Version: {}\n\n",
-        error_report.timestamp,
+        timestamp,
         fallback_reason,
-        error_report.filename,
+        filename,
         error_report.error_type,
         error_report.message,
-        error_report.client_version
+        client_version
     );
 
     // Write to file

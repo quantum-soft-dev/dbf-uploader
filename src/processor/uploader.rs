@@ -14,6 +14,7 @@ use tracing::{debug, warn};
 /// # Arguments
 /// * `gzip_path` - Path to the gzip file to upload
 /// * `filename` - Filename to use in the upload (should include subdirectory encoding)
+/// * `batch_id` - Batch ID from server
 /// * `token` - JWT token for authentication
 /// * `config` - Configuration containing API base URL
 ///
@@ -22,15 +23,16 @@ use tracing::{debug, warn};
 pub async fn upload_file(
     gzip_path: PathBuf,
     filename: String,
+    batch_id: &str,
     token: &JwtToken,
     config: &Config,
 ) -> Result<()> {
-    debug!("Uploading file: {} as {}", gzip_path.display(), filename);
+    debug!("Uploading file: {} as {} for batch {}", gzip_path.display(), filename, batch_id);
 
     // Create HTTP client
     let client = Client::builder()
         .timeout(Duration::from_secs(300)) // 5 minute timeout for large files
-        .https_only(true)
+        .https_only(config.api.https_only)
         .build()
         .map_err(|e| {
             ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
@@ -47,7 +49,7 @@ pub async fn upload_file(
         .map_err(ProcessingError::FileReadError)?;
 
     // Try upload with retries
-    upload_with_retry(&client, &buffer, &filename, token, config, 3).await
+    upload_with_retry(&client, &buffer, &filename, batch_id, token, config, 3).await
 }
 
 /// Upload with retry logic for transient failures
@@ -55,11 +57,12 @@ async fn upload_with_retry(
     client: &Client,
     file_data: &[u8],
     filename: &str,
+    batch_id: &str,
     token: &JwtToken,
     config: &Config,
     max_retries: u32,
 ) -> Result<()> {
-    let url = format!("{}/api/files/upload", config.api.base_url);
+    let url = format!("{}/api/dfc/batch/{}/upload", config.api.base_url, batch_id);
 
     for attempt in 1..=max_retries {
         match try_upload(client, file_data, filename, token, &url).await {

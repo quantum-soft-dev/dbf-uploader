@@ -112,12 +112,19 @@ fn run_service_impl() -> Result<()> {
     // Load configuration
     let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
     let _ = writeln!(log_file, "[{}] Loading config from: {}", chrono::Utc::now(), config_path.display());
-    let config = Config::from_file(&config_path).map_err(|e| {
-        crate::error::ProcessingError::ConfigurationError(format!(
-            "Failed to load config: {}",
-            e
-        ))
-    })?;
+    let config = match Config::from_file(&config_path) {
+        Ok(cfg) => {
+            let _ = writeln!(log_file, "[{}] Config loaded successfully", chrono::Utc::now());
+            cfg
+        }
+        Err(e) => {
+            let _ = writeln!(log_file, "[{}] ERROR: Failed to load config: {}", chrono::Utc::now(), e);
+            return Err(crate::error::ProcessingError::ConfigurationError(format!(
+                "Failed to load config: {}",
+                e
+            )));
+        }
+    };
 
     // Create scheduler
     let scheduler = Arc::new(Mutex::new(None::<BatchScheduler>));
@@ -140,60 +147,108 @@ fn run_service_impl() -> Result<()> {
     };
 
     // Register service control handler
-    let status_handle = service_control_handler::register(SERVICE_NAME, event_handler)
-        .map_err(|e| {
-            crate::error::ProcessingError::ConfigurationError(format!(
+    let _ = writeln!(log_file, "[{}] Registering service control handler", chrono::Utc::now());
+    let status_handle = match service_control_handler::register(SERVICE_NAME, event_handler) {
+        Ok(handle) => {
+            let _ = writeln!(log_file, "[{}] Service control handler registered", chrono::Utc::now());
+            handle
+        }
+        Err(e) => {
+            let _ = writeln!(log_file, "[{}] ERROR: Failed to register service control handler: {}", chrono::Utc::now(), e);
+            return Err(crate::error::ProcessingError::ConfigurationError(format!(
                 "Failed to register service control handler: {}",
                 e
-            ))
-        })?;
+            )));
+        }
+    };
 
     // Tell Windows we're running
-    status_handle
-        .set_service_status(ServiceStatus {
-            service_type: SERVICE_TYPE,
-            current_state: ServiceState::Running,
-            controls_accepted: ServiceControlAccept::STOP,
-            exit_code: ServiceExitCode::Win32(0),
-            checkpoint: 0,
-            wait_hint: Duration::default(),
-            process_id: None,
-        })
-        .map_err(|e| {
-            crate::error::ProcessingError::ConfigurationError(format!(
-                "Failed to set service status to running: {}",
-                e
-            ))
-        })?;
+    let _ = writeln!(log_file, "[{}] Setting service status to RUNNING", chrono::Utc::now());
+    if let Err(e) = status_handle.set_service_status(ServiceStatus {
+        service_type: SERVICE_TYPE,
+        current_state: ServiceState::Running,
+        controls_accepted: ServiceControlAccept::STOP,
+        exit_code: ServiceExitCode::Win32(0),
+        checkpoint: 0,
+        wait_hint: Duration::default(),
+        process_id: None,
+    }) {
+        let _ = writeln!(log_file, "[{}] ERROR: Failed to set service status to running: {}", chrono::Utc::now(), e);
+        return Err(crate::error::ProcessingError::ConfigurationError(format!(
+            "Failed to set service status to running: {}",
+            e
+        )));
+    }
+    let _ = writeln!(log_file, "[{}] Service status set to RUNNING", chrono::Utc::now());
 
     info!("Service is running");
 
     // Create and start the scheduler
-    let runtime = tokio::runtime::Runtime::new().map_err(|e| {
-        crate::error::ProcessingError::ConfigurationError(format!(
-            "Failed to create tokio runtime: {}",
-            e
-        ))
-    })?;
+    let _ = writeln!(log_file, "[{}] Creating tokio runtime", chrono::Utc::now());
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(rt) => {
+            let _ = writeln!(log_file, "[{}] Tokio runtime created", chrono::Utc::now());
+            rt
+        }
+        Err(e) => {
+            let _ = writeln!(log_file, "[{}] ERROR: Failed to create tokio runtime: {}", chrono::Utc::now(), e);
+            return Err(crate::error::ProcessingError::ConfigurationError(format!(
+                "Failed to create tokio runtime: {}",
+                e
+            )));
+        }
+    };
+
+    let _ = writeln!(log_file, "[{}] Creating BatchScheduler", chrono::Utc::now());
 
     runtime.block_on(async {
         match BatchScheduler::new(config).await {
             Ok(mut sched) => {
+                let _ = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(r"C:\Program Files\data-exporter\service.log")
+                    .and_then(|mut f| writeln!(f, "[{}] Scheduler created successfully", chrono::Utc::now()));
                 info!("Scheduler created successfully");
-                *scheduler.lock().unwrap() = Some(sched);
 
-                // Keep the service running
-                loop {
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                // Start the scheduler
+                match sched.start().await {
+                    Ok(_) => {
+                        let _ = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(r"C:\Program Files\data-exporter\service.log")
+                            .and_then(|mut f| writeln!(f, "[{}] Scheduler started successfully", chrono::Utc::now()));
+                        info!("Scheduler started successfully");
+                        *scheduler.lock().unwrap() = Some(sched);
 
-                    // Check if we should stop
-                    if scheduler.lock().unwrap().is_none() {
-                        info!("Scheduler stopped, exiting service");
-                        break;
+                        // Keep the service running
+                        loop {
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+
+                            // Check if we should stop
+                            if scheduler.lock().unwrap().is_none() {
+                                info!("Scheduler stopped, exiting service");
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(r"C:\Program Files\data-exporter\service.log")
+                            .and_then(|mut f| writeln!(f, "[{}] ERROR: Failed to start scheduler: {}", chrono::Utc::now(), e));
+                        error!("Failed to start scheduler: {}", e);
                     }
                 }
             }
             Err(e) => {
+                let _ = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(r"C:\Program Files\data-exporter\service.log")
+                    .and_then(|mut f| writeln!(f, "[{}] ERROR: Failed to create scheduler: {}", chrono::Utc::now(), e));
                 error!("Failed to create scheduler: {}", e);
             }
         }
