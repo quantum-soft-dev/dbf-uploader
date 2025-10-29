@@ -230,9 +230,8 @@ async fn process_single_file(
     let token = token_manager.get_valid_token().await?;
     upload_file(gzip_path, compressed_filename, server_batch_id, &token, config).await?;
 
-    // Step 4: Cleanup - delete CSV file, move DBF to processed folder
+    // Step 4: Cleanup - delete CSV file (keep source DBF, delete gzip after upload)
     cleanup_intermediate_files(&csv_path)?;
-    move_processed_file(&dbf_file.path, &config.src.source_dir)?;
 
     Ok(())
 }
@@ -253,51 +252,6 @@ fn cleanup_intermediate_files(csv_path: &PathBuf) -> Result<()> {
                 "Failed to delete CSV file, continuing anyway"
             );
             // Don't fail the batch just because cleanup failed
-            Ok(())
-        }
-    }
-}
-
-/// Move processed DBF file to 'processed' subdirectory
-fn move_processed_file(dbf_path: &PathBuf, source_dir: &PathBuf) -> Result<()> {
-    // Create 'processed' subdirectory if it doesn't exist
-    let processed_dir = source_dir.join("processed");
-    if !processed_dir.exists() {
-        std::fs::create_dir_all(&processed_dir).map_err(|e| {
-            ProcessingError::FileReadError(std::io::Error::other(format!(
-                "Failed to create processed directory: {}",
-                e
-            )))
-        })?;
-        debug!(dir = %processed_dir.display(), "Created processed directory");
-    }
-
-    // Get filename
-    let filename = dbf_path.file_name().ok_or_else(|| {
-        ProcessingError::FileReadError(std::io::Error::other("Invalid file path"))
-    })?;
-
-    // Build destination path
-    let dest_path = processed_dir.join(filename);
-
-    // Move file (rename if on same filesystem, copy+delete otherwise)
-    match std::fs::rename(dbf_path, &dest_path) {
-        Ok(_) => {
-            info!(
-                from = %dbf_path.display(),
-                to = %dest_path.display(),
-                "Moved processed file"
-            );
-            Ok(())
-        }
-        Err(e) => {
-            warn!(
-                from = %dbf_path.display(),
-                to = %dest_path.display(),
-                error = %e,
-                "Failed to move processed file, continuing anyway"
-            );
-            // Don't fail the batch just because moving failed
             Ok(())
         }
     }
