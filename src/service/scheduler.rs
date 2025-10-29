@@ -5,15 +5,16 @@ use crate::error::{ProcessingError, Result};
 use crate::models::Config;
 use crate::processor::run_batch;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct BatchScheduler {
     scheduler: JobScheduler,
     config: Arc<RwLock<Config>>,
     token_manager: Arc<TokenManager>,
     config_watcher: Option<ConfigWatcher>,
+    batch_lock: Arc<Mutex<bool>>, // Lock to prevent concurrent batch execution
 }
 
 impl BatchScheduler {
@@ -25,12 +26,14 @@ impl BatchScheduler {
 
         let token_manager = Arc::new(TokenManager::new(&config)?);
         let config_arc = Arc::new(RwLock::new(config));
+        let batch_lock = Arc::new(Mutex::new(false)); // false = not running
 
         Ok(Self {
             scheduler,
             config: config_arc,
             token_manager,
             config_watcher: None,
+            batch_lock,
         })
     }
 
@@ -44,12 +47,26 @@ impl BatchScheduler {
         // Create the batch processing job
         let config_arc = Arc::clone(&self.config);
         let token_manager = Arc::clone(&self.token_manager);
+        let batch_lock = Arc::clone(&self.batch_lock);
 
         let job = Job::new_async(crontab.as_str(), move |_uuid, _l| {
             let config_arc = Arc::clone(&config_arc);
             let token_manager = Arc::clone(&token_manager);
+            let batch_lock = Arc::clone(&batch_lock);
 
             Box::pin(async move {
+                // Try to acquire lock - if already running, skip this execution
+                let mut is_running = batch_lock.lock().await;
+
+                if *is_running {
+                    warn!("Batch is already running, skipping this scheduled execution. Waiting for previous batch to complete.");
+                    return;
+                }
+
+                // Mark as running
+                *is_running = true;
+                drop(is_running); // Release lock while batch runs
+
                 // Reload config at start of each batch (respects config file changes)
                 let current_config = {
                     let config_guard = config_arc.read().await;
@@ -71,6 +88,10 @@ impl BatchScheduler {
                         error!(error = %e, "Scheduled batch failed");
                     }
                 }
+
+                // Mark as not running
+                let mut is_running = batch_lock.lock().await;
+                *is_running = false;
             })
         })
         .map_err(|e| {
