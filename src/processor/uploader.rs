@@ -136,7 +136,7 @@ async fn try_upload(
         .mime_str("application/gzip")
         .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
 
-    let form = multipart::Form::new().part("file", part);
+    let form = multipart::Form::new().part("files", part);
 
     // Send request
     let response = client
