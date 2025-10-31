@@ -73,19 +73,34 @@ impl BatchScheduler {
                     config_guard.clone()
                 };
 
-                info!("Scheduled batch starting");
+                info!("========================================");
+                info!("Scheduler woke up - starting batch execution");
+                info!("Crontab: {}", current_config.scheduler.crontab);
+                info!("Source: {}", current_config.src.source_dir.display());
+                info!("========================================");
+
+                let start_time = std::time::Instant::now();
 
                 match run_batch(current_config, token_manager).await {
                     Ok(batch) => {
-                        info!(
-                            batch_id = %batch.batch_id,
-                            processed = batch.processed_count,
-                            failed = batch.failed_count,
-                            "Scheduled batch completed successfully"
-                        );
+                        let duration = start_time.elapsed();
+                        info!("========================================");
+                        info!("BATCH COMPLETED SUCCESSFULLY");
+                        info!("Batch ID: {}", batch.batch_id);
+                        info!("Files processed: {}", batch.processed_count);
+                        info!("Files failed: {}", batch.failed_count);
+                        info!("Files deferred (locked): {}", batch.locked_files.len());
+                        info!("Total files scanned: {}", batch.total_files());
+                        info!("Duration: {:.2}s", duration.as_secs_f64());
+                        info!("========================================");
                     }
                     Err(e) => {
-                        error!(error = %e, "Scheduled batch failed");
+                        let duration = start_time.elapsed();
+                        error!("========================================");
+                        error!("BATCH FAILED");
+                        error!("Error: {}", e);
+                        error!("Duration: {:.2}s", duration.as_secs_f64());
+                        error!("========================================");
                     }
                 }
 

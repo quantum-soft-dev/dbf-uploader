@@ -195,7 +195,7 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
             service_name,
             &bin_path,
             &format!("DisplayName={}", display_name),
-            "start=demand",
+            "start=auto",  // Changed from 'demand' to 'auto' for automatic startup
             "type=own",
         ])
         .output()
@@ -223,6 +223,26 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
     if !desc_output.status.success() {
         // Non-critical, just ignore
     }
+
+    // Start the service immediately
+    info!("Starting service...");
+    let start_output = Command::new("sc.exe")
+        .args(["start", service_name])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to start service: {}", e))
+        })?;
+
+    if !start_output.status.success() {
+        let stderr = String::from_utf8_lossy(&start_output.stderr);
+        let stdout = String::from_utf8_lossy(&start_output.stdout);
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to start service: stdout={}, stderr={}",
+            stdout, stderr
+        )));
+    }
+
+    info!("Service started successfully");
 
     Ok(())
 }

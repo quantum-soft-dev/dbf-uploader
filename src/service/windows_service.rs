@@ -91,57 +91,46 @@ fn service_main(_arguments: Vec<OsString>) {
 
 #[cfg(windows)]
 fn run_service_impl() -> Result<()> {
-    use std::fs::OpenOptions;
+    use tracing_appender::rolling::{RollingFileAppender, Rotation};
 
-    // Initialize tracing with file logging
-    let log_path = PathBuf::from(r"C:\Program Files\data-exporter\service.log");
+    // Initialize tracing with daily log rotation
+    // Logs will be in C:\Program Files\data-exporter\logs\
+    // Old logs will be automatically renamed with date suffix
+    let log_dir = PathBuf::from(r"C:\Program Files\data-exporter\logs");
 
-    // Create a file appender for the log file
-    let _file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .unwrap_or_else(|e| {
-            let _ = std::fs::write(
-                r"C:\Windows\Temp\data_exporter_log_error.txt",
-                format!("Failed to open log file: {}\n", e),
-            );
-            std::process::exit(1);
-        });
-
-    // Setup tracing subscriber with file output
-    use tracing_subscriber::fmt::writer::MakeWriter;
-
-    // Create a writer that clones the file handle for each write
-    struct FileWriter {
-        path: PathBuf,
+    // Create logs directory if it doesn't exist
+    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+        let _ = std::fs::write(
+            r"C:\Windows\Temp\data_exporter_log_error.txt",
+            format!("Failed to create log directory: {}\n", e),
+        );
+        std::process::exit(1);
     }
 
-    impl<'a> MakeWriter<'a> for FileWriter {
-        type Writer = std::fs::File;
+    // Create a daily rotating file appender
+    // - Rotation::DAILY: Creates new log file at midnight
+    // - Old files are named like: service.log.2025-10-31
+    let file_appender = RollingFileAppender::new(
+        Rotation::DAILY,
+        &log_dir,
+        "service.log",
+    );
 
-        fn make_writer(&'a self) -> Self::Writer {
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&self.path)
-                .expect("Failed to open log file")
-        }
-    }
-
-    let file_writer = FileWriter { path: log_path.clone() };
-
+    // Setup tracing subscriber with rotating file output
     tracing_subscriber::fmt()
-        .with_writer(file_writer)
+        .with_writer(file_appender)
         .with_ansi(false)
         .with_target(true)
-        .with_thread_ids(true)
+        .with_thread_ids(false)
         .with_file(true)
         .with_line_number(true)
         .with_level(true)
         .init();
 
-    info!("Starting Data Exporter Service");
+    info!("========================================");
+    info!("Data Exporter Service Starting");
+    info!("Version: {}", env!("CARGO_PKG_VERSION"));
+    info!("========================================");
 
     // Load configuration
     let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
