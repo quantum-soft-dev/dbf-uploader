@@ -65,19 +65,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize structured logging with tracing
+    // Initialize simple logging for CLI (no technical details)
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt()
         .with_env_filter(env_filter)
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_file(true)
-        .with_line_number(true)
+        .with_target(false)        // Hide module paths
+        .with_thread_ids(false)    // Hide thread IDs
+        .with_file(false)          // Hide file names
+        .with_line_number(false)   // Hide line numbers
+        .with_level(true)          // Keep log level (INFO, ERROR, etc.)
+        .with_ansi(true)           // Keep colors for better readability
+        .without_time()            // Hide timestamps
         .init();
-
-    tracing::info!("Data Exporter Service starting");
 
     // Parse CLI arguments
     let cli = Cli::parse();
@@ -102,12 +103,8 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle result
     match result {
-        Ok(_) => {
-            tracing::info!("Command completed successfully");
-            Ok(())
-        }
+        Ok(_) => Ok(()),
         Err(e) => {
-            tracing::error!(error = %e, "Command failed");
             eprintln!("Error: {}", e);
             std::process::exit(1);
         }

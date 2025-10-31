@@ -5,7 +5,7 @@ use crate::models::Config;
 #[cfg(target_os = "windows")]
 use std::path::Path;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::info;
 
 /// Install the data exporter service
 pub async fn install(
@@ -18,10 +18,7 @@ pub async fn install(
     encoding: String,
     https_only: bool,
 ) -> Result<()> {
-    info!("Starting installation");
-
-    // Step 1: Validate inputs
-    info!("Validating installation parameters");
+    info!("Installing Data Exporter Service...");
 
     // Validate HTTPS/HTTP consistency
     if https_only && !api_url.starts_with("https://") {
@@ -44,17 +41,17 @@ pub async fn install(
         )));
     }
 
-    // Step 2: Create configuration
+    // Create configuration
     let config = create_config(account, username, password, source_dir, crontab, api_url, encoding, https_only)?;
 
-    // Step 3: Validate credentials by requesting token
-    info!("Validating credentials with API");
+    // Validate credentials by requesting token
+    info!("Validating credentials...");
     validate_credentials(&config).await?;
 
-    // Step 4: Install service (platform-specific)
+    // Install service (platform-specific)
     install_service(&config)?;
 
-    info!("Installation complete");
+    info!("Installation completed successfully");
     Ok(())
 }
 
@@ -97,11 +94,10 @@ async fn validate_credentials(config: &Config) -> Result<()> {
 
     match auth_client.get_token().await {
         Ok(_token) => {
-            info!("Credentials validated successfully");
+            info!("Credentials validated");
             Ok(())
         }
         Err(e) => {
-            error!(error = %e, "Credential validation failed");
             Err(e)
         }
     }
@@ -112,7 +108,7 @@ async fn validate_credentials(config: &Config) -> Result<()> {
 fn install_service(config: &Config) -> Result<()> {
     use std::fs;
 
-    info!("Installing Windows service");
+    info!("Registering Windows service...");
 
     // Create installation directory
     let install_dir = PathBuf::from(r"C:\Program Files\data-exporter");
@@ -140,7 +136,7 @@ fn install_service(config: &Config) -> Result<()> {
     // Register Windows service
     register_windows_service(&target_exe)?;
 
-    info!("Windows service installed successfully");
+    info!("Service registered successfully");
     Ok(())
 }
 
@@ -182,8 +178,6 @@ fn set_config_permissions(config_path: &Path) -> Result<()> {
 fn register_windows_service(exe_path: &Path) -> Result<()> {
     use std::process::Command;
 
-    info!("Registering Windows service for {}", exe_path.display());
-
     let service_name = "data-exporter";
     let display_name = "Data Exporter Service";
     let description = "Automatically exports DBF files to CSV, compresses to gzip, and uploads to cloud server";
@@ -194,9 +188,6 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
     // - Path should be without quotes for sc.exe (it adds them internally if needed)
     let exe_path_str = exe_path.to_string_lossy().to_string();
     let bin_path = format!("binPath={}", exe_path_str);  // No space after = to avoid ERROR 87
-
-    info!("Creating service with binPath: '{}'", bin_path);
-    info!("Exe path: '{}'", exe_path_str);
 
     let output = Command::new("sc.exe")
         .args([
@@ -230,10 +221,9 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
         })?;
 
     if !desc_output.status.success() {
-        error!("Failed to set service description (non-critical)");
+        // Non-critical, just ignore
     }
 
-    info!("Windows service registered successfully");
     Ok(())
 }
 

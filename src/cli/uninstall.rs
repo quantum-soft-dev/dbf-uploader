@@ -5,12 +5,12 @@ use tracing::info;
 
 /// Uninstall the data exporter service
 pub async fn uninstall() -> Result<()> {
-    info!("Starting uninstallation");
+    info!("Uninstalling Data Exporter Service...");
 
     // Platform-specific uninstallation
     uninstall_service()?;
 
-    info!("Uninstallation complete");
+    info!("Uninstallation completed successfully");
     Ok(())
 }
 
@@ -19,12 +19,13 @@ pub async fn uninstall() -> Result<()> {
 fn uninstall_service() -> Result<()> {
     use std::fs;
 
-    info!("Uninstalling Windows service");
+    info!("Stopping and removing service...");
 
     // Step 1: Unregister Windows service
     unregister_windows_service()?;
 
     // Step 2: Delete installation directory
+    info!("Removing installation files...");
     let install_dir = PathBuf::from(r"C:\Program Files\data-exporter");
 
     if install_dir.exists() {
@@ -34,12 +35,8 @@ fn uninstall_service() -> Result<()> {
                 e
             ))
         })?;
-        info!("Installation directory removed");
-    } else {
-        info!("Installation directory not found, skipping removal");
     }
 
-    info!("Windows service uninstalled successfully");
     Ok(())
 }
 
@@ -74,23 +71,15 @@ fn uninstall_service() -> Result<()> {
 fn unregister_windows_service() -> Result<()> {
     use std::process::Command;
 
-    info!("Unregistering Windows service");
-
     let service_name = "data-exporter";
 
     // First, try to stop the service if it's running
-    let stop_output = Command::new("sc.exe")
+    let _stop_output = Command::new("sc.exe")
         .args(["stop", service_name])
         .output()
         .map_err(|e| {
             ProcessingError::ConfigurationError(format!("Failed to execute sc.exe stop: {}", e))
         })?;
-
-    if !stop_output.status.success() {
-        let stderr = String::from_utf8_lossy(&stop_output.stderr);
-        info!("Service stop command returned error (may not be running): {}", stderr);
-        // Continue anyway - service might not be running
-    }
 
     // Delete the service
     let delete_output = Command::new("sc.exe")
@@ -106,7 +95,6 @@ fn unregister_windows_service() -> Result<()> {
 
         // Check if service doesn't exist (not an error)
         if stderr.contains("1060") || stdout.contains("does not exist") {
-            info!("Service does not exist, skipping deletion");
             return Ok(());
         }
 
@@ -116,13 +104,9 @@ fn unregister_windows_service() -> Result<()> {
         )));
     }
 
-    info!("Windows service deletion initiated");
-
     // Wait a few seconds for Windows to complete the deletion
-    info!("Waiting for service deletion to complete...");
     std::thread::sleep(std::time::Duration::from_secs(3));
 
-    info!("Windows service unregistered successfully");
     Ok(())
 }
 

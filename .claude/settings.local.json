@@ -11,7 +11,8 @@
       "Bash(gh run view:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(./target/release/data_exporter.exe:*)"
     ],
     "deny": [],
     "ask": []
