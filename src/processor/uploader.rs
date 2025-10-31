@@ -180,6 +180,7 @@ mod tests {
                 source_dir: std::path::PathBuf::from("/tmp"),
             },
             credential: CredentialConfig {
+                account: "testaccount".to_string(),
                 username: "test".to_string(),
                 password: "test".to_string(),
             },
@@ -207,6 +208,7 @@ mod tests {
             let result = upload_file(
                 PathBuf::from("/nonexistent/file.csv.gz"),
                 "test.csv.gz".to_string(),
+                "test-batch-id",
                 &token,
                 &config,
             )

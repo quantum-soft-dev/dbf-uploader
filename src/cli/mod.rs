@@ -20,6 +20,10 @@ pub struct Cli {
 pub enum Commands {
     /// Install the service
     Install {
+        /// Account identifier for uniqueness
+        #[arg(long)]
+        account: String,
+
         /// Username for API authentication
         #[arg(long)]
         username: String,

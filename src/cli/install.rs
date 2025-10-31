@@ -9,6 +9,7 @@ use tracing::{error, info};
 
 /// Install the data exporter service
 pub async fn install(
+    account: String,
     username: String,
     password: String,
     source_dir: String,
@@ -44,7 +45,7 @@ pub async fn install(
     }
 
     // Step 2: Create configuration
-    let config = create_config(username, password, source_dir, crontab, api_url, encoding, https_only)?;
+    let config = create_config(account, username, password, source_dir, crontab, api_url, encoding, https_only)?;
 
     // Step 3: Validate credentials by requesting token
     info!("Validating credentials with API");
@@ -59,6 +60,7 @@ pub async fn install(
 
 /// Create configuration from install parameters
 fn create_config(
+    account: String,
     username: String,
     password: String,
     source_dir: String,
@@ -76,7 +78,7 @@ fn create_config(
         src: SourceConfig {
             source_dir: PathBuf::from(source_dir),
         },
-        credential: CredentialConfig { username, password },
+        credential: CredentialConfig { account, username, password },
         api: ApiConfig {
             base_url: api_url,
             https_only,
@@ -242,6 +244,7 @@ mod tests {
     #[test]
     fn test_create_config() {
         let config = create_config(
+            "testaccount".to_string(),
             "testuser".to_string(),
             "testpass".to_string(),
             "/tmp".to_string(),
@@ -253,7 +256,9 @@ mod tests {
 
         assert!(config.is_ok());
         let config = config.unwrap();
+        assert_eq!(config.credential.account, "testaccount");
         assert_eq!(config.credential.username, "testuser");
+        assert_eq!(config.credential.full_username(), "testaccount_testuser");
         assert_eq!(config.scheduler.crontab, "*/5 * * * *");
         assert!(config.api.https_only);
     }
@@ -261,6 +266,7 @@ mod tests {
     #[test]
     fn test_https_validation() {
         let result = create_config(
+            "testaccount".to_string(),
             "test".to_string(),
             "test".to_string(),
             "/tmp".to_string(),
@@ -275,6 +281,7 @@ mod tests {
     #[test]
     fn test_http_allowed_when_https_only_disabled() {
         let result = create_config(
+            "testaccount".to_string(),
             "test".to_string(),
             "test".to_string(),
             "/tmp".to_string(),

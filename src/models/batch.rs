@@ -92,6 +92,7 @@ mod tests {
                 source_dir: PathBuf::from("/tmp"),
             },
             credential: crate::models::config::CredentialConfig {
+                account: "testaccount".to_string(),
                 username: "test".to_string(),
                 password: "test".to_string(),
             },

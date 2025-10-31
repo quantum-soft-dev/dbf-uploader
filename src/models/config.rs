@@ -26,10 +26,19 @@ pub struct SourceConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CredentialConfig {
+    /// Account identifier (combined with username for uniqueness)
+    pub account: String,
     /// Username for API authentication
     pub username: String,
     /// Password for API authentication
     pub password: String,
+}
+
+impl CredentialConfig {
+    /// Get the full username in format: account_username
+    pub fn full_username(&self) -> String {
+        format!("{}_{}", self.account, self.username)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -107,6 +116,9 @@ impl Config {
         }
 
         // Validate credentials are not empty
+        if self.credential.account.is_empty() {
+            return Err("Account cannot be empty".into());
+        }
         if self.credential.username.is_empty() {
             return Err("Username cannot be empty".into());
         }
@@ -139,6 +151,7 @@ crontab = "*/5 * * * *"
 source_dir = "{}"
 
 [credential]
+account = "test_account"
 username = "test_user"
 password = "test_password"
 
@@ -181,6 +194,7 @@ crontab = "*/5 * * * *"
 source_dir = "{}"
 
 [credential]
+account = "test_account"
 username = "test_user"
 password = "test_password"
 
@@ -218,6 +232,7 @@ crontab = "*/5 * * * *"
 source_dir = "{}"
 
 [credential]
+account = "test_account"
 username = "test_user"
 password = "test_password"
 
@@ -255,6 +270,7 @@ crontab = "*/5 * * * *"
 source_dir = "{}"
 
 [credential]
+account = "test_account"
 username = "test_user"
 password = "test_password"
 

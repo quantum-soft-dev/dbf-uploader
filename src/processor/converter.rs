@@ -197,6 +197,7 @@ mod tests {
                 source_dir: std::path::PathBuf::from("/tmp"),
             },
             credential: CredentialConfig {
+                account: "testaccount".to_string(),
                 username: "test".to_string(),
                 password: "test".to_string(),
             },

@@ -63,7 +63,7 @@ impl AuthClient {
         Ok(Self {
             client,
             base_url: config.api.base_url.clone(),
-            username: config.credential.username.clone(),
+            username: config.credential.full_username(),
             password: config.credential.password.clone(),
         })
     }

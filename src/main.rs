@@ -85,6 +85,7 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     // Execute command
     let result = match cli.command {
         Commands::Install {
+            account,
             username,
             password,
             source_dir,
@@ -94,7 +95,7 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             no_https,
         } => {
             let https_only = !no_https; // Invert the flag
-            install(username, password, source_dir, crontab, api_url, encoding, https_only).await
+            install(account, username, password, source_dir, crontab, api_url, encoding, https_only).await
         }
         Commands::Uninstall => uninstall().await,
     };
