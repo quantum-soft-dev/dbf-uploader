@@ -1,15 +1,181 @@
 // DBF to CSV converter
 use crate::error::{ProcessingError, Result};
 use crate::models::{Config, DbfFile, Encoding};
+use crate::processor::ProcessingData;
 use csv::Writer;
 use dbase::{FieldValue, Record};
 use encoding_rs::{Encoding as EncodingRs, WINDOWS_1251};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::PathBuf;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
-/// Convert a DBF file to CSV with UTF-8 encoding
+// Maximum size for in-memory CSV (10 MB)
+const MAX_IN_MEMORY_SIZE: usize = 10 * 1024 * 1024;
+
+/// Convert a DBF file to CSV in memory (or temp file if too large)
+/// Returns CSV data either in memory or as a temp file path
+pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<ProcessingData> {
+    debug!("Converting DBF to CSV (in-memory): {}", dbf_file.path.display());
+
+    // Open DBF file
+    let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
+
+    let mut reader = dbase::Reader::new(BufReader::new(file))
+        .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;
+
+    // Get field names from DBF header
+    let field_names: Vec<String> = reader
+        .fields()
+        .iter()
+        .map(|f| f.name().to_string())
+        .collect();
+
+    // Create CSV writer to in-memory buffer
+    let mut csv_buffer = Vec::new();
+    let mut csv_writer = Writer::from_writer(&mut csv_buffer);
+
+    // Write CSV header
+    csv_writer.write_record(&field_names).map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to write CSV header: {}", e))
+    })?;
+
+    // Determine encoding to use for text fields
+    let encoding = get_encoding_for_dbf(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding);
+
+    // Process each record
+    let mut record_count = 0;
+    let mut estimated_size = 0usize;
+
+    for result in reader.iter_records() {
+        match result {
+            Ok(record) => {
+                let csv_record = convert_record_to_csv(&record, &field_names, encoding)?;
+
+                // Estimate size before writing
+                let record_size: usize = csv_record.iter().map(|s| s.len() + 1).sum(); // +1 for delimiter/newline
+                estimated_size += record_size;
+
+                csv_writer.write_record(&csv_record).map_err(|e| {
+                    ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))
+                })?;
+                record_count += 1;
+
+                // Check if estimated buffer size is getting too large
+                if estimated_size > MAX_IN_MEMORY_SIZE {
+                    info!(
+                        file = %dbf_file.path.display(),
+                        size_mb = estimated_size / 1024 / 1024,
+                        "CSV data exceeds {} MB, switching to temp file",
+                        MAX_IN_MEMORY_SIZE / 1024 / 1024
+                    );
+
+                    // Flush and drop writer before moving buffer
+                    csv_writer.flush().map_err(|e| {
+                        ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
+                    })?;
+                    drop(csv_writer);
+
+                    // Fallback to temp file
+                    return write_to_temp_file(dbf_file, reader, &field_names, encoding, record_count, csv_buffer);
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Skipping corrupted record in {}: {}",
+                    dbf_file.path.display(),
+                    e
+                );
+                continue;
+            }
+        }
+    }
+
+    // Flush and finish writing
+    csv_writer.flush().map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
+    })?;
+
+    // Drop writer to release mutable borrow
+    drop(csv_writer);
+
+    debug!(
+        "Converted {} records from DBF to CSV in memory ({} KB)",
+        record_count,
+        csv_buffer.len() / 1024
+    );
+
+    Ok(ProcessingData::InMemory(csv_buffer))
+}
+
+/// Fallback: Write remaining data to temp file when in-memory buffer is too large
+fn write_to_temp_file(
+    dbf_file: &DbfFile,
+    mut reader: dbase::Reader<BufReader<File>>,
+    field_names: &[String],
+    encoding: &'static EncodingRs,
+    mut record_count: usize,
+    existing_buffer: Vec<u8>,
+) -> Result<ProcessingData> {
+    // Create temp file in system temp directory
+    let temp_dir = std::env::temp_dir();
+    let temp_filename = format!("dbf_export_{}.csv", uuid::Uuid::new_v4());
+    let csv_path = temp_dir.join(temp_filename);
+
+    debug!(
+        "Creating temp CSV file: {}",
+        csv_path.display()
+    );
+
+    let csv_file = File::create(&csv_path).map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to create temp CSV file: {}", e))
+    })?;
+
+    let mut buf_writer = BufWriter::new(csv_file);
+
+    // Write existing buffer to file
+    buf_writer.write_all(&existing_buffer).map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to write buffered data to temp file: {}", e))
+    })?;
+
+    let mut csv_writer = Writer::from_writer(buf_writer);
+
+    // Continue processing remaining records
+    for result in reader.iter_records() {
+        match result {
+            Ok(record) => {
+                let csv_record = convert_record_to_csv(&record, field_names, encoding)?;
+                csv_writer.write_record(&csv_record).map_err(|e| {
+                    ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))
+                })?;
+                record_count += 1;
+            }
+            Err(e) => {
+                warn!(
+                    "Skipping corrupted record in {}: {}",
+                    dbf_file.path.display(),
+                    e
+                );
+                continue;
+            }
+        }
+    }
+
+    csv_writer.flush().map_err(|e| {
+        ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
+    })?;
+
+    info!(
+        "Converted {} records from DBF to temp CSV file: {} ({} KB)",
+        record_count,
+        csv_path.display(),
+        csv_path.metadata().map(|m| m.len() / 1024).unwrap_or(0)
+    );
+
+    Ok(ProcessingData::TempFile(csv_path))
+}
+
+/// Convert a DBF file to CSV with UTF-8 encoding (legacy function - creates file on disk)
 /// Returns the path to the created CSV file
 pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf> {
     debug!("Converting DBF to CSV: {}", dbf_file.path.display());

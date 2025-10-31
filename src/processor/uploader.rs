@@ -2,6 +2,7 @@
 use crate::auth::JwtToken;
 use crate::error::{ProcessingError, Result};
 use crate::models::Config;
+use crate::processor::ProcessingData;
 use reqwest::{multipart, Client};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -9,7 +10,72 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tracing::{debug, warn};
 
-/// Upload a gzip file to the server
+/// Upload gzip data (from memory or temp file) to the server
+///
+/// # Arguments
+/// * `gzip_data` - Gzip data (in memory or temp file)
+/// * `filename` - Filename to use in the upload (should include subdirectory encoding)
+/// * `batch_id` - Batch ID from server
+/// * `token` - JWT token for authentication
+/// * `config` - Configuration containing API base URL
+///
+/// # Returns
+/// Ok(()) if upload succeeds
+pub async fn upload_data(
+    gzip_data: ProcessingData,
+    filename: String,
+    batch_id: &str,
+    token: &JwtToken,
+    config: &Config,
+) -> Result<()> {
+    // Create HTTP client
+    let client = Client::builder()
+        .timeout(Duration::from_secs(300)) // 5 minute timeout for large files
+        .https_only(config.api.https_only)
+        .build()
+        .map_err(|e| {
+            ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))
+        })?;
+
+    match &gzip_data {
+        ProcessingData::InMemory(gzip_bytes) => {
+            debug!(
+                "Uploading file from memory: {} ({} KB) for batch {}",
+                filename,
+                gzip_bytes.len() / 1024,
+                batch_id
+            );
+
+            // Upload directly from memory
+            upload_with_retry(&client, gzip_bytes, &filename, batch_id, token, config, 3).await
+        }
+        ProcessingData::TempFile(gzip_path) => {
+            debug!(
+                "Uploading file from temp: {} -> {} for batch {}",
+                gzip_path.display(),
+                filename,
+                batch_id
+            );
+
+            // Read temp file into memory for upload
+            let mut file = File::open(gzip_path)
+                .await
+                .map_err(ProcessingError::FileReadError)?;
+
+            let mut buffer = Vec::new();
+            file.read_to_end(&mut buffer)
+                .await
+                .map_err(ProcessingError::FileReadError)?;
+
+            // Upload from memory
+            upload_with_retry(&client, &buffer, &filename, batch_id, token, config, 3).await
+
+            // Temp file will be deleted automatically by Drop when gzip_data goes out of scope
+        }
+    }
+}
+
+/// Upload a gzip file to the server (legacy function - reads from disk)
 ///
 /// # Arguments
 /// * `gzip_path` - Path to the gzip file to upload

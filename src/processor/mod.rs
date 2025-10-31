@@ -2,12 +2,14 @@
 pub mod batch_client;
 pub mod compressor;
 pub mod converter;
+pub mod data;
 pub mod scanner;
 pub mod uploader;
 
 pub use batch_client::BatchClient;
 pub use compressor::compress_csv;
 pub use converter::convert_dbf_to_csv;
+pub use data::ProcessingData;
 pub use scanner::scan_directory;
 pub use uploader::upload_file;
 
@@ -15,7 +17,6 @@ use crate::auth::TokenManager;
 use crate::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
 use crate::models::{Batch, BatchStatus, Config, ErrorReport};
 use std::io::ErrorKind;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
@@ -211,7 +212,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
     Ok(batch)
 }
 
-/// Process a single DBF file through the complete pipeline
+/// Process a single DBF file through the complete pipeline (in-memory)
 async fn process_single_file(
     dbf_file: &crate::models::DbfFile,
     server_batch_id: &str,
@@ -219,43 +220,29 @@ async fn process_single_file(
     token_manager: &Arc<TokenManager>,
     _error_reporter: &ErrorReporter,
 ) -> Result<()> {
-    // Step 1: Convert DBF to CSV
-    let csv_path = convert_dbf_to_csv(dbf_file, config)?;
+    use crate::processor::compressor::compress_csv_memory;
+    use crate::processor::converter::convert_dbf_to_csv_memory;
+    use crate::processor::uploader::upload_data;
 
-    // Step 2: Compress CSV to gzip
+    // Step 1: Convert DBF to CSV (in memory or temp file if too large)
+    let csv_data = convert_dbf_to_csv_memory(dbf_file, config)?;
+
+    // Step 2: Compress CSV to gzip (in memory or temp file)
+    let gzip_data = compress_csv_memory(csv_data)?;
+
+    // Step 3: Upload compressed data with batch ID
     let compressed_filename = dbf_file.generate_compressed_filename();
-    let gzip_path = compress_csv(csv_path.clone(), compressed_filename.clone())?;
-
-    // Step 3: Upload compressed file with batch ID
     let token = token_manager.get_valid_token().await?;
-    upload_file(gzip_path, compressed_filename, server_batch_id, &token, config).await?;
+    upload_data(gzip_data, compressed_filename, server_batch_id, &token, config).await?;
 
-    // Step 4: Cleanup - delete CSV file (keep source DBF, delete gzip after upload)
-    cleanup_intermediate_files(&csv_path)?;
+    // Step 4: Cleanup happens automatically when ProcessingData drops
+    // Temp files (if any) are deleted automatically
 
     Ok(())
 }
 
-/// Cleanup intermediate CSV files after processing
-fn cleanup_intermediate_files(csv_path: &PathBuf) -> Result<()> {
-    debug!(file = %csv_path.display(), "Cleaning up CSV file");
-
-    match std::fs::remove_file(csv_path) {
-        Ok(_) => {
-            debug!(file = %csv_path.display(), "CSV file deleted");
-            Ok(())
-        }
-        Err(e) => {
-            warn!(
-                file = %csv_path.display(),
-                error = %e,
-                "Failed to delete CSV file, continuing anyway"
-            );
-            // Don't fail the batch just because cleanup failed
-            Ok(())
-        }
-    }
-}
+// Note: Cleanup is now automatic via Drop trait in ProcessingData
+// No manual cleanup needed - temp files are deleted when ProcessingData goes out of scope
 
 /// Check if an error is due to a locked file
 fn is_file_locked(error: &ProcessingError) -> bool {

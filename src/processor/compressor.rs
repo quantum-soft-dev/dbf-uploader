@@ -1,5 +1,6 @@
 // CSV to gzip compressor
 use crate::error::{ProcessingError, Result};
+use crate::processor::ProcessingData;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::fs::File;
@@ -7,7 +8,97 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use tracing::debug;
 
-/// Compress a CSV file to gzip format
+/// Compress CSV data to gzip format (in memory or from temp file)
+///
+/// # Arguments
+/// * `csv_data` - CSV data (in memory or temp file)
+///
+/// # Returns
+/// Compressed gzip data (in memory or temp file)
+pub fn compress_csv_memory(csv_data: ProcessingData) -> Result<ProcessingData> {
+    match &csv_data {
+        ProcessingData::InMemory(csv_bytes) => {
+            debug!("Compressing CSV data in memory ({} KB)", csv_bytes.len() / 1024);
+
+            // Compress in memory
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(csv_bytes).map_err(|e| {
+                ProcessingError::CompressionError(format!("Failed to compress CSV data: {}", e))
+            })?;
+
+            let gzip_bytes = encoder.finish().map_err(|e| {
+                ProcessingError::CompressionError(format!("Failed to finalize gzip compression: {}", e))
+            })?;
+
+            debug!(
+                "Compressed {} KB to {} KB in memory (ratio: {:.1}%)",
+                csv_bytes.len() / 1024,
+                gzip_bytes.len() / 1024,
+                (gzip_bytes.len() as f64 / csv_bytes.len() as f64) * 100.0
+            );
+
+            Ok(ProcessingData::InMemory(gzip_bytes))
+        }
+        ProcessingData::TempFile(csv_path) => {
+            debug!("Compressing CSV temp file: {}", csv_path.display());
+
+            // Read from temp file, compress to another temp file
+            let csv_file = File::open(&csv_path).map_err(ProcessingError::FileReadError)?;
+            let mut csv_reader = BufReader::new(csv_file);
+
+            // Create temp output file
+            let temp_dir = std::env::temp_dir();
+            let temp_filename = format!("dbf_export_{}.csv.gz", uuid::Uuid::new_v4());
+            let gzip_path = temp_dir.join(temp_filename);
+
+            let gzip_file = File::create(&gzip_path).map_err(|e| {
+                ProcessingError::CompressionError(format!("Failed to create temp gzip file: {}", e))
+            })?;
+
+            let buf_writer = BufWriter::new(gzip_file);
+            let mut encoder = GzEncoder::new(buf_writer, Compression::default());
+
+            // Read CSV and write to gzip stream
+            let mut buffer = vec![0u8; 8192]; // 8KB buffer
+            let mut total_bytes = 0;
+
+            loop {
+                let bytes_read = csv_reader
+                    .read(&mut buffer)
+                    .map_err(ProcessingError::FileReadError)?;
+
+                if bytes_read == 0 {
+                    break; // EOF
+                }
+
+                encoder.write_all(&buffer[..bytes_read]).map_err(|e| {
+                    ProcessingError::CompressionError(format!("Failed to write to gzip: {}", e))
+                })?;
+
+                total_bytes += bytes_read;
+            }
+
+            // Finish compression and flush
+            encoder.finish().map_err(|e| {
+                ProcessingError::CompressionError(format!("Failed to finalize gzip: {}", e))
+            })?;
+
+            let gzip_size = gzip_path.metadata().map(|m| m.len()).unwrap_or(0);
+
+            debug!(
+                "Compressed {} KB to {} KB in temp file (ratio: {:.1}%)",
+                total_bytes / 1024,
+                gzip_size / 1024,
+                (gzip_size as f64 / total_bytes as f64) * 100.0
+            );
+
+            // CSV temp file will be cleaned up automatically by Drop
+            Ok(ProcessingData::TempFile(gzip_path))
+        }
+    }
+}
+
+/// Compress a CSV file to gzip format (legacy function - creates file on disk)
 ///
 /// # Arguments
 /// * `csv_path` - Path to the CSV file to compress
