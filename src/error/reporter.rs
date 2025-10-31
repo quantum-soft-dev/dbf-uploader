@@ -40,6 +40,13 @@ impl ErrorReporter {
             format!("{}/api/dfc/error", config.api.base_url)
         };
 
+        tracing::debug!(
+            url = %url,
+            error_type = %error_report.error_type,
+            has_metadata = error_report.metadata.is_some(),
+            "Sending error report to server"
+        );
+
         // Build the request
         let mut request = self.client.post(&url).json(error_report);
 
@@ -54,15 +61,33 @@ impl ErrorReporter {
         })?;
 
         // Check response status
-        match response.status().as_u16() {
+        let status = response.status().as_u16();
+
+        match status {
             200 | 201 | 204 => Ok(()),
             401 => Err(ProcessingError::AuthenticationError(
                 "Unauthorized - token may be invalid".to_string(),
             )),
-            status => Err(ProcessingError::NetworkError(format!(
-                "Error report API returned status: {}",
-                status
-            ))),
+            _ => {
+                // Try to get response body for better error diagnostics
+                let error_body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unable to read response body".to_string());
+
+                tracing::error!(
+                    status = status,
+                    url = %url,
+                    response_body = %error_body,
+                    "Error report API returned error"
+                );
+
+                Err(ProcessingError::NetworkError(format!(
+                    "Error report API returned status: {} - {}",
+                    status,
+                    error_body
+                )))
+            }
         }
     }
 }
