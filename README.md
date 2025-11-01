@@ -7,13 +7,14 @@ Windows сервис для автоматического экспорта DBF 
 
 ## 🚀 Возможности
 
-- **Автоматизация**: Экспорт по расписанию (cron)
-- **Обработка**: DBF → CSV (UTF-8) → gzip
+- **Автоматизация**: Экспорт по расписанию (cron), автоматический запуск при старте системы
+- **Обработка**: DBF → CSV (UTF-8) → gzip (в памяти для небольших файлов)
 - **Загрузка**: Multipart upload с JWT аутентификацией
 - **Кодировки**: Автоопределение CP866, Windows-1251, UTF-8
-- **Мониторинг**: Отправка ошибок на сервер + локальное логирование
-- **Надёжность**: Обработка заблокированных файлов, retry логика
-- **Конфигурация**: Hot-reload без перезапуска сервиса
+- **Мониторинг**: Ротация логов, детальные отчёты о выполнении батчей
+- **Надёжность**: Обработка заблокированных файлов, retry логика, автоматическая очистка временных файлов
+- **Производительность**: Обработка в памяти для файлов до 10 МБ, автоматический fallback на временные файлы
+- **Мультиаккаунтность**: Поддержка нескольких аккаунтов через параметр `account`
 
 ## 📋 Требования
 
@@ -37,23 +38,37 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 # Установите сервис (требуются права администратора)
 # ВАЖНО: API URL должен включать версию API (например /api/v1)
 .\data_exporter.exe install `
-  --username your_username `
-  --password your_password `
+  --account "your-account-id" `
+  --username "your_username" `
+  --password "your_password" `
   --source-dir "C:\Data\DBF" `
   --crontab "0 8,12,16,18 * * *" `
-  --api-url https://api.example.com/api/v1 `
-  --encoding CP866
+  --api-url "https://api.example.com" `
+  --encoding "CP866"
 
 # Для локального тестирования с HTTP (небезопасно!)
 .\data_exporter.exe install `
-  --username your_username `
-  --password your_password `
+  --account "test-account" `
+  --username "test_user" `
+  --password "test_pass" `
   --source-dir "C:\Data\DBF" `
   --crontab "*/5 * * * *" `
-  --api-url http://localhost:8080/api/v1 `
-  --encoding CP866 `
+  --api-url "http://localhost:8080" `
+  --encoding "CP866" `
   --no-https
 ```
+
+**Параметры установки**:
+- `--account` - Идентификатор аккаунта (для мультиаккаунтности)
+- `--username` - Имя пользователя для API
+- `--password` - Пароль для API
+- `--source-dir` - Директория с DBF файлами
+- `--crontab` - Расписание в формате cron
+- `--api-url` - URL API сервера
+- `--encoding` - Fallback кодировка для DBF файлов (CP866, Windows1251, UTF8)
+- `--no-https` - Разрешить HTTP подключения (только для тестирования!)
+
+**Важно**: При аутентификации используется комбинированный username в формате `account_username` для обеспечения уникальности пользователей между аккаунтами.
 
 ### Проверка установки
 
@@ -63,7 +78,12 @@ sc query data-exporter
 
 # Или через PowerShell
 Get-Service -Name "data-exporter"
+
+# Проверьте логи сервиса
+Get-Content "C:\Program Files\data-exporter\logs\service.log" -Tail 50
 ```
+
+**Примечание**: Сервис устанавливается с типом запуска "Automatic" и автоматически запускается после установки.
 
 ## ⚙️ Конфигурация
 
@@ -77,8 +97,9 @@ crontab = "0 8,12,16,18 * * *"  # 8:00, 12:00, 16:00, 18:00
 source_dir = "C:\\Data\\DBF"
 
 [credential]
-username = "api_user"
-password = "api_password"
+account = "your-account-id"     # Идентификатор аккаунта
+username = "api_user"           # Имя пользователя
+password = "api_password"       # Пароль
 
 [api]
 base_url = "https://api.example.com"
@@ -114,10 +135,10 @@ dbf_encoding = "CP866"  # Fallback кодировка
 notepad "C:\Program Files\data-exporter\config.toml"
 
 # Сохраните файл - изменения применятся автоматически
-# при следующем запуске по расписанию
+# при следующем запуске по расписанию (без перезапуска сервиса)
 ```
 
-⚠️ **Важно**: Изменения применяются в начале следующего запланированного выполнения, не во время обработки.
+⚠️ **Важно**: Изменения применяются в начале следующего запланированного выполнения, не во время обработки батча.
 
 ## 🗑️ Удаление
 
@@ -129,26 +150,56 @@ notepad "C:\Program Files\data-exporter\config.toml"
 
 ### Логи сервиса
 
-Просмотр через Event Viewer:
-1. Откройте `eventvwr.msc`
-2. Windows Logs → Application
-3. Фильтр по источнику: "data-exporter"
+Логи записываются в:
+```
+C:\Program Files\data-exporter\logs\service.log
+```
+
+**Функции логирования**:
+- Автоматическая ежедневная ротация (создаётся новый файл в полночь)
+- Старые логи переименовываются с датой: `service.log.2025-10-31`
+- Детальная информация о каждом батче:
+  - Время начала и окончания
+  - Количество обработанных/ошибочных файлов
+  - Заблокированные файлы (отложенные для повторной обработки)
+  - Детальная диагностика ошибок API
+
+**Просмотр логов**:
+```powershell
+# Последние 50 строк
+Get-Content "C:\Program Files\data-exporter\logs\service.log" -Tail 50 -Wait
+
+# Поиск ошибок
+Select-String -Path "C:\Program Files\data-exporter\logs\service.log" -Pattern "ERROR"
+
+# Логи за конкретную дату
+Get-Content "C:\Program Files\data-exporter\logs\service.log.2025-10-31"
+```
+
+### Формат логов
+
+```
+2025-10-31T15:30:00.123456Z  INFO data_exporter: ========================================
+2025-10-31T15:30:00.123457Z  INFO data_exporter: Scheduler woke up - starting batch execution
+2025-10-31T15:30:00.123458Z  INFO data_exporter: Crontab: */5 * * * *
+2025-10-31T15:30:00.123459Z  INFO data_exporter: Source: C:\data
+2025-10-31T15:30:00.123460Z  INFO data_exporter: ========================================
+2025-10-31T15:30:05.789012Z  INFO data_exporter: ========================================
+2025-10-31T15:30:05.789013Z  INFO data_exporter: BATCH COMPLETED SUCCESSFULLY
+2025-10-31T15:30:05.789014Z  INFO data_exporter: Batch ID: batch_abc123
+2025-10-31T15:30:05.789015Z  INFO data_exporter: Files processed: 15
+2025-10-31T15:30:05.789016Z  INFO data_exporter: Files failed: 0
+2025-10-31T15:30:05.789017Z  INFO data_exporter: Files deferred (locked): 2
+2025-10-31T15:30:05.789018Z  INFO data_exporter: Total files scanned: 17
+2025-10-31T15:30:05.789019Z  INFO data_exporter: Duration: 5.67s
+2025-10-31T15:30:05.789020Z  INFO data_exporter: ========================================
+```
 
 ### Локальные логи ошибок
 
-При недоступности API сервера ошибки записываются в:
+При недоступности API сервера ошибки также записываются в:
 ```
 C:\Program Files\data-exporter\error.log
-```
-
-### Формат ошибок
-
-```
-[2025-10-05T14:30:00Z] ERROR: Failed to upload file
-  Filename: reports\sales.dbf
-  Error Type: UploadError
-  Message: Network timeout
-  Batch ID: abc-123-def-456
 ```
 
 ## 🏗️ Архитектура
@@ -156,24 +207,44 @@ C:\Program Files\data-exporter\error.log
 ```
 CLI (install/uninstall)
   ↓
-Windows Service
+Windows Service (auto-start)
   ↓
-Cron Scheduler ← Config Watcher
+Cron Scheduler ← Config Watcher (hot-reload)
   ↓
 Batch Orchestrator
   ↓
-Scanner → Converter → Compressor → Uploader
+Scanner → Converter (in-memory/temp) → Compressor (in-memory/temp) → Uploader
+  ↓                   ↓
+  ↓           ProcessingData (Drop для auto-cleanup)
   ↓
-Error Reporter (API) / Logger (local)
+Error Reporter (API) / Logger (local + rotating)
 ```
+
+**Ключевые компоненты**:
+
+- **ProcessingData**: Абстракция для данных (в памяти или временный файл)
+  - Автоматический fallback на временные файлы для больших файлов (>10 МБ)
+  - Автоматическая очистка временных файлов через Drop trait
+
+- **Converter**: DBF → CSV конвертация
+  - В памяти для файлов <10 МБ
+  - Временные файлы для больших DBF
+
+- **Compressor**: CSV → GZIP сжатие
+  - В памяти для небольших CSV
+  - Потоковое сжатие для больших файлов
+
+- **Batch Client**: Управление жизненным циклом батча на сервере
+  - start_batch → upload files → complete_batch/fail_batch
 
 ## 🔐 Безопасность
 
-- ✅ Только HTTPS соединения
+- ✅ Только HTTPS соединения (по умолчанию)
 - ✅ JWT токены в памяти (не на диске)
 - ✅ Config.toml доступен только администраторам
 - ✅ Пароли не логируются
 - ✅ Безопасный код (no unsafe)
+- ✅ Автоматическая очистка временных файлов (защита от утечки данных)
 
 ## 🧪 Разработка
 
@@ -226,21 +297,35 @@ cargo clippy --all-targets --all-features
 - [CI/CD Guide](.github/CI_CD.md)
 - [Quick Start](.github/QUICK_START.md)
 
-## 🐛 Известные проблемы
+## 🐛 Устранение неполадок
 
 ### Windows Service не запускается
 - Проверьте права администратора
 - Убедитесь в корректности путей в config.toml
-- Проверьте Event Viewer для деталей
+- Проверьте логи сервиса: `C:\Program Files\data-exporter\logs\service.log`
+- Проверьте, что директория исходных файлов существует
 
 ### Файлы не загружаются
 - Проверьте сетевое подключение к API
-- Убедитесь в валидности JWT токена
-- Проверьте `error.log` для деталей
+- Убедитесь в валидности учётных данных (account, username, password)
+- Проверьте логи для деталей ошибок API
+- Проверьте `error.log` если API недоступен
 
 ### Кодировка некорректна
 - Установите правильную fallback кодировку в config.toml
 - DBF файлы без header encoding используют fallback
+- Поддерживаемые кодировки: CP866, Windows1251, UTF8
+
+### Заблокированные файлы
+- Сервис автоматически откладывает заблокированные файлы
+- Повторная попытка выполняется в конце батча
+- Если файл остаётся заблокированным - он пропускается с логированием
+
+### Временные файлы не удаляются
+- Проверьте права записи в `%TEMP%`
+- Временные файлы создаются только для больших DBF (>10 МБ)
+- Автоматическая очистка через Drop trait
+- При сбое могут остаться файлы `dbf_export_*.csv` или `*.csv.gz` в `%TEMP%`
 
 ## 📞 Поддержка
 
@@ -249,8 +334,28 @@ cargo clippy --all-targets --all-features
 
 ## 🗺️ Roadmap
 
+- [x] Автоматический запуск сервиса при старте системы
+- [x] Ротация логов с автоматической очисткой
+- [x] In-memory обработка для оптимизации производительности
+- [x] Мультиаккаунтность через параметр account
 - [ ] Поддержка дополнительных форматов (XLS, XLSX)
 - [ ] Web UI для мониторинга
 - [ ] Метрики Prometheus
 - [ ] Docker контейнер
 - [ ] Linux/macOS версии
+
+## 📈 Последние изменения
+
+### v1.0.0 (2025-11-01)
+- ✨ Добавлен параметр `account` для мультиаккаунтности
+- ✨ Автоматический запуск сервиса при старте системы
+- ✨ Ежедневная ротация логов с автоматическим переименованием
+- ✨ Детальные отчёты о выполнении батчей в логах
+- ✨ In-memory обработка CSV и GZIP (до 10 МБ)
+- ✨ Автоматический fallback на временные файлы для больших данных
+- ✨ Автоматическая очистка временных файлов через Drop trait
+- ✨ Упрощённый вывод CLI без технических деталей
+- ✨ Расширенная диагностика ошибок API
+- 🐛 Исправлены все clippy warnings для соответствия стандартам Rust
+- 🔧 Рефакторинг: InstallParams struct для уменьшения количества аргументов
+- 📚 Обновлена документация с новыми возможностями
