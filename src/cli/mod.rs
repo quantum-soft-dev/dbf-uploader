@@ -2,7 +2,7 @@
 pub mod install;
 pub mod uninstall;
 
-pub use install::install;
+pub use install::{install, InstallParams};
 pub use uninstall::uninstall;
 
 use clap::{Parser, Subcommand};

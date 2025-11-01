@@ -49,7 +49,7 @@ pub fn compress_csv_memory(csv_data: ProcessingData) -> Result<ProcessingData> {
             debug!("Compressing CSV temp file: {}", csv_path.display());
 
             // Read from temp file, compress to another temp file
-            let csv_file = File::open(&csv_path).map_err(ProcessingError::FileReadError)?;
+            let csv_file = File::open(csv_path).map_err(ProcessingError::FileReadError)?;
             let mut csv_reader = BufReader::new(csv_file);
 
             // Create temp output file

@@ -2,7 +2,7 @@
 // Handles both Windows Service mode and CLI commands
 
 use clap::Parser;
-use data_exporter::cli::{install, uninstall, Cli, Commands};
+use data_exporter::cli::{install, uninstall, Cli, Commands, InstallParams};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[cfg(windows)]
@@ -94,9 +94,16 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             no_https,
         } => {
             let https_only = !no_https; // Invert the flag
-            install(
-                account, username, password, source_dir, crontab, api_url, encoding, https_only,
-            )
+            install(InstallParams {
+                account,
+                username,
+                password,
+                source_dir,
+                crontab,
+                api_url,
+                encoding,
+                https_only,
+            })
             .await
         }
         Commands::Uninstall => uninstall().await,

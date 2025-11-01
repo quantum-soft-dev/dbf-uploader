@@ -7,44 +7,45 @@ use std::path::Path;
 use std::path::PathBuf;
 use tracing::info;
 
+/// Installation parameters
+pub struct InstallParams {
+    pub account: String,
+    pub username: String,
+    pub password: String,
+    pub source_dir: String,
+    pub crontab: String,
+    pub api_url: String,
+    pub encoding: String,
+    pub https_only: bool,
+}
+
 /// Install the data exporter service
-pub async fn install(
-    account: String,
-    username: String,
-    password: String,
-    source_dir: String,
-    crontab: String,
-    api_url: String,
-    encoding: String,
-    https_only: bool,
-) -> Result<()> {
+pub async fn install(params: InstallParams) -> Result<()> {
     info!("Installing Data Exporter Service...");
 
     // Validate HTTPS/HTTP consistency
-    if https_only && !api_url.starts_with("https://") {
+    if params.https_only && !params.api_url.starts_with("https://") {
         return Err(ProcessingError::ConfigurationError(
             "API URL must use HTTPS when https_only is enabled (https_only=true)".to_string(),
         ));
     }
 
-    if !https_only && api_url.starts_with("https://") {
+    if !params.https_only && params.api_url.starts_with("https://") {
         return Err(ProcessingError::ConfigurationError(
             "API URL uses HTTPS but https_only is disabled. Either use http:// URL or remove --no-https flag".to_string(),
         ));
     }
 
-    let source_path = PathBuf::from(&source_dir);
+    let source_path = PathBuf::from(&params.source_dir);
     if !source_path.exists() {
         return Err(ProcessingError::ConfigurationError(format!(
             "Source directory does not exist: {}",
-            source_dir
+            params.source_dir
         )));
     }
 
     // Create configuration
-    let config = create_config(
-        account, username, password, source_dir, crontab, api_url, encoding, https_only,
-    )?;
+    let config = create_config(params)?;
 
     // Validate credentials by requesting token
     info!("Validating credentials...");
@@ -58,36 +59,29 @@ pub async fn install(
 }
 
 /// Create configuration from install parameters
-fn create_config(
-    account: String,
-    username: String,
-    password: String,
-    source_dir: String,
-    crontab: String,
-    api_url: String,
-    encoding: String,
-    https_only: bool,
-) -> Result<Config> {
+fn create_config(params: InstallParams) -> Result<Config> {
     use crate::models::config::{
         ApiConfig, CredentialConfig, EncodingConfig, SchedulerConfig, SourceConfig,
     };
 
     let config = Config {
-        scheduler: SchedulerConfig { crontab },
+        scheduler: SchedulerConfig {
+            crontab: params.crontab,
+        },
         src: SourceConfig {
-            source_dir: PathBuf::from(source_dir),
+            source_dir: PathBuf::from(params.source_dir),
         },
         credential: CredentialConfig {
-            account,
-            username,
-            password,
+            account: params.account,
+            username: params.username,
+            password: params.password,
         },
         api: ApiConfig {
-            base_url: api_url,
-            https_only,
+            base_url: params.api_url,
+            https_only: params.https_only,
         },
         encoding: EncodingConfig {
-            dbf_encoding: encoding,
+            dbf_encoding: params.encoding,
         },
     };
 
@@ -258,16 +252,16 @@ mod tests {
 
     #[test]
     fn test_create_config() {
-        let config = create_config(
-            "testaccount".to_string(),
-            "testuser".to_string(),
-            "testpass".to_string(),
-            "/tmp".to_string(),
-            "*/5 * * * *".to_string(),
-            "https://api.example.com".to_string(),
-            "CP866".to_string(),
-            true,
-        );
+        let config = create_config(InstallParams {
+            account: "testaccount".to_string(),
+            username: "testuser".to_string(),
+            password: "testpass".to_string(),
+            source_dir: "/tmp".to_string(),
+            crontab: "*/5 * * * *".to_string(),
+            api_url: "https://api.example.com".to_string(),
+            encoding: "CP866".to_string(),
+            https_only: true,
+        });
 
         assert!(config.is_ok());
         let config = config.unwrap();
@@ -280,31 +274,31 @@ mod tests {
 
     #[test]
     fn test_https_validation() {
-        let result = create_config(
-            "testaccount".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-            "/tmp".to_string(),
-            "*/5 * * * *".to_string(),
-            "https://api.example.com".to_string(),
-            "CP866".to_string(),
-            true,
-        );
+        let result = create_config(InstallParams {
+            account: "testaccount".to_string(),
+            username: "test".to_string(),
+            password: "test".to_string(),
+            source_dir: "/tmp".to_string(),
+            crontab: "*/5 * * * *".to_string(),
+            api_url: "https://api.example.com".to_string(),
+            encoding: "CP866".to_string(),
+            https_only: true,
+        });
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_http_allowed_when_https_only_disabled() {
-        let result = create_config(
-            "testaccount".to_string(),
-            "test".to_string(),
-            "test".to_string(),
-            "/tmp".to_string(),
-            "*/5 * * * *".to_string(),
-            "http://localhost:8080".to_string(),
-            "CP866".to_string(),
-            false,
-        );
+        let result = create_config(InstallParams {
+            account: "testaccount".to_string(),
+            username: "test".to_string(),
+            password: "test".to_string(),
+            source_dir: "/tmp".to_string(),
+            crontab: "*/5 * * * *".to_string(),
+            api_url: "http://localhost:8080".to_string(),
+            encoding: "CP866".to_string(),
+            https_only: false,
+        });
         assert!(result.is_ok());
         let config = result.unwrap();
         assert!(!config.api.https_only);
