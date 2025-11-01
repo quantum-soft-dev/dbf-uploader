@@ -41,9 +41,7 @@ impl BatchClient {
             .header("Authorization", format!("Bearer {}", token.token))
             .send()
             .await
-            .map_err(|e| {
-                ProcessingError::NetworkError(format!("Failed to start batch: {}", e))
-            })?;
+            .map_err(|e| ProcessingError::NetworkError(format!("Failed to start batch: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
@@ -69,7 +67,10 @@ impl BatchClient {
         token: &JwtToken,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/dfc/batch/{}/complete", config.api.base_url, batch_id);
+        let url = format!(
+            "{}/api/dfc/batch/{}/complete",
+            config.api.base_url, batch_id
+        );
 
         debug!(batch_id = %batch_id, "Completing batch");
 
@@ -97,7 +98,12 @@ impl BatchClient {
     }
 
     /// Fail a batch
-    pub async fn fail_batch(&self, batch_id: &str, token: &JwtToken, config: &Config) -> Result<()> {
+    pub async fn fail_batch(
+        &self,
+        batch_id: &str,
+        token: &JwtToken,
+        config: &Config,
+    ) -> Result<()> {
         let url = format!("{}/api/dfc/batch/{}/fail", config.api.base_url, batch_id);
 
         debug!(batch_id = %batch_id, "Failing batch");
@@ -108,9 +114,7 @@ impl BatchClient {
             .header("Authorization", format!("Bearer {}", token.token))
             .send()
             .await
-            .map_err(|e| {
-                ProcessingError::NetworkError(format!("Failed to fail batch: {}", e))
-            })?;
+            .map_err(|e| ProcessingError::NetworkError(format!("Failed to fail batch: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();
@@ -142,9 +146,7 @@ impl BatchClient {
             .header("Authorization", format!("Bearer {}", token.token))
             .send()
             .await
-            .map_err(|e| {
-                ProcessingError::NetworkError(format!("Failed to cancel batch: {}", e))
-            })?;
+            .map_err(|e| ProcessingError::NetworkError(format!("Failed to cancel batch: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();

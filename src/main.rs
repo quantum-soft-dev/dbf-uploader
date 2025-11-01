@@ -11,7 +11,6 @@ use data_exporter::service::run_service;
 // When running as a Windows service, use this entry point
 #[cfg(windows)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     // VERY FIRST THING: Write to log to prove we even start
     let _ = std::fs::write(
         r"C:\Windows\Temp\data_exporter_main_entry.txt",
@@ -38,7 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Err(e) => {
                 // Not running as service - show helpful message
-                eprintln!("Error: This executable must be run with arguments or as a Windows Service.");
+                eprintln!(
+                    "Error: This executable must be run with arguments or as a Windows Service."
+                );
                 eprintln!("Windows Service Error: {}", e);
                 eprintln!();
                 eprintln!("Usage:");
@@ -52,9 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         // Has arguments - run as CLI
-        tokio::runtime::Runtime::new()?.block_on(async {
-            run_cli().await
-        })
+        tokio::runtime::Runtime::new()?.block_on(async { run_cli().await })
     }
 }
 
@@ -66,18 +65,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize simple logging for CLI (no technical details)
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     fmt()
         .with_env_filter(env_filter)
-        .with_target(false)        // Hide module paths
-        .with_thread_ids(false)    // Hide thread IDs
-        .with_file(false)          // Hide file names
-        .with_line_number(false)   // Hide line numbers
-        .with_level(true)          // Keep log level (INFO, ERROR, etc.)
-        .with_ansi(true)           // Keep colors for better readability
-        .without_time()            // Hide timestamps
+        .with_target(false) // Hide module paths
+        .with_thread_ids(false) // Hide thread IDs
+        .with_file(false) // Hide file names
+        .with_line_number(false) // Hide line numbers
+        .with_level(true) // Keep log level (INFO, ERROR, etc.)
+        .with_ansi(true) // Keep colors for better readability
+        .without_time() // Hide timestamps
         .init();
 
     // Parse CLI arguments
@@ -96,7 +94,10 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             no_https,
         } => {
             let https_only = !no_https; // Invert the flag
-            install(account, username, password, source_dir, crontab, api_url, encoding, https_only).await
+            install(
+                account, username, password, source_dir, crontab, api_url, encoding, https_only,
+            )
+            .await
         }
         Commands::Uninstall => uninstall().await,
     };

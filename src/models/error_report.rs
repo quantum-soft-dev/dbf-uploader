@@ -29,8 +29,14 @@ impl ErrorReport {
         // Build metadata with all context info
         let mut metadata = HashMap::new();
         metadata.insert("filename".to_string(), serde_json::Value::String(filename));
-        metadata.insert("clientVersion".to_string(), serde_json::Value::String(client_version));
-        metadata.insert("timestamp".to_string(), serde_json::Value::String(timestamp));
+        metadata.insert(
+            "clientVersion".to_string(),
+            serde_json::Value::String(client_version),
+        );
+        metadata.insert(
+            "timestamp".to_string(),
+            serde_json::Value::String(timestamp),
+        );
 
         Self {
             error_type,
@@ -66,8 +72,14 @@ mod tests {
         assert!(report.metadata.is_some());
 
         let metadata = report.metadata.unwrap();
-        assert_eq!(metadata.get("filename").unwrap().as_str().unwrap(), "test.dbf");
-        assert_eq!(metadata.get("clientVersion").unwrap().as_str().unwrap(), "1.0.0");
+        assert_eq!(
+            metadata.get("filename").unwrap().as_str().unwrap(),
+            "test.dbf"
+        );
+        assert_eq!(
+            metadata.get("clientVersion").unwrap().as_str().unwrap(),
+            "1.0.0"
+        );
         assert!(metadata.contains_key("timestamp"));
     }
 
@@ -88,7 +100,10 @@ mod tests {
     #[test]
     fn test_error_report_serialization() {
         let mut metadata = HashMap::new();
-        metadata.insert("filename".to_string(), serde_json::Value::String("test.dbf".to_string()));
+        metadata.insert(
+            "filename".to_string(),
+            serde_json::Value::String("test.dbf".to_string()),
+        );
 
         let report = ErrorReport {
             error_type: "FileReadError".to_string(),

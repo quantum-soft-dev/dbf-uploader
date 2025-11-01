@@ -86,7 +86,15 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         );
 
         // Process the file, handling locked files specially
-        match process_single_file(&dbf_file, &server_batch_id, &config, &token_manager, &error_reporter).await {
+        match process_single_file(
+            &dbf_file,
+            &server_batch_id,
+            &config,
+            &token_manager,
+            &error_reporter,
+        )
+        .await
+        {
             Ok(_) => {
                 batch.mark_completed();
                 info!(
@@ -146,7 +154,15 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
             // Recreate DbfFile for retry
             let dbf_file = crate::models::DbfFile::new(file_path.clone(), &config.src.source_dir);
 
-            match process_single_file(&dbf_file, &server_batch_id, &config, &token_manager, &error_reporter).await {
+            match process_single_file(
+                &dbf_file,
+                &server_batch_id,
+                &config,
+                &token_manager,
+                &error_reporter,
+            )
+            .await
+            {
                 Ok(_) => {
                     batch.mark_completed();
                     info!(
@@ -190,12 +206,18 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
     let token = token_manager.get_valid_token().await?;
     if batch.failed_count > 0 {
         // Mark batch as failed if any files failed
-        if let Err(e) = batch_client.fail_batch(&server_batch_id, &token, &config).await {
+        if let Err(e) = batch_client
+            .fail_batch(&server_batch_id, &token, &config)
+            .await
+        {
             warn!(error = %e, "Failed to mark batch as failed on server");
         }
     } else {
         // Mark batch as completed
-        if let Err(e) = batch_client.complete_batch(&server_batch_id, &token, &config).await {
+        if let Err(e) = batch_client
+            .complete_batch(&server_batch_id, &token, &config)
+            .await
+        {
             warn!(error = %e, "Failed to mark batch as completed on server");
         }
     }
@@ -233,7 +255,14 @@ async fn process_single_file(
     // Step 3: Upload compressed data with batch ID
     let compressed_filename = dbf_file.generate_compressed_filename();
     let token = token_manager.get_valid_token().await?;
-    upload_data(gzip_data, compressed_filename, server_batch_id, &token, config).await?;
+    upload_data(
+        gzip_data,
+        compressed_filename,
+        server_batch_id,
+        &token,
+        config,
+    )
+    .await?;
 
     // Step 4: Cleanup happens automatically when ProcessingData drops
     // Temp files (if any) are deleted automatically

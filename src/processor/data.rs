@@ -15,11 +15,9 @@ impl ProcessingData {
     pub fn size(&self) -> usize {
         match self {
             ProcessingData::InMemory(data) => data.len(),
-            ProcessingData::TempFile(path) => {
-                std::fs::metadata(path)
-                    .map(|m| m.len() as usize)
-                    .unwrap_or(0)
-            }
+            ProcessingData::TempFile(path) => std::fs::metadata(path)
+                .map(|m| m.len() as usize)
+                .unwrap_or(0),
         }
     }
 

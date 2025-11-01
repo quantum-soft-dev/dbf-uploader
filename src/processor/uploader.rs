@@ -93,7 +93,12 @@ pub async fn upload_file(
     token: &JwtToken,
     config: &Config,
 ) -> Result<()> {
-    debug!("Uploading file: {} as {} for batch {}", gzip_path.display(), filename, batch_id);
+    debug!(
+        "Uploading file: {} as {} for batch {}",
+        gzip_path.display(),
+        filename,
+        batch_id
+    );
 
     // Create HTTP client
     let client = Client::builder()

@@ -18,7 +18,10 @@ use tracing::debug;
 pub fn compress_csv_memory(csv_data: ProcessingData) -> Result<ProcessingData> {
     match &csv_data {
         ProcessingData::InMemory(csv_bytes) => {
-            debug!("Compressing CSV data in memory ({} KB)", csv_bytes.len() / 1024);
+            debug!(
+                "Compressing CSV data in memory ({} KB)",
+                csv_bytes.len() / 1024
+            );
 
             // Compress in memory
             let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -27,7 +30,10 @@ pub fn compress_csv_memory(csv_data: ProcessingData) -> Result<ProcessingData> {
             })?;
 
             let gzip_bytes = encoder.finish().map_err(|e| {
-                ProcessingError::CompressionError(format!("Failed to finalize gzip compression: {}", e))
+                ProcessingError::CompressionError(format!(
+                    "Failed to finalize gzip compression: {}",
+                    e
+                ))
             })?;
 
             debug!(

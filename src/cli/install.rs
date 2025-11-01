@@ -42,7 +42,9 @@ pub async fn install(
     }
 
     // Create configuration
-    let config = create_config(account, username, password, source_dir, crontab, api_url, encoding, https_only)?;
+    let config = create_config(
+        account, username, password, source_dir, crontab, api_url, encoding, https_only,
+    )?;
 
     // Validate credentials by requesting token
     info!("Validating credentials...");
@@ -75,7 +77,11 @@ fn create_config(
         src: SourceConfig {
             source_dir: PathBuf::from(source_dir),
         },
-        credential: CredentialConfig { account, username, password },
+        credential: CredentialConfig {
+            account,
+            username,
+            password,
+        },
         api: ApiConfig {
             base_url: api_url,
             https_only,
@@ -97,9 +103,7 @@ async fn validate_credentials(config: &Config) -> Result<()> {
             info!("Credentials validated");
             Ok(())
         }
-        Err(e) => {
-            Err(e)
-        }
+        Err(e) => Err(e),
     }
 }
 
@@ -180,14 +184,15 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
 
     let service_name = "data-exporter";
     let display_name = "Data Exporter Service";
-    let description = "Automatically exports DBF files to CSV, compresses to gzip, and uploads to cloud server";
+    let description =
+        "Automatically exports DBF files to CSV, compresses to gzip, and uploads to cloud server";
 
     // Use sc.exe to create the service
     // Note: sc.exe requires VERY specific syntax:
     // - Exactly one space after =
     // - Path should be without quotes for sc.exe (it adds them internally if needed)
     let exe_path_str = exe_path.to_string_lossy().to_string();
-    let bin_path = format!("binPath={}", exe_path_str);  // No space after = to avoid ERROR 87
+    let bin_path = format!("binPath={}", exe_path_str); // No space after = to avoid ERROR 87
 
     let output = Command::new("sc.exe")
         .args([
@@ -195,7 +200,7 @@ fn register_windows_service(exe_path: &Path) -> Result<()> {
             service_name,
             &bin_path,
             &format!("DisplayName={}", display_name),
-            "start=auto",  // Changed from 'demand' to 'auto' for automatic startup
+            "start=auto", // Changed from 'demand' to 'auto' for automatic startup
             "type=own",
         ])
         .output()

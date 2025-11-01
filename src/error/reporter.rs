@@ -84,8 +84,7 @@ impl ErrorReporter {
 
                 Err(ProcessingError::NetworkError(format!(
                     "Error report API returned status: {} - {}",
-                    status,
-                    error_body
+                    status, error_body
                 )))
             }
         }

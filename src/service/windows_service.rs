@@ -17,8 +17,7 @@ use std::time::Duration;
 use tracing::{error, info};
 #[cfg(windows)]
 use windows_service::service::{
-    ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
-    ServiceType,
+    ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus, ServiceType,
 };
 #[cfg(windows)]
 use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
@@ -72,11 +71,7 @@ fn run_service_impl() -> Result<()> {
     // Create a daily rotating file appender
     // - Rotation::DAILY: Creates new log file at midnight
     // - Old files are named like: service.log.2025-10-31
-    let file_appender = RollingFileAppender::new(
-        Rotation::DAILY,
-        &log_dir,
-        "service.log",
-    );
+    let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "service.log");
 
     // Setup tracing subscriber with rotating file output
     tracing_subscriber::fmt()

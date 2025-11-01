@@ -16,7 +16,10 @@ const MAX_IN_MEMORY_SIZE: usize = 10 * 1024 * 1024;
 /// Convert a DBF file to CSV in memory (or temp file if too large)
 /// Returns CSV data either in memory or as a temp file path
 pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<ProcessingData> {
-    debug!("Converting DBF to CSV (in-memory): {}", dbf_file.path.display());
+    debug!(
+        "Converting DBF to CSV (in-memory): {}",
+        dbf_file.path.display()
+    );
 
     // Open DBF file
     let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
@@ -72,12 +75,22 @@ pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<
 
                     // Flush and drop writer before moving buffer
                     csv_writer.flush().map_err(|e| {
-                        ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
+                        ProcessingError::ConversionError(format!(
+                            "Failed to flush CSV writer: {}",
+                            e
+                        ))
                     })?;
                     drop(csv_writer);
 
                     // Fallback to temp file
-                    return write_to_temp_file(dbf_file, reader, &field_names, encoding, record_count, csv_buffer);
+                    return write_to_temp_file(
+                        dbf_file,
+                        reader,
+                        &field_names,
+                        encoding,
+                        record_count,
+                        csv_buffer,
+                    );
                 }
             }
             Err(e) => {
@@ -122,10 +135,7 @@ fn write_to_temp_file(
     let temp_filename = format!("dbf_export_{}.csv", uuid::Uuid::new_v4());
     let csv_path = temp_dir.join(temp_filename);
 
-    debug!(
-        "Creating temp CSV file: {}",
-        csv_path.display()
-    );
+    debug!("Creating temp CSV file: {}", csv_path.display());
 
     let csv_file = File::create(&csv_path).map_err(|e| {
         ProcessingError::ConversionError(format!("Failed to create temp CSV file: {}", e))
@@ -135,7 +145,10 @@ fn write_to_temp_file(
 
     // Write existing buffer to file
     buf_writer.write_all(&existing_buffer).map_err(|e| {
-        ProcessingError::ConversionError(format!("Failed to write buffered data to temp file: {}", e))
+        ProcessingError::ConversionError(format!(
+            "Failed to write buffered data to temp file: {}",
+            e
+        ))
     })?;
 
     let mut csv_writer = Writer::from_writer(buf_writer);
