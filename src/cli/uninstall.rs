@@ -18,23 +18,55 @@ pub async fn uninstall() -> Result<()> {
 #[cfg(target_os = "windows")]
 fn uninstall_service() -> Result<()> {
     use std::fs;
+    use std::process::Command;
 
     info!("Stopping and removing service...");
 
     // Step 1: Unregister Windows service
     unregister_windows_service()?;
 
-    // Step 2: Delete installation directory
-    info!("Removing installation files...");
+    // Step 2: Schedule deletion of installation directory
+    // We cannot delete the directory while the exe is running from it
+    // So we create a batch file that will delete it after the process exits
+    info!("Scheduling removal of installation files...");
     let install_dir = PathBuf::from(r"C:\Program Files\data-exporter");
 
     if install_dir.exists() {
-        fs::remove_dir_all(&install_dir).map_err(|e| {
+        // Create a temporary batch file to delete the directory after process exits
+        let temp_dir = std::env::temp_dir();
+        let batch_path = temp_dir.join("uninstall_data_exporter.bat");
+
+        let batch_content = format!(
+            r#"@echo off
+rem Wait for the process to exit
+timeout /t 2 /nobreak >nul
+rem Delete the installation directory
+rmdir /s /q "{}"
+rem Delete this batch file itself
+del "%~f0"
+"#,
+            install_dir.display()
+        );
+
+        fs::write(&batch_path, batch_content).map_err(|e| {
             ProcessingError::ConfigurationError(format!(
-                "Failed to remove installation directory: {}",
+                "Failed to create uninstall batch file: {}",
                 e
             ))
         })?;
+
+        // Execute the batch file in a detached process
+        Command::new("cmd.exe")
+            .args(["/C", "start", "/B", batch_path.to_str().unwrap()])
+            .spawn()
+            .map_err(|e| {
+                ProcessingError::ConfigurationError(format!(
+                    "Failed to start cleanup process: {}",
+                    e
+                ))
+            })?;
+
+        info!("Installation files will be removed after process exits");
     }
 
     Ok(())
