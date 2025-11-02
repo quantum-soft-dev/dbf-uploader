@@ -66,8 +66,22 @@ fn walk_directory(
             // Check if file has .dbf extension (case-insensitive)
             if let Some(extension) = path.extension() {
                 if extension.eq_ignore_ascii_case("dbf") {
-                    let dbf_file = DbfFile::new(path.clone(), source_dir);
-                    debug!("Found DBF file: {}", dbf_file.relative_path.display());
+                    let mut dbf_file = DbfFile::new(path.clone(), source_dir);
+
+                    // Try to detect encoding from DBF header
+                    if let Some(detected_encoding) = dbf_file.detect_encoding_from_header() {
+                        debug!(
+                            "Found DBF file: {} (encoding: {})",
+                            dbf_file.relative_path.display(),
+                            detected_encoding.as_str()
+                        );
+                    } else {
+                        debug!(
+                            "Found DBF file: {} (encoding not detected, will use config fallback)",
+                            dbf_file.relative_path.display()
+                        );
+                    }
+
                     dbf_files.push(dbf_file);
                 }
             }

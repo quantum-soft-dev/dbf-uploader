@@ -108,6 +108,35 @@ impl DbfFile {
     pub fn set_status(&mut self, status: FileProcessingStatus) {
         self.status = status;
     }
+
+    /// Detect encoding from DBF file header (byte 29 - Language Driver ID)
+    /// Returns None if file cannot be read or encoding is unknown
+    pub fn detect_encoding_from_header(&mut self) -> Option<Encoding> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(&self.path).ok()?;
+        let mut header = [0u8; 32];
+        file.read_exact(&mut header).ok()?;
+
+        // Byte 29 contains the Language Driver ID (LDID)
+        let ldid = header[29];
+
+        let encoding = match ldid {
+            0x57 => Some(Encoding::Windows1255), // Hebrew (Windows-1255)
+            0x69 | 0xCA => Some(Encoding::ISO8859_8), // Hebrew (ISO-8859-8)
+            0xC8 | 0xC9 | 0xCB => Some(Encoding::Windows1251), // Windows-1251 (Cyrillic)
+            0x65 | 0x66 => Some(Encoding::CP866), // CP866 (DOS Cyrillic)
+            0x4D | 0x7C => Some(Encoding::UTF8), // UTF-8
+            _ => None, // Unknown encoding - will use config fallback
+        };
+
+        if let Some(ref enc) = encoding {
+            self.encoding = Some(enc.clone());
+        }
+
+        encoding
+    }
 }
 
 #[cfg(test)]
