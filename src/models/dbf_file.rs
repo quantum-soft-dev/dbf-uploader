@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 pub enum Encoding {
     CP866,
     Windows1251,
+    Windows1255, // Hebrew (Israel)
+    ISO8859_8,   // Hebrew (ISO)
     UTF8,
 }
 
@@ -15,6 +17,8 @@ impl Encoding {
         match self {
             Encoding::CP866 => "CP866",
             Encoding::Windows1251 => "WINDOWS-1251",
+            Encoding::Windows1255 => "WINDOWS-1255",
+            Encoding::ISO8859_8 => "ISO-8859-8",
             Encoding::UTF8 => "UTF-8",
         }
     }
@@ -22,8 +26,10 @@ impl Encoding {
     /// Parse encoding from string
     pub fn parse(s: &str) -> Option<Self> {
         match s.to_uppercase().as_str() {
-            "CP866" => Some(Encoding::CP866),
-            "WINDOWS-1251" | "WINDOWS1251" => Some(Encoding::Windows1251),
+            "CP866" | "IBM866" => Some(Encoding::CP866),
+            "WINDOWS-1251" | "WINDOWS1251" | "CP1251" => Some(Encoding::Windows1251),
+            "WINDOWS-1255" | "WINDOWS1255" | "CP1255" => Some(Encoding::Windows1255),
+            "ISO-8859-8" | "ISO88598" | "ISO8859-8" | "ISO8859_8" => Some(Encoding::ISO8859_8),
             "UTF-8" | "UTF8" => Some(Encoding::UTF8),
             _ => None,
         }

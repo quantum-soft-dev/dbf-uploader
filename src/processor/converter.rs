@@ -4,7 +4,7 @@ use crate::models::{Config, DbfFile, Encoding};
 use crate::processor::ProcessingData;
 use csv::Writer;
 use dbase::{FieldValue, Record};
-use encoding_rs::{Encoding as EncodingRs, WINDOWS_1251};
+use encoding_rs::{Encoding as EncodingRs, ISO_8859_8, WINDOWS_1251, WINDOWS_1255};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::PathBuf;
@@ -273,19 +273,23 @@ fn get_encoding_for_dbf(
     match dbf_encoding {
         Some(Encoding::CP866) => encoding_rs::IBM866,
         Some(Encoding::Windows1251) => WINDOWS_1251,
+        Some(Encoding::Windows1255) => WINDOWS_1255,
+        Some(Encoding::ISO8859_8) => ISO_8859_8,
         Some(Encoding::UTF8) => encoding_rs::UTF_8,
         None => {
             // Use config fallback encoding
             match config_encoding.to_uppercase().as_str() {
                 "CP866" | "IBM866" => encoding_rs::IBM866,
                 "WINDOWS-1251" | "WINDOWS1251" | "CP1251" => WINDOWS_1251,
+                "WINDOWS-1255" | "WINDOWS1255" | "CP1255" => WINDOWS_1255,
+                "ISO-8859-8" | "ISO88598" | "ISO8859-8" | "ISO8859_8" => ISO_8859_8,
                 "UTF-8" | "UTF8" => encoding_rs::UTF_8,
                 _ => {
                     warn!(
-                        "Unknown encoding '{}', defaulting to Windows-1251",
+                        "Unknown encoding '{}', defaulting to Windows-1255 (Hebrew)",
                         config_encoding
                     );
-                    WINDOWS_1251
+                    WINDOWS_1255
                 }
             }
         }

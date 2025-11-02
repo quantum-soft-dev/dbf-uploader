@@ -10,7 +10,7 @@ Windows сервис для автоматического экспорта DBF 
 - **Автоматизация**: Экспорт по расписанию (cron), автоматический запуск при старте системы
 - **Обработка**: DBF → CSV (UTF-8) → gzip (в памяти для небольших файлов)
 - **Загрузка**: Multipart upload с JWT аутентификацией
-- **Кодировки**: Автоопределение CP866, Windows-1251, UTF-8
+- **Кодировки**: Автоопределение CP866, Windows-1251, Windows-1255 (Hebrew), ISO-8859-8 (Hebrew), UTF-8
 - **Мониторинг**: Ротация логов, детальные отчёты о выполнении батчей
 - **Надёжность**: Обработка заблокированных файлов, retry логика, автоматическая очистка временных файлов
 - **Производительность**: Обработка в памяти для файлов до 10 МБ, автоматический fallback на временные файлы
@@ -44,7 +44,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
   --source-dir "C:\Data\DBF" `
   --crontab "0 8,12,16,18 * * *" `
   --api-url "https://api.example.com" `
-  --encoding "CP866"
+  --encoding "Windows1255"
 
 # Для локального тестирования с HTTP (небезопасно!)
 .\data_exporter.exe install `
@@ -54,7 +54,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
   --source-dir "C:\Data\DBF" `
   --crontab "*/5 * * * *" `
   --api-url "http://localhost:8080" `
-  --encoding "CP866" `
+  --encoding "Windows1255" `
   --no-https
 ```
 
@@ -65,7 +65,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 - `--source-dir` - Директория с DBF файлами
 - `--crontab` - Расписание в формате cron
 - `--api-url` - URL API сервера
-- `--encoding` - Fallback кодировка для DBF файлов (CP866, Windows1251, UTF8)
+- `--encoding` - Fallback кодировка для DBF файлов (Windows1255, CP866, Windows1251, ISO8859-8, UTF8)
 - `--no-https` - Разрешить HTTP подключения (только для тестирования!)
 
 **Важно**: При аутентификации используется комбинированный username в формате `account_username` для обеспечения уникальности пользователей между аккаунтами.
@@ -107,7 +107,7 @@ https_only = true  # Принудительно использовать тол�
                    # ВНИМАНИЕ: Установка в false небезопасна! Используйте только для локального тестирования
 
 [encoding]
-dbf_encoding = "CP866"  # Fallback кодировка
+dbf_encoding = "Windows1255"  # Fallback кодировка (по умолчанию - Hebrew)
 ```
 
 ### Формат расписания (cron)
@@ -314,7 +314,12 @@ cargo clippy --all-targets --all-features
 ### Кодировка некорректна
 - Установите правильную fallback кодировку в config.toml
 - DBF файлы без header encoding используют fallback
-- Поддерживаемые кодировки: CP866, Windows1251, UTF8
+- **Поддерживаемые кодировки**:
+  - **Windows1255** (CP1255) - Hebrew (по умолчанию)
+  - **ISO-8859-8** (ISO8859-8) - Hebrew (ISO)
+  - **CP866** (IBM866) - DOS Cyrillic
+  - **Windows1251** (CP1251) - Windows Cyrillic
+  - **UTF8** (UTF-8) - Unicode
 
 ### Заблокированные файлы
 - Сервис автоматически откладывает заблокированные файлы
@@ -356,6 +361,7 @@ cargo clippy --all-targets --all-features
 - ✨ Автоматическая очистка временных файлов через Drop trait
 - ✨ Упрощённый вывод CLI без технических деталей
 - ✨ Расширенная диагностика ошибок API
+- ✨ **Полная поддержка Hebrew**: Windows-1255 (по умолчанию) и ISO-8859-8
 - 🐛 Исправлены все clippy warnings для соответствия стандартам Rust
 - 🔧 Рефакторинг: InstallParams struct для уменьшения количества аргументов
 - 📚 Обновлена документация с новыми возможностями
