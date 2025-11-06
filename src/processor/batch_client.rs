@@ -31,7 +31,7 @@ impl BatchClient {
 
     /// Start a new batch
     pub async fn start_batch(&self, token: &JwtToken, config: &Config) -> Result<String> {
-        let url = format!("{}/api/dfc/batch/start", config.api.base_url);
+        let url = format!("{}/api/v1/device/batches/start", config.api.base_url);
 
         debug!("Starting new batch");
 
@@ -68,7 +68,7 @@ impl BatchClient {
         config: &Config,
     ) -> Result<()> {
         let url = format!(
-            "{}/api/dfc/batch/{}/complete",
+            "{}/api/v1/device/batches/{}/complete",
             config.api.base_url, batch_id
         );
 
@@ -104,7 +104,7 @@ impl BatchClient {
         token: &JwtToken,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/dfc/batch/{}/fail", config.api.base_url, batch_id);
+        let url = format!("{}/api/v1/device/batches/{}/fail", config.api.base_url, batch_id);
 
         debug!(batch_id = %batch_id, "Failing batch");
 
@@ -136,7 +136,7 @@ impl BatchClient {
         token: &JwtToken,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/dfc/batch/{}/cancel", config.api.base_url, batch_id);
+        let url = format!("{}/api/v1/device/batches/{}/cancel", config.api.base_url, batch_id);
 
         debug!(batch_id = %batch_id, "Cancelling batch");
 

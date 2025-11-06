@@ -3,8 +3,9 @@ use crate::error::{ProcessingError, Result};
 use crate::models::{Config, DbfFile, Encoding};
 use crate::processor::ProcessingData;
 use csv::Writer;
-use dbase::{FieldValue, Record};
-use encoding_rs::{Encoding as EncodingRs, ISO_8859_8, WINDOWS_1251, WINDOWS_1255};
+use dbase::encoding::LossyCodePage;
+use dbase::yore::code_pages::{CP1251, CP1255, CP866};
+use dbase::{FieldValue, Record, Unicode};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::PathBuf;
@@ -21,10 +22,29 @@ pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<
         dbf_file.path.display()
     );
 
-    // Open DBF file
+    // Dispatch to the appropriate encoding handler
+    match get_encoding_enum(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding) {
+        Encoding::CP866 => convert_with_encoding(dbf_file, LossyCodePage(CP866)),
+        Encoding::Windows1251 => convert_with_encoding(dbf_file, LossyCodePage(CP1251)),
+        Encoding::Windows1255 => convert_with_encoding(dbf_file, LossyCodePage(CP1255)),
+        Encoding::ISO8859_8 => {
+            // ISO-8859-8 is not in yore, fall back to CP1255 (Windows Hebrew)
+            warn!("ISO-8859-8 not available, using CP1255 (Windows-1255) as fallback");
+            convert_with_encoding(dbf_file, LossyCodePage(CP1255))
+        }
+        Encoding::UTF8 => convert_with_encoding(dbf_file, Unicode),
+    }
+}
+
+/// Generic function to convert DBF to CSV with a specific encoding
+fn convert_with_encoding<E: dbase::Encoding + 'static>(
+    dbf_file: &DbfFile,
+    encoding: E,
+) -> Result<ProcessingData> {
+    // Open DBF file with proper encoding
     let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
 
-    let mut reader = dbase::Reader::new(BufReader::new(file))
+    let mut reader = dbase::Reader::new_with_encoding(BufReader::new(file), encoding)
         .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;
 
     // Get field names from DBF header
@@ -43,9 +63,6 @@ pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<
         ProcessingError::ConversionError(format!("Failed to write CSV header: {}", e))
     })?;
 
-    // Determine encoding to use for text fields
-    let encoding = get_encoding_for_dbf(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding);
-
     // Process each record
     let mut record_count = 0;
     let mut estimated_size = 0usize;
@@ -53,7 +70,7 @@ pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<
     for result in reader.iter_records() {
         match result {
             Ok(record) => {
-                let csv_record = convert_record_to_csv(&record, &field_names, encoding)?;
+                let csv_record = convert_record_to_csv(&record, &field_names)?;
 
                 // Estimate size before writing
                 let record_size: usize = csv_record.iter().map(|s| s.len() + 1).sum(); // +1 for delimiter/newline
@@ -87,7 +104,6 @@ pub fn convert_dbf_to_csv_memory(dbf_file: &DbfFile, config: &Config) -> Result<
                         dbf_file,
                         reader,
                         &field_names,
-                        encoding,
                         record_count,
                         csv_buffer,
                     );
@@ -126,7 +142,6 @@ fn write_to_temp_file(
     dbf_file: &DbfFile,
     mut reader: dbase::Reader<BufReader<File>>,
     field_names: &[String],
-    encoding: &'static EncodingRs,
     mut record_count: usize,
     existing_buffer: Vec<u8>,
 ) -> Result<ProcessingData> {
@@ -157,7 +172,7 @@ fn write_to_temp_file(
     for result in reader.iter_records() {
         match result {
             Ok(record) => {
-                let csv_record = convert_record_to_csv(&record, field_names, encoding)?;
+                let csv_record = convert_record_to_csv(&record, field_names)?;
                 csv_writer.write_record(&csv_record).map_err(|e| {
                     ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))
                 })?;
@@ -193,10 +208,28 @@ fn write_to_temp_file(
 pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf> {
     debug!("Converting DBF to CSV: {}", dbf_file.path.display());
 
-    // Open DBF file
+    // Dispatch to the appropriate encoding handler
+    match get_encoding_enum(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding) {
+        Encoding::CP866 => convert_to_file_with_encoding(dbf_file, LossyCodePage(CP866)),
+        Encoding::Windows1251 => convert_to_file_with_encoding(dbf_file, LossyCodePage(CP1251)),
+        Encoding::Windows1255 => convert_to_file_with_encoding(dbf_file, LossyCodePage(CP1255)),
+        Encoding::ISO8859_8 => {
+            warn!("ISO-8859-8 not available, using CP1255 (Windows-1255) as fallback");
+            convert_to_file_with_encoding(dbf_file, LossyCodePage(CP1255))
+        }
+        Encoding::UTF8 => convert_to_file_with_encoding(dbf_file, Unicode),
+    }
+}
+
+/// Generic function to convert DBF to CSV file with a specific encoding
+fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
+    dbf_file: &DbfFile,
+    encoding: E,
+) -> Result<PathBuf> {
+    // Open DBF file with proper encoding
     let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
 
-    let mut reader = dbase::Reader::new(BufReader::new(file))
+    let mut reader = dbase::Reader::new_with_encoding(BufReader::new(file), encoding)
         .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;
 
     // Get field names from DBF header
@@ -225,15 +258,12 @@ pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf
         ProcessingError::ConversionError(format!("Failed to write CSV header: {}", e))
     })?;
 
-    // Determine encoding to use for text fields
-    let encoding = get_encoding_for_dbf(dbf_file.encoding.as_ref(), &config.encoding.dbf_encoding);
-
     // Process each record
     let mut record_count = 0;
     for result in reader.iter_records() {
         match result {
             Ok(record) => {
-                let csv_record = convert_record_to_csv(&record, &field_names, encoding)?;
+                let csv_record = convert_record_to_csv(&record, &field_names)?;
                 csv_writer.write_record(&csv_record).map_err(|e| {
                     ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))
                 })?;
@@ -265,31 +295,27 @@ pub fn convert_dbf_to_csv(dbf_file: &DbfFile, config: &Config) -> Result<PathBuf
     Ok(csv_path)
 }
 
-/// Get the encoding to use for DBF text fields
-fn get_encoding_for_dbf(
+/// Get the encoding enum to use for DBF text fields
+fn get_encoding_enum(
     dbf_encoding: Option<&Encoding>,
     config_encoding: &str,
-) -> &'static EncodingRs {
+) -> Encoding {
     match dbf_encoding {
-        Some(Encoding::CP866) => encoding_rs::IBM866,
-        Some(Encoding::Windows1251) => WINDOWS_1251,
-        Some(Encoding::Windows1255) => WINDOWS_1255,
-        Some(Encoding::ISO8859_8) => ISO_8859_8,
-        Some(Encoding::UTF8) => encoding_rs::UTF_8,
+        Some(enc) => enc.clone(),
         None => {
             // Use config fallback encoding
             match config_encoding.to_uppercase().as_str() {
-                "CP866" | "IBM866" => encoding_rs::IBM866,
-                "WINDOWS-1251" | "WINDOWS1251" | "CP1251" => WINDOWS_1251,
-                "WINDOWS-1255" | "WINDOWS1255" | "CP1255" => WINDOWS_1255,
-                "ISO-8859-8" | "ISO88598" | "ISO8859-8" | "ISO8859_8" => ISO_8859_8,
-                "UTF-8" | "UTF8" => encoding_rs::UTF_8,
+                "CP866" | "IBM866" => Encoding::CP866,
+                "WINDOWS-1251" | "WINDOWS1251" | "CP1251" => Encoding::Windows1251,
+                "WINDOWS-1255" | "WINDOWS1255" | "CP1255" => Encoding::Windows1255,
+                "ISO-8859-8" | "ISO88598" | "ISO8859-8" | "ISO8859_8" => Encoding::ISO8859_8,
+                "UTF-8" | "UTF8" => Encoding::UTF8,
                 _ => {
                     warn!(
                         "Unknown encoding '{}', defaulting to Windows-1255 (Hebrew)",
                         config_encoding
                     );
-                    WINDOWS_1255
+                    Encoding::Windows1255
                 }
             }
         }
@@ -298,10 +324,10 @@ fn get_encoding_for_dbf(
 
 /// Convert a DBF record to CSV string fields
 /// Takes field names to ensure proper ordering (Record is a HashMap)
+/// Note: The dbase Reader already handles encoding conversion, so strings are already UTF-8
 fn convert_record_to_csv(
     record: &Record,
     field_names: &[String],
-    encoding: &'static EncodingRs,
 ) -> Result<Vec<String>> {
     let mut csv_fields = Vec::new();
 
@@ -312,19 +338,7 @@ fn convert_record_to_csv(
         })?;
 
         let field_str = match field_value {
-            FieldValue::Character(Some(s)) => {
-                // Convert from DBF encoding to UTF-8
-                if encoding == encoding_rs::UTF_8 {
-                    s.clone()
-                } else {
-                    let bytes = s.as_bytes();
-                    let (cow, _encoding_used, had_errors) = encoding.decode(bytes);
-                    if had_errors {
-                        warn!("Encoding errors detected in text field, some characters may be incorrect");
-                    }
-                    cow.to_string()
-                }
-            }
+            FieldValue::Character(Some(s)) => s.clone(),
             FieldValue::Character(None) => String::new(),
             FieldValue::Numeric(Some(n)) => n.to_string(),
             FieldValue::Numeric(None) => String::new(),
@@ -336,27 +350,31 @@ fn convert_record_to_csv(
                 }
             }
             FieldValue::Logical(None) => String::new(),
-            FieldValue::Date(Some(d)) => format!("{:?}", d), // Use Debug format for date
+            FieldValue::Date(Some(d)) => {
+                // Format as YYYY-MM-DD (date only, no time)
+                format!("{:04}-{:02}-{:02}", d.year(), d.month() as u8, d.day())
+            }
             FieldValue::Date(None) => String::new(),
             FieldValue::Float(Some(f)) => f.to_string(),
             FieldValue::Float(None) => String::new(),
             FieldValue::Integer(i) => i.to_string(),
             FieldValue::Currency(c) => format!("{:.2}", *c / 10000.0),
-            FieldValue::DateTime(dt) => format!("{:?}", dt), // Use Debug format for datetime
-            FieldValue::Double(d) => d.to_string(),
-            FieldValue::Memo(s) => {
-                // Convert from DBF encoding to UTF-8 (same as Character)
-                if encoding == encoding_rs::UTF_8 {
-                    s.clone()
-                } else {
-                    let bytes = s.as_bytes();
-                    let (cow, _encoding_used, had_errors) = encoding.decode(bytes);
-                    if had_errors {
-                        warn!("Encoding errors detected in memo field");
-                    }
-                    cow.to_string()
-                }
+            FieldValue::DateTime(dt) => {
+                // Format as YYYY-MM-DD HH:MM:SS
+                let date = dt.date();
+                let time = dt.time();
+                format!(
+                    "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+                    date.year(),
+                    date.month() as u8,
+                    date.day(),
+                    time.hours(),
+                    time.minutes(),
+                    time.seconds()
+                )
             }
+            FieldValue::Double(d) => d.to_string(),
+            FieldValue::Memo(s) => s.clone(),
         };
         csv_fields.push(field_str);
     }
@@ -395,26 +413,26 @@ mod tests {
     }
 
     #[test]
-    fn test_get_encoding_for_dbf() {
+    fn test_get_encoding_enum() {
         let config = create_test_config();
 
         // Test known encodings
         assert_eq!(
-            get_encoding_for_dbf(Some(&Encoding::CP866), &config.encoding.dbf_encoding),
-            encoding_rs::IBM866
+            get_encoding_enum(Some(&Encoding::CP866), &config.encoding.dbf_encoding),
+            Encoding::CP866
         );
         assert_eq!(
-            get_encoding_for_dbf(Some(&Encoding::Windows1251), &config.encoding.dbf_encoding),
-            WINDOWS_1251
+            get_encoding_enum(Some(&Encoding::Windows1251), &config.encoding.dbf_encoding),
+            Encoding::Windows1251
         );
         assert_eq!(
-            get_encoding_for_dbf(Some(&Encoding::UTF8), &config.encoding.dbf_encoding),
-            encoding_rs::UTF_8
+            get_encoding_enum(Some(&Encoding::UTF8), &config.encoding.dbf_encoding),
+            Encoding::UTF8
         );
 
         // Test None falls back to config
-        let encoding = get_encoding_for_dbf(None, "CP866");
-        assert_eq!(encoding, encoding_rs::IBM866);
+        let encoding = get_encoding_enum(None, "CP866");
+        assert_eq!(encoding, Encoding::CP866);
     }
 
     #[test]
