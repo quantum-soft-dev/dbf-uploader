@@ -1,5 +1,6 @@
 // DBF to CSV converter
 use crate::error::{ProcessingError, Result};
+use crate::file_utils::open_shared_read;
 use crate::models::{Config, DbfFile, Encoding};
 use crate::processor::ProcessingData;
 use csv::Writer;
@@ -41,8 +42,8 @@ fn convert_with_encoding<E: dbase::Encoding + 'static>(
     dbf_file: &DbfFile,
     encoding: E,
 ) -> Result<ProcessingData> {
-    // Open DBF file with proper encoding
-    let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
+    // Open DBF file with shared read access (allows reading files opened by other processes)
+    let file = open_shared_read(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
 
     let mut reader = dbase::Reader::new_with_encoding(BufReader::new(file), encoding)
         .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;
@@ -226,8 +227,8 @@ fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
     dbf_file: &DbfFile,
     encoding: E,
 ) -> Result<PathBuf> {
-    // Open DBF file with proper encoding
-    let file = File::open(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
+    // Open DBF file with shared read access (allows reading files opened by other processes)
+    let file = open_shared_read(&dbf_file.path).map_err(ProcessingError::FileReadError)?;
 
     let mut reader = dbase::Reader::new_with_encoding(BufReader::new(file), encoding)
         .map_err(|e| ProcessingError::ConversionError(format!("Failed to open DBF file: {}", e)))?;

@@ -112,10 +112,10 @@ impl DbfFile {
     /// Detect encoding from DBF file header (byte 29 - Language Driver ID)
     /// Returns None if file cannot be read or encoding is unknown
     pub fn detect_encoding_from_header(&mut self) -> Option<Encoding> {
-        use std::fs::File;
+        use crate::file_utils::open_shared_read;
         use std::io::Read;
 
-        let mut file = File::open(&self.path).ok()?;
+        let mut file = open_shared_read(&self.path).ok()?;
         let mut header = [0u8; 32];
         file.read_exact(&mut header).ok()?;
 
