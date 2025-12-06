@@ -77,6 +77,12 @@ impl AuthClient {
         let encoded = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
         let auth_header = format!("Basic {}", encoded);
 
+        tracing::debug!(
+            url = %url,
+            username = %self.username,
+            "Sending auth request"
+        );
+
         // Send request
         let response = self
             .client
@@ -119,6 +125,10 @@ impl AuthClient {
             )),
             403 => {
                 let body = response.text().await.unwrap_or_default();
+                tracing::debug!(
+                    response_body = %body,
+                    "Received 403 Forbidden response"
+                );
                 if body.contains("subscription_inactive") {
                     Err(ProcessingError::AuthenticationError(
                         "Subscription inactive".to_string(),
