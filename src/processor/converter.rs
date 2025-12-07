@@ -297,10 +297,7 @@ fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
 }
 
 /// Get the encoding enum to use for DBF text fields
-fn get_encoding_enum(
-    dbf_encoding: Option<&Encoding>,
-    config_encoding: &str,
-) -> Encoding {
+fn get_encoding_enum(dbf_encoding: Option<&Encoding>, config_encoding: &str) -> Encoding {
     match dbf_encoding {
         Some(enc) => enc.clone(),
         None => {
@@ -326,10 +323,7 @@ fn get_encoding_enum(
 /// Convert a DBF record to CSV string fields
 /// Takes field names to ensure proper ordering (Record is a HashMap)
 /// Note: The dbase Reader already handles encoding conversion, so strings are already UTF-8
-fn convert_record_to_csv(
-    record: &Record,
-    field_names: &[String],
-) -> Result<Vec<String>> {
+fn convert_record_to_csv(record: &Record, field_names: &[String]) -> Result<Vec<String>> {
     let mut csv_fields = Vec::new();
 
     // Iterate through field names in order to maintain column order

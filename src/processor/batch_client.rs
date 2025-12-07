@@ -104,7 +104,10 @@ impl BatchClient {
         token: &JwtToken,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/v1/device/batches/{}/fail", config.api.base_url, batch_id);
+        let url = format!(
+            "{}/api/v1/device/batches/{}/fail",
+            config.api.base_url, batch_id
+        );
 
         debug!(batch_id = %batch_id, "Failing batch");
 
@@ -136,7 +139,10 @@ impl BatchClient {
         token: &JwtToken,
         config: &Config,
     ) -> Result<()> {
-        let url = format!("{}/api/v1/device/batches/{}/cancel", config.api.base_url, batch_id);
+        let url = format!(
+            "{}/api/v1/device/batches/{}/cancel",
+            config.api.base_url, batch_id
+        );
 
         debug!(batch_id = %batch_id, "Cancelling batch");
 

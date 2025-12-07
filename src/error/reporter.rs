@@ -35,7 +35,10 @@ impl ErrorReporter {
     ) -> Result<()> {
         // Use batch-specific endpoint if batch_id provided, otherwise standalone
         let url = if let Some(bid) = batch_id {
-            format!("{}/api/v1/device/errors/batches/{}", config.api.base_url, bid)
+            format!(
+                "{}/api/v1/device/errors/batches/{}",
+                config.api.base_url, bid
+            )
         } else {
             format!("{}/api/v1/device/errors", config.api.base_url)
         };

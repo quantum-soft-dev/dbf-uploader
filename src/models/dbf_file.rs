@@ -128,7 +128,7 @@ impl DbfFile {
             0xC8 | 0xC9 | 0xCB => Some(Encoding::Windows1251), // Windows-1251 (Cyrillic)
             0x65 | 0x66 => Some(Encoding::CP866), // CP866 (DOS Cyrillic)
             0x4D | 0x7C => Some(Encoding::UTF8), // UTF-8
-            _ => None, // Unknown encoding - will use config fallback
+            _ => None,                           // Unknown encoding - will use config fallback
         };
 
         if let Some(ref enc) = encoding {

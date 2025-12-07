@@ -133,7 +133,10 @@ async fn upload_with_retry(
     config: &Config,
     max_retries: u32,
 ) -> Result<()> {
-    let url = format!("{}/api/v1/device/files/batches/{}/upload", config.api.base_url, batch_id);
+    let url = format!(
+        "{}/api/v1/device/files/batches/{}/upload",
+        config.api.base_url, batch_id
+    );
 
     for attempt in 1..=max_retries {
         match try_upload(client, file_data, filename, token, &url).await {
