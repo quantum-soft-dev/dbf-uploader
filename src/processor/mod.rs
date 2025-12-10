@@ -324,10 +324,25 @@ async fn process_single_file(
 fn is_file_locked(error: &ProcessingError) -> bool {
     match error {
         ProcessingError::FileReadError(io_error) => {
+            // Check for Windows-specific error codes for file locking
+            // Error 32: The process cannot access the file because it is being used by another process
+            // Error 33: The process cannot access the file because another process has locked a portion of the file
+            if let Some(os_error) = io_error.raw_os_error() {
+                if os_error == 32 || os_error == 33 {
+                    return true;
+                }
+            }
+
+            // Also check standard error kinds
             matches!(
                 io_error.kind(),
                 ErrorKind::PermissionDenied | ErrorKind::WouldBlock
             )
+        }
+        ProcessingError::ConversionError(msg) => {
+            // Check if conversion error is due to file access issues
+            msg.contains("Failed to open DBF file")
+                && (msg.contains("os error 32") || msg.contains("os error 33"))
         }
         _ => false,
     }
