@@ -39,6 +39,9 @@ pub enum ProcessingError {
 
     #[error("Network error: {0}")]
     NetworkError(String),
+
+    #[error("VSS error: {0}")]
+    VssError(String),
 }
 
 impl ProcessingError {
@@ -55,6 +58,7 @@ impl ProcessingError {
             ProcessingError::AuthenticationError(_) => "AuthenticationError",
             ProcessingError::ConfigurationError(_) => "ConfigurationError",
             ProcessingError::NetworkError(_) => "NetworkError",
+            ProcessingError::VssError(_) => "VssError",
         }
     }
 }

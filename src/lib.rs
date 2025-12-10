@@ -7,3 +7,4 @@ pub mod file_utils;
 pub mod models;
 pub mod processor;
 pub mod service;
+pub mod vss;

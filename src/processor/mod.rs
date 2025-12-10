@@ -16,6 +16,7 @@ pub use uploader::upload_file;
 use crate::auth::TokenManager;
 use crate::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
 use crate::models::{Batch, BatchStatus, Config, ErrorReport};
+use crate::vss;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
@@ -134,63 +135,97 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         }
     }
 
-    // Step 3: Retry locked files
+    // Step 3: Retry locked files using VSS (rawcopy)
     if !batch.locked_files.is_empty() {
         info!(
             batch_id = %batch.batch_id,
             locked_count = batch.locked_files.len(),
-            "Retrying locked files"
+            "Retrying locked files using VSS (rawcopy)"
         );
         batch.status = BatchStatus::RetryingLocked;
+
+        // Create temp directory for VSS copies
+        let temp_dir = std::env::temp_dir().join(format!("dbf_vss_{}", batch.batch_id));
 
         let locked_files_clone = batch.locked_files.clone();
         for file_path in locked_files_clone {
             debug!(
                 batch_id = %batch.batch_id,
                 file = %file_path.display(),
-                "Retrying locked file"
+                "Processing locked file via VSS copy"
             );
 
-            // Recreate DbfFile for retry
-            let dbf_file = crate::models::DbfFile::new(file_path.clone(), &config.src.source_dir);
+            // Try to copy locked file via VSS
+            match vss::copy_locked_file(&file_path, &temp_dir) {
+                Ok(vss_copy_path) => {
+                    // Create DbfFile pointing to the VSS copy
+                    let vss_dbf_file = crate::models::DbfFile::new(vss_copy_path.clone(), &temp_dir);
 
-            match process_single_file(
-                &dbf_file,
-                &server_batch_id,
-                &config,
-                &token_manager,
-                &error_reporter,
-            )
-            .await
-            {
-                Ok(_) => {
-                    batch.mark_completed();
-                    info!(
-                        batch_id = %batch.batch_id,
-                        file = %file_path.display(),
-                        "Locked file processed successfully on retry"
-                    );
-                }
-                Err(e) if is_file_locked(&e) => {
-                    warn!(
-                        batch_id = %batch.batch_id,
-                        file = %file_path.display(),
-                        "File still locked after retry, skipping"
-                    );
-                    batch.mark_failed();
+                    // Process the VSS copy
+                    match process_single_file(
+                        &vss_dbf_file,
+                        &server_batch_id,
+                        &config,
+                        &token_manager,
+                        &error_reporter,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            batch.mark_completed();
+                            info!(
+                                batch_id = %batch.batch_id,
+                                file = %file_path.display(),
+                                "Locked file processed successfully via VSS copy"
+                            );
+
+                            // Clean up VSS copy
+                            if let Err(e) = std::fs::remove_file(&vss_copy_path) {
+                                warn!(
+                                    "Failed to delete VSS copy {}: {}",
+                                    vss_copy_path.display(),
+                                    e
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            error!(
+                                batch_id = %batch.batch_id,
+                                file = %file_path.display(),
+                                error = %e,
+                                "Failed to process locked file via VSS copy"
+                            );
+                            batch.mark_failed();
+
+                            // Clean up VSS copy
+                            let _ = std::fs::remove_file(&vss_copy_path);
+
+                            report_processing_error(
+                                &file_path,
+                                &e,
+                                Some(&server_batch_id),
+                                &token_manager,
+                                &error_reporter,
+                                &config,
+                            )
+                            .await;
+                        }
+                    }
                 }
                 Err(e) => {
                     error!(
                         batch_id = %batch.batch_id,
                         file = %file_path.display(),
                         error = %e,
-                        "Locked file processing failed on retry"
+                        "Failed to copy locked file via VSS"
                     );
                     batch.mark_failed();
 
+                    // Report VSS copy error
+                    let vss_error = ProcessingError::VssError(e.to_string());
                     report_processing_error(
                         &file_path,
-                        &e,
+                        &vss_error,
                         Some(&server_batch_id),
                         &token_manager,
                         &error_reporter,
@@ -198,6 +233,17 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                     )
                     .await;
                 }
+            }
+        }
+
+        // Clean up temp directory
+        if temp_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
+                warn!(
+                    "Failed to remove VSS temp directory {}: {}",
+                    temp_dir.display(),
+                    e
+                );
             }
         }
     }
