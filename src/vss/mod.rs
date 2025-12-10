@@ -39,6 +39,7 @@ pub fn copy_locked_file<P: AsRef<Path>>(source_path: P, temp_dir: &Path) -> Resu
 
     // Ensure temp directory exists
     if !temp_dir.exists() {
+        tracing::info!("Creating temp directory: {}", temp_dir.display());
         fs::create_dir_all(temp_dir).map_err(|e| {
             VssError::InitializationFailed(format!("Failed to create temp directory: {}", e))
         })?;
@@ -47,15 +48,36 @@ pub fn copy_locked_file<P: AsRef<Path>>(source_path: P, temp_dir: &Path) -> Resu
     // Get filename from source
     let filename = source.file_name().ok_or(VssError::VssNotAvailable)?;
 
+    // rawcopy expects save_path to be a DIRECTORY, not a full file path
+    // It will automatically append the filename
     let dest_path = temp_dir.join(filename);
+
+    tracing::info!(
+        "VSS copy: source={}, dest_dir={}, expected_output={}",
+        source.display(),
+        temp_dir.display(),
+        dest_path.display()
+    );
 
     // Convert paths to strings for rawcopy
     let source_str = source.to_string_lossy();
-    let dest_str = dest_path.to_string_lossy();
+    let dest_dir_str = temp_dir.to_string_lossy();
+
+    tracing::debug!(
+        "Calling rawcopy with: source='{}', dest_dir='{}'",
+        source_str,
+        dest_dir_str
+    );
 
     // Use rawcopy to copy the file via VSS
-    rawcopy_rs::rawcopy(&source_str, &dest_str).map_err(|e| {
-        tracing::error!("Failed to copy file via VSS: {}", e);
+    // Note: rawcopy expects destination to be a DIRECTORY, not a file path
+    rawcopy_rs::rawcopy(&source_str, &dest_dir_str).map_err(|e| {
+        tracing::error!(
+            "Failed to copy file via VSS: {}. Source: {}, Dest dir: {}",
+            e,
+            source_str,
+            dest_dir_str
+        );
         VssError::SnapshotCreationFailed(e.to_string())
     })?;
 
