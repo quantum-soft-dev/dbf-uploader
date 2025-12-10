@@ -1,4 +1,4 @@
-///! Error types for VSS operations
+//! Error types for VSS operations
 use thiserror::Error;
 
 /// Errors that can occur during VSS operations

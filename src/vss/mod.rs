@@ -1,8 +1,8 @@
+//! Volume Shadow Copy Service integration for accessing locked files
+//!
+//! This module uses rawcopy-rs to copy files that are currently locked by other processes
+//! using Windows Volume Shadow Copy technology.
 use std::fs;
-///! Volume Shadow Copy Service integration for accessing locked files
-///!
-///! This module uses rawcopy-rs to copy files that are currently locked by other processes
-///! using Windows Volume Shadow Copy technology.
 use std::path::{Path, PathBuf};
 
 mod error;
@@ -47,7 +47,7 @@ pub fn copy_locked_file<P: AsRef<Path>>(source_path: P, temp_dir: &Path) -> Resu
     // Get filename from source
     let filename = source
         .file_name()
-        .ok_or_else(|| VssError::VssNotAvailable)?;
+        .ok_or(VssError::VssNotAvailable)?;
 
     let dest_path = temp_dir.join(filename);
 
