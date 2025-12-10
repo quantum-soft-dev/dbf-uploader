@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_temp_dir_path_construction() {
         let temp_dir = std::env::temp_dir();
-        let source = Path::new("C:\\Data\\test.dbf");
+        let _source = Path::new("C:\\Data\\test.dbf");
 
         let expected = temp_dir.join("test.dbf");
 
