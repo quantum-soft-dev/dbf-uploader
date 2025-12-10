@@ -159,7 +159,8 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
             match vss::copy_locked_file(&file_path, &temp_dir) {
                 Ok(vss_copy_path) => {
                     // Create DbfFile pointing to the VSS copy
-                    let vss_dbf_file = crate::models::DbfFile::new(vss_copy_path.clone(), &temp_dir);
+                    let vss_dbf_file =
+                        crate::models::DbfFile::new(vss_copy_path.clone(), &temp_dir);
 
                     // Process the VSS copy
                     match process_single_file(
