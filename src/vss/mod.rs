@@ -45,9 +45,7 @@ pub fn copy_locked_file<P: AsRef<Path>>(source_path: P, temp_dir: &Path) -> Resu
     }
 
     // Get filename from source
-    let filename = source
-        .file_name()
-        .ok_or(VssError::VssNotAvailable)?;
+    let filename = source.file_name().ok_or(VssError::VssNotAvailable)?;
 
     let dest_path = temp_dir.join(filename);
 
