@@ -141,17 +141,15 @@ impl Config {
         // Validate include/exclude patterns are valid glob patterns
         if let Some(ref patterns) = self.src.include_patterns {
             for pattern in patterns {
-                globset::Glob::new(pattern).map_err(|e| {
-                    format!("Invalid include pattern '{}': {}", pattern, e)
-                })?;
+                globset::Glob::new(pattern)
+                    .map_err(|e| format!("Invalid include pattern '{}': {}", pattern, e))?;
             }
         }
 
         if let Some(ref patterns) = self.src.exclude_patterns {
             for pattern in patterns {
-                globset::Glob::new(pattern).map_err(|e| {
-                    format!("Invalid exclude pattern '{}': {}", pattern, e)
-                })?;
+                globset::Glob::new(pattern)
+                    .map_err(|e| format!("Invalid exclude pattern '{}': {}", pattern, e))?;
             }
         }
 
