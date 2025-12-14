@@ -3,6 +3,7 @@ pub mod batch_client;
 pub mod compressor;
 pub mod converter;
 pub mod data;
+pub mod filter;
 pub mod scanner;
 pub mod uploader;
 
@@ -45,9 +46,9 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         "Starting batch processing"
     );
 
-    // Step 1: Scan directory for DBF files
+    // Step 1: Scan directory for DBF files (with filtering)
     batch.status = BatchStatus::Scanning;
-    let dbf_files = match scan_directory(&config.src.source_dir) {
+    let dbf_files = match scan_directory(&config) {
         Ok(files) => files,
         Err(e) => {
             error!(

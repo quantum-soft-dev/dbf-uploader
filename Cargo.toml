@@ -60,6 +60,9 @@ clap = { version = "4", features = ["derive"] }
 # VSS (Volume Shadow Copy Service) via rawcopy-rs
 rawcopy-rs = "0.1"
 
+# File pattern matching (glob patterns)
+globset = "0.4.15"
+
 [dev-dependencies]
 tempfile = "3"
 

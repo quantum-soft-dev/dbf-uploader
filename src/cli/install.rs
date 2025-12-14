@@ -70,6 +70,8 @@ fn create_config(params: InstallParams) -> Result<Config> {
         },
         src: SourceConfig {
             source_dir: PathBuf::from(params.source_dir),
+            include_patterns: None,
+            exclude_patterns: None,
         },
         credential: CredentialConfig {
             account: params.account,

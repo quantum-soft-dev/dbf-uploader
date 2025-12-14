@@ -167,6 +167,8 @@ mod tests {
             },
             src: crate::models::config::SourceConfig {
                 source_dir: PathBuf::from("/tmp"),
+                include_patterns: None,
+                exclude_patterns: None,
             },
             credential: crate::models::config::CredentialConfig {
                 account: "testaccount".to_string(),
