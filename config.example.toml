@@ -1,0 +1,61 @@
+# Example configuration for DBF Data Exporter
+# Copy this file to config.toml and adjust values as needed
+
+[scheduler]
+# Cron expression for scheduling batch operations
+# Format: "second minute hour day_of_month month day_of_week"
+# Examples:
+#   "0 */5 * * * *"     - Every 5 minutes
+#   "0 0 8,12,16 * * *" - At 8am, 12pm, 4pm daily
+#   "0 0 */2 * * *"     - Every 2 hours
+crontab = "0 */5 * * * *"
+
+[src]
+# Directory containing DBF files to process
+source_dir = "C:\\data"
+
+# Optional: Whitelist - only process files matching these patterns (glob syntax)
+# If specified, ONLY files matching at least one pattern will be processed
+# Examples:
+#   include_patterns = ["*.dbf"]           # All DBF files
+#   include_patterns = ["nsf*.DBF"]        # Only files starting with "nsf"
+#   include_patterns = ["data_*.dbf", "report_*.dbf"]  # Multiple patterns
+# include_patterns = []
+
+# Optional: Blacklist - exclude files matching these patterns (glob syntax)
+# Files matching any exclude pattern will be skipped
+# Exclude patterns are applied AFTER include patterns
+# Examples:
+#   exclude_patterns = ["temp_*.dbf"]      # Skip temporary files
+#   exclude_patterns = ["*.bak", "*_old.dbf"]  # Skip backups
+#   exclude_patterns = ["nsfcli.DBF", "NsfMod.dbf"]  # Skip specific files
+exclude_patterns = ["nsfcli.DBF", "NsfMod.dbf"]
+
+# Pattern matching notes:
+# - Case-insensitive: "*.DBF" matches "file.dbf", "FILE.DBF", etc.
+# - Wildcards: * (any chars), ? (one char), [abc] (character class)
+# - Examples: "test_*.dbf", "data[0-9].DBF", "file?.dbf"
+
+[credential]
+# Account identifier (combined with username for uniqueness)
+account = "your_account"
+
+# Username for API authentication
+username = "your_username"
+
+# Password for API authentication
+password = "your_password"
+
+[api]
+# Base URL for API server
+base_url = "https://api.example.com"
+
+# Enforce HTTPS-only connections (default: true)
+# WARNING: Setting this to false is insecure and should only be used for local testing
+https_only = true
+
+[encoding]
+# Fallback encoding for DBF files without encoding in header
+# Common values: CP866 (Cyrillic), CP1251 (Windows Cyrillic), CP437 (DOS Latin)
+# Default: CP866
+dbf_encoding = "CP866"
