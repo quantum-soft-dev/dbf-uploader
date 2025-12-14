@@ -391,6 +391,8 @@ mod tests {
             },
             src: SourceConfig {
                 source_dir: std::path::PathBuf::from("/tmp"),
+                include_patterns: None,
+                exclude_patterns: None,
             },
             credential: CredentialConfig {
                 account: "testaccount".to_string(),

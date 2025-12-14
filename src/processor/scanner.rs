@@ -1,13 +1,15 @@
 // Directory scanner for DBF files
 use crate::error::{ProcessingError, Result};
-use crate::models::DbfFile;
+use crate::models::{config::Config, DbfFile};
+use crate::processor::filter;
 use std::path::Path;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
-/// Recursively scan a directory for DBF files
+/// Recursively scan a directory for DBF files with filtering
 /// Returns a list of DBF files found, with relative paths calculated from source_dir
-pub fn scan_directory<P: AsRef<Path>>(source_dir: P) -> Result<Vec<DbfFile>> {
-    let source_dir = source_dir.as_ref();
+/// Files are filtered based on include/exclude patterns in config
+pub fn scan_directory(config: &Config) -> Result<Vec<DbfFile>> {
+    let source_dir = &config.src.source_dir;
 
     // Verify source directory exists and is accessible
     if !source_dir.exists() {
@@ -24,12 +26,27 @@ pub fn scan_directory<P: AsRef<Path>>(source_dir: P) -> Result<Vec<DbfFile>> {
         )));
     }
 
+    // Initialize filter from config
+    filter::set_global_filter(&config.src)
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Filter error: {}", e)))?;
+
     let mut dbf_files = Vec::new();
+    let mut filtered_count = 0;
 
     // Recursively walk the directory tree
-    match walk_directory(source_dir, source_dir, &mut dbf_files) {
+    match walk_directory(source_dir, source_dir, &mut dbf_files, &mut filtered_count) {
         Ok(_) => {
-            debug!("Scan complete: found {} DBF files", dbf_files.len());
+            if filtered_count > 0 {
+                info!(
+                    found = dbf_files.len(),
+                    filtered = filtered_count,
+                    "Scan complete: {} files found, {} filtered out",
+                    dbf_files.len(),
+                    filtered_count
+                );
+            } else {
+                debug!("Scan complete: found {} DBF files", dbf_files.len());
+            }
             Ok(dbf_files)
         }
         Err(e) => {
@@ -46,6 +63,7 @@ fn walk_directory(
     current_dir: &Path,
     source_dir: &Path,
     dbf_files: &mut Vec<DbfFile>,
+    filtered_count: &mut usize,
 ) -> Result<()> {
     let entries = std::fs::read_dir(current_dir).map_err(|e| {
         ProcessingError::DirectoryInaccessible(format!(
@@ -61,12 +79,29 @@ fn walk_directory(
 
         if path.is_dir() {
             // Recurse into subdirectories
-            walk_directory(&path, source_dir, dbf_files)?;
+            walk_directory(&path, source_dir, dbf_files, filtered_count)?;
         } else if path.is_file() {
             // Check if file has .dbf extension (case-insensitive)
             if let Some(extension) = path.extension() {
                 if extension.eq_ignore_ascii_case("dbf") {
                     let mut dbf_file = DbfFile::new(path.clone(), source_dir);
+
+                    // Get filename for filtering (just the filename, not full path)
+                    let filename = dbf_file
+                        .relative_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("");
+
+                    // Apply filtering
+                    if !filter::should_process_file(filename) {
+                        debug!(
+                            file = %filename,
+                            "File filtered out by include/exclude patterns"
+                        );
+                        *filtered_count += 1;
+                        continue; // Skip this file
+                    }
 
                     // Try to detect encoding from DBF header
                     if let Some(detected_encoding) = dbf_file.detect_encoding_from_header() {
@@ -94,13 +129,40 @@ fn walk_directory(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::config::*;
     use std::fs;
     use tempfile::TempDir;
+
+    fn create_test_config(source_dir: &Path) -> Config {
+        Config {
+            scheduler: SchedulerConfig {
+                crontab: "0 * * * *".to_string(),
+            },
+            src: SourceConfig {
+                source_dir: source_dir.to_path_buf(),
+                include_patterns: None,
+                exclude_patterns: None,
+            },
+            credential: CredentialConfig {
+                account: "test".to_string(),
+                username: "test".to_string(),
+                password: "test".to_string(),
+            },
+            api: ApiConfig {
+                base_url: "https://test.com".to_string(),
+                https_only: true,
+            },
+            encoding: EncodingConfig {
+                dbf_encoding: "CP866".to_string(),
+            },
+        }
+    }
 
     #[test]
     fn test_scan_empty_directory() {
         let temp_dir = TempDir::new().unwrap();
-        let result = scan_directory(temp_dir.path()).unwrap();
+        let config = create_test_config(temp_dir.path());
+        let result = scan_directory(&config).unwrap();
         assert_eq!(result.len(), 0);
     }
 
@@ -113,7 +175,8 @@ mod tests {
         fs::write(temp_dir.path().join("file2.DBF"), b"test").unwrap(); // Test case-insensitivity
         fs::write(temp_dir.path().join("not_dbf.txt"), b"test").unwrap();
 
-        let result = scan_directory(temp_dir.path()).unwrap();
+        let config = create_test_config(temp_dir.path());
+        let result = scan_directory(&config).unwrap();
         assert_eq!(result.len(), 2);
     }
 
@@ -132,7 +195,8 @@ mod tests {
         fs::write(subdir1.join("level1.dbf"), b"test").unwrap();
         fs::write(subdir2.join("level2.dbf"), b"test").unwrap();
 
-        let result = scan_directory(temp_dir.path()).unwrap();
+        let config = create_test_config(temp_dir.path());
+        let result = scan_directory(&config).unwrap();
         assert_eq!(result.len(), 3);
 
         // Verify relative paths are calculated correctly
@@ -151,7 +215,8 @@ mod tests {
 
     #[test]
     fn test_scan_nonexistent_directory() {
-        let result = scan_directory("/nonexistent/path/12345");
+        let config = create_test_config(&std::path::PathBuf::from("/nonexistent/path/12345"));
+        let result = scan_directory(&config);
         assert!(result.is_err());
         match result {
             Err(ProcessingError::DirectoryInaccessible(_)) => (),
@@ -165,7 +230,8 @@ mod tests {
         let file_path = temp_dir.path().join("file.txt");
         fs::write(&file_path, b"test").unwrap();
 
-        let result = scan_directory(&file_path);
+        let config = create_test_config(&file_path);
+        let result = scan_directory(&config);
         assert!(result.is_err());
         match result {
             Err(ProcessingError::DirectoryInaccessible(_)) => (),

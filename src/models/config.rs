@@ -22,6 +22,18 @@ pub struct SchedulerConfig {
 pub struct SourceConfig {
     /// Directory containing DBF files to process
     pub source_dir: PathBuf,
+
+    /// Whitelist patterns: only process files matching these patterns (glob syntax)
+    /// Example: ["*.dbf", "data_*.DBF"]
+    /// If not specified or empty, all DBF files are included
+    #[serde(default)]
+    pub include_patterns: Option<Vec<String>>,
+
+    /// Blacklist patterns: exclude files matching these patterns (glob syntax)
+    /// Example: ["temp_*.dbf", "*.bak", "nsfcli.DBF"]
+    /// Exclude patterns are applied after include patterns
+    #[serde(default)]
+    pub exclude_patterns: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -124,6 +136,23 @@ impl Config {
         }
         if self.credential.password.is_empty() {
             return Err("Password cannot be empty".into());
+        }
+
+        // Validate include/exclude patterns are valid glob patterns
+        if let Some(ref patterns) = self.src.include_patterns {
+            for pattern in patterns {
+                globset::Glob::new(pattern).map_err(|e| {
+                    format!("Invalid include pattern '{}': {}", pattern, e)
+                })?;
+            }
+        }
+
+        if let Some(ref patterns) = self.src.exclude_patterns {
+            for pattern in patterns {
+                globset::Glob::new(pattern).map_err(|e| {
+                    format!("Invalid exclude pattern '{}': {}", pattern, e)
+                })?;
+            }
         }
 
         Ok(())
