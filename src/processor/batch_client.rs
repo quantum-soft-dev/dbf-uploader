@@ -97,6 +97,49 @@ impl BatchClient {
         Ok(())
     }
 
+    /// Complete a batch with warnings (non-critical errors occurred)
+    ///
+    /// This marks the batch as COMPLETED_WITH_WARNINGS, indicating that some files
+    /// failed to process but the batch was not completely unsuccessful.
+    pub async fn complete_with_warnings(
+        &self,
+        batch_id: &str,
+        token: &JwtToken,
+        config: &Config,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/api/v1/device/batches/{}/complete-with-warnings",
+            config.api.base_url, batch_id
+        );
+
+        debug!(batch_id = %batch_id, "Completing batch with warnings");
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", token.token))
+            .send()
+            .await
+            .map_err(|e| {
+                ProcessingError::NetworkError(format!(
+                    "Failed to complete batch with warnings: {}",
+                    e
+                ))
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status().as_u16();
+            let error_body = response.text().await.unwrap_or_default();
+            return Err(ProcessingError::NetworkError(format!(
+                "Failed to complete batch with warnings: {} - {}",
+                status, error_body
+            )));
+        }
+
+        info!(batch_id = %batch_id, "Batch completed with warnings");
+        Ok(())
+    }
+
     /// Fail a batch
     pub async fn fail_batch(
         &self,

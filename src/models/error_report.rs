@@ -11,6 +11,10 @@ pub struct ErrorReport {
     /// Human-readable error description
     pub message: String,
 
+    /// Detailed error information including source chain
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_details: Option<String>,
+
     /// Optional additional error context
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, serde_json::Value>>,
@@ -22,6 +26,7 @@ impl ErrorReport {
         filename: String,
         error_type: String,
         message: String,
+        error_details: Option<String>,
         client_version: String,
     ) -> Self {
         let timestamp = chrono::Utc::now().to_rfc3339();
@@ -41,6 +46,7 @@ impl ErrorReport {
         Self {
             error_type,
             message,
+            error_details,
             metadata: Some(metadata),
         }
     }
@@ -64,11 +70,13 @@ mod tests {
             "test.dbf".to_string(),
             "FileReadError".to_string(),
             "Failed to read file".to_string(),
+            None,
             "1.0.0".to_string(),
         );
 
         assert_eq!(report.error_type, "FileReadError");
         assert_eq!(report.message, "Failed to read file");
+        assert_eq!(report.error_details, None);
         assert!(report.metadata.is_some());
 
         let metadata = report.metadata.unwrap();
@@ -89,6 +97,7 @@ mod tests {
             "test.dbf".to_string(),
             "FileReadError".to_string(),
             "x".repeat(2500),
+            None,
             "1.0.0".to_string(),
         );
 
@@ -108,6 +117,7 @@ mod tests {
         let report = ErrorReport {
             error_type: "FileReadError".to_string(),
             message: "Failed to read file".to_string(),
+            error_details: None,
             metadata: Some(metadata),
         };
 
@@ -115,5 +125,32 @@ mod tests {
         assert!(json.contains("\"type\":\"FileReadError\""));
         assert!(json.contains("\"message\":\"Failed to read file\""));
         assert!(json.contains("\"metadata\""));
+        // error_details should not appear when None
+        assert!(!json.contains("error_details"));
+    }
+
+    #[test]
+    fn test_error_report_with_details() {
+        let report = ErrorReport::new(
+            "test.dbf".to_string(),
+            "ConversionError".to_string(),
+            "Failed to convert file".to_string(),
+            Some("Caused by: Invalid DBF header\n  Caused by: I/O error".to_string()),
+            "1.0.0".to_string(),
+        );
+
+        assert_eq!(report.error_type, "ConversionError");
+        assert_eq!(report.message, "Failed to convert file");
+        assert!(report.error_details.is_some());
+        assert!(report
+            .error_details
+            .as_ref()
+            .unwrap()
+            .contains("Caused by: Invalid DBF header"));
+
+        // Test serialization includes error_details when present
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains("\"error_details\""));
+        assert!(json.contains("Invalid DBF header"));
     }
 }

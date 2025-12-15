@@ -29,6 +29,10 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
     let error_reporter = ErrorReporter::new(config.api.https_only)?;
     let batch_client = BatchClient::new(config.api.https_only)?;
 
+    // Track critical errors vs warnings
+    let mut critical_errors = 0usize;
+    let mut warnings = 0usize;
+
     // Start batch on server and get batch ID
     let token = token_manager.get_valid_token().await?;
     let server_batch_id = match batch_client.start_batch(&token, &config).await {
@@ -112,14 +116,27 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                     "File is locked, deferring to end of batch"
                 );
                 batch.defer_locked_file(file_path);
+                // Locked files don't count as errors - they'll be retried via VSS
             }
             Err(e) => {
-                error!(
-                    batch_id = %batch.batch_id,
-                    file = %file_path.display(),
-                    error = %e,
-                    "File processing failed"
-                );
+                // Classify error as critical or warning
+                if e.is_critical() {
+                    critical_errors += 1;
+                    error!(
+                        batch_id = %batch.batch_id,
+                        file = %file_path.display(),
+                        error = %e,
+                        "CRITICAL: File processing failed"
+                    );
+                } else {
+                    warnings += 1;
+                    warn!(
+                        batch_id = %batch.batch_id,
+                        file = %file_path.display(),
+                        error = %e,
+                        "WARNING: File processing failed"
+                    );
+                }
                 batch.mark_failed();
 
                 // Report error to server or log locally
@@ -191,11 +208,13 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                             }
                         }
                         Err(e) => {
-                            error!(
+                            // VSS retry failures are warnings (non-critical)
+                            warnings += 1;
+                            warn!(
                                 batch_id = %batch.batch_id,
                                 file = %file_path.display(),
                                 error = %e,
-                                "Failed to process locked file via VSS copy"
+                                "WARNING: Failed to process locked file via VSS copy"
                             );
                             batch.mark_failed();
 
@@ -215,11 +234,13 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                     }
                 }
                 Err(e) => {
-                    error!(
+                    // VSS copy failures are warnings (non-critical)
+                    warnings += 1;
+                    warn!(
                         batch_id = %batch.batch_id,
                         file = %file_path.display(),
                         error = %e,
-                        "Failed to copy locked file via VSS"
+                        "WARNING: Failed to copy locked file via VSS"
                     );
                     batch.mark_failed();
 
@@ -250,34 +271,59 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
         }
     }
 
-    // Step 4: Complete or fail batch on server
+    // Step 4: Complete or fail batch on server based on error classification
     let token = token_manager.get_valid_token().await?;
-    if batch.failed_count > 0 {
-        // Mark batch as failed if any files failed
+
+    // Calculate completed files (processed - failed)
+    let completed_count = batch.processed_count.saturating_sub(batch.failed_count);
+
+    if critical_errors > 0 || completed_count == 0 {
+        // FAILED: Critical errors occurred OR batch is empty (no files processed)
+        batch.status = BatchStatus::Aborted;
         if let Err(e) = batch_client
             .fail_batch(&server_batch_id, &token, &config)
             .await
         {
             warn!(error = %e, "Failed to mark batch as failed on server");
         }
+        info!(
+            batch_id = %batch.batch_id,
+            server_batch_id = %server_batch_id,
+            critical_errors = critical_errors,
+            "Batch FAILED due to critical errors or empty batch"
+        );
+    } else if warnings > 0 {
+        // COMPLETED_WITH_WARNINGS: Only non-critical errors occurred
+        batch.status = BatchStatus::Completed;
+        if let Err(e) = batch_client
+            .complete_with_warnings(&server_batch_id, &token, &config)
+            .await
+        {
+            warn!(error = %e, "Failed to mark batch as completed with warnings on server");
+        }
+        info!(
+            batch_id = %batch.batch_id,
+            server_batch_id = %server_batch_id,
+            warnings = warnings,
+            completed = completed_count,
+            "Batch COMPLETED WITH WARNINGS"
+        );
     } else {
-        // Mark batch as completed
+        // COMPLETED: No errors at all
+        batch.status = BatchStatus::Completed;
         if let Err(e) = batch_client
             .complete_batch(&server_batch_id, &token, &config)
             .await
         {
             warn!(error = %e, "Failed to mark batch as completed on server");
         }
+        info!(
+            batch_id = %batch.batch_id,
+            server_batch_id = %server_batch_id,
+            completed = completed_count,
+            "Batch COMPLETED successfully"
+        );
     }
-
-    batch.status = BatchStatus::Completed;
-    info!(
-        batch_id = %batch.batch_id,
-        server_batch_id = %server_batch_id,
-        processed = batch.processed_count,
-        failed = batch.failed_count,
-        "Batch processing complete"
-    );
 
     Ok(batch)
 }
@@ -362,6 +408,7 @@ async fn report_processing_error(
         file_path.to_string_lossy().to_string(),
         error.error_type().to_string(),
         error.to_string(),
+        Some(error.detailed_message()),
         env!("CARGO_PKG_VERSION").to_string(),
     );
 

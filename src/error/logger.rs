@@ -114,6 +114,7 @@ mod tests {
             "test.dbf".to_string(),
             "FileReadError".to_string(),
             "Test error message".to_string(),
+            None,
             "1.0.0".to_string(),
         );
 
@@ -143,6 +144,7 @@ mod tests {
             "test1.dbf".to_string(),
             "FileReadError".to_string(),
             "First error".to_string(),
+            None,
             "1.0.0".to_string(),
         );
 
@@ -150,6 +152,7 @@ mod tests {
             "test2.dbf".to_string(),
             "ConversionError".to_string(),
             "Second error".to_string(),
+            None,
             "1.0.0".to_string(),
         );
 
@@ -176,6 +179,7 @@ mod tests {
             "test.dbf".to_string(),
             "FileReadError".to_string(),
             "Test error".to_string(),
+            None,
             "1.0.0".to_string(),
         );
 
