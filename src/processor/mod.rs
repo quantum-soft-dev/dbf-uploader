@@ -277,8 +277,8 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
     // Calculate completed files (processed - failed)
     let completed_count = batch.processed_count.saturating_sub(batch.failed_count);
 
-    if critical_errors > 0 || completed_count == 0 {
-        // FAILED: Critical errors occurred OR batch is empty (no files processed)
+    if critical_errors > 0 || batch.processed_count == 0 {
+        // FAILED: Critical errors occurred OR batch is empty (no files were attempted)
         batch.status = BatchStatus::Aborted;
         if let Err(e) = batch_client
             .fail_batch(&server_batch_id, &token, &config)
