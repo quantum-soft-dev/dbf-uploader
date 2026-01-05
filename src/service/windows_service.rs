@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(windows)]
 use std::time::Duration;
 #[cfg(windows)]
-use tracing::{error, info};
+use tracing::{error, info, warn};
 #[cfg(windows)]
 use windows_service::service::{
     ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus, ServiceType,
@@ -47,6 +47,107 @@ fn service_main(_arguments: Vec<OsString>) {
     if let Err(e) = run_service_impl() {
         // Log to Windows Event Log or stderr (tracing may not be initialized if error is early)
         eprintln!("Service error: {}", e);
+    }
+}
+
+/// Load configuration with retry logic for network share availability
+///
+/// Retry strategy:
+/// - Initial attempts: 1, 2, 4, 8, 16 minutes (exponential backoff)
+/// - After initial attempts: hourly retries indefinitely
+/// - Only retries for "Source directory does not exist" errors
+/// - Other config errors fail immediately
+/// - Supports graceful shutdown during retry sleep
+#[cfg(windows)]
+async fn load_config_with_retry(
+    config_path: &std::path::Path,
+    stop_signal: Arc<std::sync::atomic::AtomicBool>,
+) -> Result<Config> {
+    use std::sync::atomic::Ordering;
+
+    const INITIAL_RETRY_MINUTES: &[u64] = &[1, 2, 4, 8, 16];
+    const HOURLY_INTERVAL_MINUTES: u64 = 60;
+
+    let mut attempt = 0;
+
+    loop {
+        attempt += 1;
+
+        // Check if service stop was requested
+        if stop_signal.load(Ordering::Relaxed) {
+            warn!("Service stop requested during config loading, exiting");
+            return Err(crate::error::ProcessingError::ConfigurationError(
+                "Service stop requested".to_string()
+            ));
+        }
+
+        match Config::from_file(config_path) {
+            Ok(cfg) => {
+                if attempt > 1 {
+                    info!(
+                        "Config loaded successfully after {} attempt(s)",
+                        attempt
+                    );
+                } else {
+                    info!("Config loaded successfully");
+                }
+                return Ok(cfg);
+            }
+            Err(e) => {
+                let error_str = e.to_string();
+
+                // Only retry for "Source directory does not exist" errors
+                if error_str.contains("Source directory does not exist") {
+                    // Calculate wait time based on attempt number
+                    let wait_minutes = if attempt <= INITIAL_RETRY_MINUTES.len() {
+                        INITIAL_RETRY_MINUTES[attempt - 1]
+                    } else {
+                        HOURLY_INTERVAL_MINUTES
+                    };
+
+                    error!(
+                        attempt = attempt,
+                        wait_minutes = wait_minutes,
+                        error = %e,
+                        "Failed to load config due to unavailable source directory. Retrying in {} minutes...",
+                        wait_minutes
+                    );
+
+                    // Sleep for the calculated duration with periodic stop signal checks
+                    // Check every 5 seconds to allow graceful shutdown during long waits
+                    let sleep_seconds = wait_minutes * 60;
+                    let check_interval_seconds = 5;
+                    let mut elapsed_seconds = 0;
+
+                    while elapsed_seconds < sleep_seconds {
+                        // Check stop signal before sleeping
+                        if stop_signal.load(Ordering::Relaxed) {
+                            warn!("Service stop requested during retry wait, exiting");
+                            return Err(crate::error::ProcessingError::ConfigurationError(
+                                "Service stop requested".to_string()
+                            ));
+                        }
+
+                        // Sleep for a short interval
+                        let remaining = sleep_seconds - elapsed_seconds;
+                        let sleep_duration = if remaining < check_interval_seconds {
+                            remaining
+                        } else {
+                            check_interval_seconds
+                        };
+
+                        tokio::time::sleep(Duration::from_secs(sleep_duration)).await;
+                        elapsed_seconds += sleep_duration;
+                    }
+                } else {
+                    // Other config errors (TOML parsing, validation, etc.) - fail immediately
+                    error!("Failed to load config: {}", e);
+                    return Err(crate::error::ProcessingError::ConfigurationError(
+                        format!("Failed to load config: {}", e)
+                    ));
+                }
+            }
+        }
     }
 }
 
@@ -89,22 +190,30 @@ fn run_service_impl() -> Result<()> {
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
     info!("========================================");
 
-    // Load configuration
-    let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
-    info!("Loading config from: {}", config_path.display());
-    let config = match Config::from_file(&config_path) {
-        Ok(cfg) => {
-            info!("Config loaded successfully");
-            cfg
+    // Create tokio runtime early for async config loading
+    info!("Creating tokio runtime");
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(rt) => {
+            info!("Tokio runtime created");
+            rt
         }
         Err(e) => {
-            error!("Failed to load config: {}", e);
+            error!("Failed to create tokio runtime: {}", e);
             return Err(crate::error::ProcessingError::ConfigurationError(format!(
-                "Failed to load config: {}",
+                "Failed to create tokio runtime: {}",
                 e
             )));
         }
     };
+
+    // Create stop signal for graceful shutdown
+    let stop_signal = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop_signal_clone = stop_signal.clone();
+
+    // Load configuration with retry logic
+    let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
+    info!("Loading config from: {}", config_path.display());
+    let config = runtime.block_on(load_config_with_retry(&config_path, stop_signal.clone()))?;
 
     // Create scheduler
     let scheduler = Arc::new(Mutex::new(None::<BatchScheduler>));
@@ -115,6 +224,8 @@ fn run_service_impl() -> Result<()> {
         match control_event {
             ServiceControl::Stop => {
                 info!("Received stop signal");
+                // Set stop signal for config retry
+                stop_signal_clone.store(true, std::sync::atomic::Ordering::Relaxed);
                 // Stop the scheduler
                 if let Ok(mut sched) = scheduler_clone.lock() {
                     *sched = None;
@@ -164,21 +275,6 @@ fn run_service_impl() -> Result<()> {
     info!("Service is running");
 
     // Create and start the scheduler
-    info!("Creating tokio runtime");
-    let runtime = match tokio::runtime::Runtime::new() {
-        Ok(rt) => {
-            info!("Tokio runtime created");
-            rt
-        }
-        Err(e) => {
-            error!("Failed to create tokio runtime: {}", e);
-            return Err(crate::error::ProcessingError::ConfigurationError(format!(
-                "Failed to create tokio runtime: {}",
-                e
-            )));
-        }
-    };
-
     info!("Creating BatchScheduler");
 
     runtime.block_on(async {
