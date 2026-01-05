@@ -77,17 +77,14 @@ async fn load_config_with_retry(
         if stop_signal.load(Ordering::Relaxed) {
             warn!("Service stop requested during config loading, exiting");
             return Err(crate::error::ProcessingError::ConfigurationError(
-                "Service stop requested".to_string()
+                "Service stop requested".to_string(),
             ));
         }
 
         match Config::from_file(config_path) {
             Ok(cfg) => {
                 if attempt > 1 {
-                    info!(
-                        "Config loaded successfully after {} attempt(s)",
-                        attempt
-                    );
+                    info!("Config loaded successfully after {} attempt(s)", attempt);
                 } else {
                     info!("Config loaded successfully");
                 }
@@ -124,7 +121,7 @@ async fn load_config_with_retry(
                         if stop_signal.load(Ordering::Relaxed) {
                             warn!("Service stop requested during retry wait, exiting");
                             return Err(crate::error::ProcessingError::ConfigurationError(
-                                "Service stop requested".to_string()
+                                "Service stop requested".to_string(),
                             ));
                         }
 
@@ -142,9 +139,10 @@ async fn load_config_with_retry(
                 } else {
                     // Other config errors (TOML parsing, validation, etc.) - fail immediately
                     error!("Failed to load config: {}", e);
-                    return Err(crate::error::ProcessingError::ConfigurationError(
-                        format!("Failed to load config: {}", e)
-                    ));
+                    return Err(crate::error::ProcessingError::ConfigurationError(format!(
+                        "Failed to load config: {}",
+                        e
+                    )));
                 }
             }
         }
