@@ -1,7 +1,9 @@
 // CLI module for data_exporter
+pub mod authorize_device;
 pub mod install;
 pub mod uninstall;
 
+pub use authorize_device::authorize_device;
 pub use install::{install, InstallParams};
 pub use uninstall::uninstall;
 
@@ -20,17 +22,29 @@ pub struct Cli {
 pub enum Commands {
     /// Install the service
     Install {
-        /// Account identifier for uniqueness
+        /// Use Device Authorization Flow (RFC 8628) instead of traditional credentials
         #[arg(long)]
-        account: String,
+        use_device_flow: bool,
 
-        /// Username for API authentication
-        #[arg(long)]
-        username: String,
+        /// Site name (required if use_device_flow, 1-100 chars, alphanumeric + hyphens)
+        #[arg(long, required_if_eq("use_device_flow", "true"))]
+        site_name: Option<String>,
 
-        /// Password for API authentication
+        /// Site description (optional, max 500 chars)
         #[arg(long)]
-        password: String,
+        site_description: Option<String>,
+
+        /// Account identifier for uniqueness (required if NOT using device flow)
+        #[arg(long, required_unless_present = "use_device_flow")]
+        account: Option<String>,
+
+        /// Username for API authentication (required if NOT using device flow)
+        #[arg(long, required_unless_present = "use_device_flow")]
+        username: Option<String>,
+
+        /// Password for API authentication (required if NOT using device flow)
+        #[arg(long, required_unless_present = "use_device_flow")]
+        password: Option<String>,
 
         /// Source directory containing DBF files
         #[arg(long)]
@@ -41,7 +55,7 @@ pub enum Commands {
         crontab: String,
 
         /// API base URL
-        #[arg(long, default_value = "https://api.example.com")]
+        #[arg(long, default_value = "https://dev.dfm.bitbi.io")]
         api_url: String,
 
         /// DBF encoding (CP866, Windows1251, UTF8)
@@ -56,4 +70,19 @@ pub enum Commands {
 
     /// Uninstall the service
     Uninstall,
+
+    /// Re-authorize device to connect to a different site (Device Authorization Grant RFC 8628)
+    AuthorizeDevice {
+        /// Site name (1-100 chars, alphanumeric + hyphens)
+        #[arg(long)]
+        site_name: String,
+
+        /// Site description (optional, max 500 chars)
+        #[arg(long)]
+        site_description: Option<String>,
+
+        /// API base URL (optional, reads from existing config if not provided)
+        #[arg(long)]
+        api_url: Option<String>,
+    },
 }

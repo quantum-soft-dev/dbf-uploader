@@ -1,7 +1,7 @@
 // Error reporting module - sends error reports to the remote API
 use crate::auth::JwtToken;
 use crate::error::{ProcessingError, Result};
-use crate::models::{Config, ErrorReport};
+use crate::models::{Config, ErrorReport, GlobalErrorReport};
 use reqwest::Client;
 use std::time::Duration;
 
@@ -23,7 +23,7 @@ impl ErrorReporter {
         Ok(Self { client })
     }
 
-    /// Send error report to the remote API
+    /// Send batch error report to the remote API
     /// This is a fire-and-forget operation - we never retry to avoid infinite loops
     /// If sending fails, the error will be logged locally instead
     pub async fn send_error_report(
@@ -87,6 +87,95 @@ impl ErrorReporter {
 
                 Err(ProcessingError::NetworkError(format!(
                     "Error report API returned status: {} - {}",
+                    status, error_body
+                )))
+            }
+        }
+    }
+
+    /// Send global error report to the remote API (POST /api/dfc/error)
+    /// This is for errors outside batch processing context (system-level errors)
+    /// This is a fire-and-forget operation - we never retry to avoid infinite loops
+    /// If sending fails, the error will be logged locally instead
+    pub async fn send_global_error(
+        &self,
+        mut error_report: GlobalErrorReport,
+        token: &JwtToken,
+        config: &Config,
+    ) -> Result<()> {
+        let url = format!("{}/api/dfc/error", config.api.base_url);
+
+        // Validate and truncate fields according to API limits
+        error_report.validate_and_truncate();
+
+        tracing::debug!(
+            url = %url,
+            error_type = %error_report.error_type,
+            severity = ?error_report.severity,
+            has_metadata = error_report.metadata.is_some(),
+            "Sending global error report to server"
+        );
+
+        // Send the request with JWT token
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", token.token))
+            .json(&error_report)
+            .send()
+            .await
+            .map_err(|e| {
+                ProcessingError::NetworkError(format!("Failed to send global error report: {}", e))
+            })?;
+
+        // Check response status
+        let status = response.status().as_u16();
+
+        match status {
+            204 => {
+                tracing::info!(
+                    error_type = %error_report.error_type,
+                    severity = ?error_report.severity,
+                    "Global error report sent successfully"
+                );
+                Ok(())
+            }
+            401 => Err(ProcessingError::AuthenticationError(
+                "Unauthorized - token may be invalid".to_string(),
+            )),
+            400 => {
+                let error_body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unable to read response body".to_string());
+
+                tracing::error!(
+                    status = status,
+                    url = %url,
+                    response_body = %error_body,
+                    "Global error report validation failed"
+                );
+
+                Err(ProcessingError::NetworkError(format!(
+                    "Global error report validation failed: {}",
+                    error_body
+                )))
+            }
+            _ => {
+                let error_body = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unable to read response body".to_string());
+
+                tracing::error!(
+                    status = status,
+                    url = %url,
+                    response_body = %error_body,
+                    "Global error report API returned error"
+                );
+
+                Err(ProcessingError::NetworkError(format!(
+                    "Global error report API returned status: {} - {}",
                     status, error_body
                 )))
             }

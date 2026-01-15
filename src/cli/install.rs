@@ -9,9 +9,12 @@ use tracing::info;
 
 /// Installation parameters
 pub struct InstallParams {
-    pub account: String,
-    pub username: String,
-    pub password: String,
+    pub use_device_flow: bool,
+    pub site_name: Option<String>,
+    pub site_description: Option<String>,
+    pub account: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
     pub source_dir: String,
     pub crontab: String,
     pub api_url: String,
@@ -44,8 +47,20 @@ pub async fn install(params: InstallParams) -> Result<()> {
         )));
     }
 
+    // Route to device flow or traditional installation
+    if params.use_device_flow {
+        install_with_device_flow(params).await
+    } else {
+        install_with_traditional_auth(params).await
+    }
+}
+
+/// Install with traditional credentials
+async fn install_with_traditional_auth(params: InstallParams) -> Result<()> {
+    info!("Installing with traditional credentials...");
+
     // Create configuration
-    let config = create_config(params)?;
+    let config = create_config_traditional(&params)?;
 
     // Validate credentials by requesting token
     info!("Validating credentials...");
@@ -58,32 +73,143 @@ pub async fn install(params: InstallParams) -> Result<()> {
     Ok(())
 }
 
-/// Create configuration from install parameters
-fn create_config(params: InstallParams) -> Result<Config> {
+/// Install with Device Authorization Flow
+async fn install_with_device_flow(params: InstallParams) -> Result<()> {
+    use crate::auth::device_flow::{DeviceFlowClient, SiteInfo};
+
+    info!("Starting device authorization flow installation...");
+
+    // Create Device Flow client
+    let client = DeviceFlowClient::new(params.api_url.clone(), params.https_only)?;
+
+    // Prepare site information
+    let site_name = params.site_name.clone().ok_or_else(|| {
+        ProcessingError::ConfigurationError("Site name required for device flow".to_string())
+    })?;
+    let site_description = params.site_description.clone();
+
+    let site_info = SiteInfo {
+        site_name,
+        site_description,
+    };
+
+    // Step 1: Request authorization codes
+    let auth_response = client.authorize(site_info).await?;
+
+    // Step 2: Display instructions to user
+    DeviceFlowClient::display_instructions(&auth_response);
+
+    // Step 3: Poll for credentials
+    println!("Waiting for user approval...");
+    let credentials = loop {
+        tokio::time::sleep(std::time::Duration::from_secs(auth_response.interval)).await;
+
+        match client.poll_for_token(&auth_response.device_code).await? {
+            Some(creds) => break creds,
+            None => {
+                print!(".");
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+                continue;
+            }
+        }
+    };
+
+    println!("\n\n✓ Device authorized successfully!");
+    println!("  Site ID: {}", credentials.site_id);
+    println!("  Domain: {}", credentials.domain);
+
+    // Create configuration with device credentials
+    let config = create_config_device_flow(&params, credentials)?;
+
+    // Validate credentials by requesting token
+    info!("Validating credentials...");
+    validate_credentials(&config).await?;
+
+    // Install service (platform-specific)
+    install_service(&config)?;
+
+    info!("Installation completed successfully");
+    Ok(())
+}
+
+/// Create configuration from install parameters (traditional auth)
+fn create_config_traditional(params: &InstallParams) -> Result<Config> {
     use crate::models::config::{
         ApiConfig, CredentialConfig, EncodingConfig, SchedulerConfig, SourceConfig,
     };
 
+    let account = params.account.clone().ok_or_else(|| {
+        ProcessingError::ConfigurationError("Account required for traditional auth".to_string())
+    })?;
+    let username = params.username.clone().ok_or_else(|| {
+        ProcessingError::ConfigurationError("Username required for traditional auth".to_string())
+    })?;
+    let password = params.password.clone().ok_or_else(|| {
+        ProcessingError::ConfigurationError("Password required for traditional auth".to_string())
+    })?;
+
     let config = Config {
         scheduler: SchedulerConfig {
-            crontab: params.crontab,
+            crontab: params.crontab.clone(),
         },
         src: SourceConfig {
-            source_dir: PathBuf::from(params.source_dir),
+            source_dir: PathBuf::from(&params.source_dir),
             include_patterns: None,
             exclude_patterns: None,
         },
         credential: CredentialConfig {
-            account: params.account,
-            username: params.username,
-            password: params.password,
+            account,
+            username,
+            password,
+            device: None,
         },
         api: ApiConfig {
-            base_url: params.api_url,
+            base_url: params.api_url.clone(),
             https_only: params.https_only,
         },
         encoding: EncodingConfig {
-            dbf_encoding: params.encoding,
+            dbf_encoding: params.encoding.clone(),
+        },
+    };
+
+    Ok(config)
+}
+
+/// Create configuration from install parameters (device flow)
+fn create_config_device_flow(
+    params: &InstallParams,
+    credentials: crate::auth::device_flow::DeviceCredentials,
+) -> Result<Config> {
+    use crate::models::config::{
+        ApiConfig, CredentialConfig, DeviceCredentials, EncodingConfig, SchedulerConfig,
+        SourceConfig,
+    };
+
+    let config = Config {
+        scheduler: SchedulerConfig {
+            crontab: params.crontab.clone(),
+        },
+        src: SourceConfig {
+            source_dir: PathBuf::from(&params.source_dir),
+            include_patterns: None,
+            exclude_patterns: None,
+        },
+        credential: CredentialConfig {
+            account: String::new(),
+            username: String::new(),
+            password: String::new(),
+            device: Some(DeviceCredentials {
+                site_id: credentials.site_id,
+                domain: credentials.domain,
+                client_secret: credentials.client_secret,
+            }),
+        },
+        api: ApiConfig {
+            base_url: credentials.api_base_url,
+            https_only: params.https_only,
+        },
+        encoding: EncodingConfig {
+            dbf_encoding: params.encoding.clone(),
         },
     };
 
@@ -254,16 +380,21 @@ mod tests {
 
     #[test]
     fn test_create_config() {
-        let config = create_config(InstallParams {
-            account: "testaccount".to_string(),
-            username: "testuser".to_string(),
-            password: "testpass".to_string(),
+        let params = InstallParams {
+            use_device_flow: false,
+            site_name: None,
+            site_description: None,
+            account: Some("testaccount".to_string()),
+            username: Some("testuser".to_string()),
+            password: Some("testpass".to_string()),
             source_dir: "/tmp".to_string(),
             crontab: "*/5 * * * *".to_string(),
             api_url: "https://api.example.com".to_string(),
             encoding: "CP866".to_string(),
             https_only: true,
-        });
+        };
+
+        let config = create_config_traditional(&params);
 
         assert!(config.is_ok());
         let config = config.unwrap();
@@ -276,31 +407,39 @@ mod tests {
 
     #[test]
     fn test_https_validation() {
-        let result = create_config(InstallParams {
-            account: "testaccount".to_string(),
-            username: "test".to_string(),
-            password: "test".to_string(),
+        let params = InstallParams {
+            use_device_flow: false,
+            site_name: None,
+            site_description: None,
+            account: Some("testaccount".to_string()),
+            username: Some("test".to_string()),
+            password: Some("test".to_string()),
             source_dir: "/tmp".to_string(),
             crontab: "*/5 * * * *".to_string(),
             api_url: "https://api.example.com".to_string(),
             encoding: "CP866".to_string(),
             https_only: true,
-        });
+        };
+        let result = create_config_traditional(&params);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_http_allowed_when_https_only_disabled() {
-        let result = create_config(InstallParams {
-            account: "testaccount".to_string(),
-            username: "test".to_string(),
-            password: "test".to_string(),
+        let params = InstallParams {
+            use_device_flow: false,
+            site_name: None,
+            site_description: None,
+            account: Some("testaccount".to_string()),
+            username: Some("test".to_string()),
+            password: Some("test".to_string()),
             source_dir: "/tmp".to_string(),
             crontab: "*/5 * * * *".to_string(),
             api_url: "http://localhost:8080".to_string(),
             encoding: "CP866".to_string(),
             https_only: false,
-        });
+        };
+        let result = create_config_traditional(&params);
         assert!(result.is_ok());
         let config = result.unwrap();
         assert!(!config.api.https_only);

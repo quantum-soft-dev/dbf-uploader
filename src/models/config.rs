@@ -39,17 +39,55 @@ pub struct SourceConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CredentialConfig {
     /// Account identifier (combined with username for uniqueness)
+    /// Optional when using device flow credentials
+    #[serde(default)]
     pub account: String,
     /// Username for API authentication
+    /// Optional when using device flow credentials
+    #[serde(default)]
     pub username: String,
     /// Password for API authentication
+    /// Optional when using device flow credentials
+    #[serde(default)]
     pub password: String,
+    /// Device flow credentials (domain + client_secret)
+    /// Obtained via Device Authorization Grant (RFC 8628)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device: Option<DeviceCredentials>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DeviceCredentials {
+    /// UUID of the site
+    pub site_id: String,
+    /// Domain for the site (username for Basic Auth)
+    pub domain: String,
+    /// Client secret for authentication (password for Basic Auth)
+    pub client_secret: String,
 }
 
 impl CredentialConfig {
-    /// Get the full username in format: account_username
+    /// Get the full username in format: account_username or domain from device credentials
     pub fn full_username(&self) -> String {
-        format!("{}_{}", self.account, self.username)
+        if let Some(ref device) = self.device {
+            device.domain.clone()
+        } else {
+            format!("{}_{}", self.account, self.username)
+        }
+    }
+
+    /// Get the password or client_secret from device credentials
+    pub fn password(&self) -> &str {
+        if let Some(ref device) = self.device {
+            &device.client_secret
+        } else {
+            &self.password
+        }
+    }
+
+    /// Check if using device flow credentials
+    pub fn is_device_flow(&self) -> bool {
+        self.device.is_some()
     }
 }
 
@@ -127,15 +165,27 @@ impl Config {
             return Err("API base URL must start with http:// or https://".into());
         }
 
-        // Validate credentials are not empty
-        if self.credential.account.is_empty() {
-            return Err("Account cannot be empty".into());
-        }
-        if self.credential.username.is_empty() {
-            return Err("Username cannot be empty".into());
-        }
-        if self.credential.password.is_empty() {
-            return Err("Password cannot be empty".into());
+        // Validate credentials - either traditional or device flow must be present
+        if self.credential.device.is_none() {
+            // Traditional credentials validation
+            if self.credential.account.is_empty() {
+                return Err("Account cannot be empty when not using device flow".into());
+            }
+            if self.credential.username.is_empty() {
+                return Err("Username cannot be empty when not using device flow".into());
+            }
+            if self.credential.password.is_empty() {
+                return Err("Password cannot be empty when not using device flow".into());
+            }
+        } else {
+            // Device flow credentials validation
+            let device = self.credential.device.as_ref().unwrap();
+            if device.domain.is_empty() {
+                return Err("Device domain cannot be empty".into());
+            }
+            if device.client_secret.is_empty() {
+                return Err("Device client_secret cannot be empty".into());
+            }
         }
 
         // Validate include/exclude patterns are valid glob patterns

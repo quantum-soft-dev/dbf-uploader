@@ -398,6 +398,7 @@ mod tests {
                 account: "testaccount".to_string(),
                 username: "test".to_string(),
                 password: "test".to_string(),
+                device: None,
             },
             api: ApiConfig {
                 base_url: "https://api.test.com".to_string(),

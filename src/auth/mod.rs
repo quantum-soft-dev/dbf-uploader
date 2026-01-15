@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub mod device_flow;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtToken {
     pub token: String,
@@ -64,13 +66,13 @@ impl AuthClient {
             client,
             base_url: config.api.base_url.clone(),
             username: config.credential.full_username(),
-            password: config.credential.password.clone(),
+            password: config.credential.password().to_string(),
         })
     }
 
     /// Retrieve a JWT token from the server
     pub async fn get_token(&self) -> Result<JwtToken> {
-        let url = format!("{}/api/v1/device/auth/token", self.base_url);
+        let url = format!("{}/api/dfc/auth/token", self.base_url);
 
         // Create Basic auth header
         let credentials = format!("{}:{}", self.username, self.password);

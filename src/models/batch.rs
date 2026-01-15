@@ -97,6 +97,7 @@ mod tests {
                 account: "testaccount".to_string(),
                 username: "test".to_string(),
                 password: "test".to_string(),
+                device: None,
             },
             api: crate::models::config::ApiConfig {
                 base_url: "https://api.example.com".to_string(),

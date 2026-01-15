@@ -2,7 +2,7 @@
 // Handles both Windows Service mode and CLI commands
 
 use clap::Parser;
-use data_exporter::cli::{install, uninstall, Cli, Commands, InstallParams};
+use data_exporter::cli::{authorize_device, install, uninstall, Cli, Commands, InstallParams};
 use tracing_subscriber::{fmt, EnvFilter};
 
 #[cfg(windows)]
@@ -84,6 +84,9 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     // Execute command
     let result = match cli.command {
         Commands::Install {
+            use_device_flow,
+            site_name,
+            site_description,
             account,
             username,
             password,
@@ -95,6 +98,9 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let https_only = !no_https; // Invert the flag
             install(InstallParams {
+                use_device_flow,
+                site_name,
+                site_description,
                 account,
                 username,
                 password,
@@ -107,6 +113,19 @@ async fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             .await
         }
         Commands::Uninstall => uninstall().await,
+        Commands::AuthorizeDevice {
+            site_name,
+            site_description,
+            api_url,
+        } => {
+            use data_exporter::cli::authorize_device::AuthorizeDeviceParams;
+            authorize_device(AuthorizeDeviceParams {
+                site_name,
+                site_description,
+                api_url,
+            })
+            .await
+        }
     };
 
     // Handle result

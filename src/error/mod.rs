@@ -1,9 +1,11 @@
 // Error types for data_exporter
 use thiserror::Error;
 
+pub mod global_logger;
 pub mod logger;
 pub mod reporter;
 
+pub use global_logger::GlobalErrorLogger;
 pub use logger::log_error_locally;
 pub use reporter::ErrorReporter;
 
