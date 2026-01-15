@@ -117,7 +117,6 @@ async fn install_with_device_flow(params: InstallParams) -> Result<()> {
     println!("\n\n✓ Device authorized successfully!");
     println!("  Site ID: {}", credentials.site_id);
     println!("  Domain: {}", credentials.domain);
-    println!("  API Base URL: {}", credentials.api_base_url);
 
     // Create configuration with device credentials
     let config = create_config_device_flow(&params, credentials)?;
@@ -292,11 +291,69 @@ fn install_service(config: &Config) -> Result<()> {
 }
 
 /// Set permissions on config.toml (Windows only)
+/// Restricts access to SYSTEM and Administrators only
 #[cfg(target_os = "windows")]
 fn set_config_permissions(config_path: &Path) -> Result<()> {
-    // TODO: Implement Windows ACL permissions
-    // For now, just log that this should be done
-    info!("TODO: Set ACL permissions on {}", config_path.display());
+    use std::process::Command;
+
+    info!("Setting ACL permissions on config file...");
+
+    let config_path_str = config_path.to_string_lossy().to_string();
+
+    // Remove inheritance and copy existing permissions
+    let disable_inheritance = Command::new("icacls")
+        .args([&config_path_str, "/inheritance:d"])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
+        })?;
+
+    if !disable_inheritance.status.success() {
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to disable inheritance: {}",
+            String::from_utf8_lossy(&disable_inheritance.stderr)
+        )));
+    }
+
+    // Remove all existing permissions for Users and Everyone
+    let _ = Command::new("icacls")
+        .args([&config_path_str, "/remove:g", "Users"])
+        .output();
+    let _ = Command::new("icacls")
+        .args([&config_path_str, "/remove:g", "Everyone"])
+        .output();
+
+    // Grant full control to SYSTEM
+    let grant_system = Command::new("icacls")
+        .args([&config_path_str, "/grant", "SYSTEM:(F)"])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
+        })?;
+
+    if !grant_system.status.success() {
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to grant SYSTEM permissions: {}",
+            String::from_utf8_lossy(&grant_system.stderr)
+        )));
+    }
+
+    // Grant full control to Administrators
+    let grant_admins = Command::new("icacls")
+        .args([&config_path_str, "/grant", "Administrators:(F)"])
+        .output()
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
+        })?;
+
+    if !grant_admins.status.success() {
+        return Err(ProcessingError::ConfigurationError(format!(
+            "Failed to grant Administrators permissions: {}",
+            String::from_utf8_lossy(&grant_admins.stderr)
+        )));
+    }
+
+    info!("ACL permissions set successfully - config file is now protected");
     Ok(())
 }
 

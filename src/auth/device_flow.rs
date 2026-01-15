@@ -124,7 +124,6 @@ impl DeviceFlowClient {
                 tracing::info!(
                     user_code = %auth_response.user_code,
                     expires_in = auth_response.expires_in,
-                    verification_uri = %auth_response.verification_uri,
                     "Device authorization codes received"
                 );
 
@@ -184,7 +183,6 @@ impl DeviceFlowClient {
                 tracing::info!(
                     site_id = %credentials.site_id,
                     domain = %credentials.domain,
-                    api_base_url = %credentials.api_base_url,
                     "Device authorization successful"
                 );
 
