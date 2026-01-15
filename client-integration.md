@@ -76,12 +76,12 @@
 
 ### 1. Authentication API
 
-**Endpoint**: `POST /api/auth/token`
+**Endpoint**: `POST /api/v1/device/auth/token`
 **Status**: ✅ Реализовано в `src/auth/mod.rs`
 
 #### Request
 ```http
-POST /api/auth/token HTTP/1.1
+POST /api/v1/device/auth/token HTTP/1.1
 Authorization: Basic <base64(username:password)>
 Content-Type: application/json
 ```

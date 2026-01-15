@@ -75,6 +75,7 @@ pub async fn authorize_device(params: AuthorizeDeviceParams) -> Result<()> {
     println!("\n\n✓ Device re-authorized successfully!");
     println!("  Site ID: {}", credentials.site_id);
     println!("  Domain: {}", credentials.domain);
+    println!("  API Base URL: {}", credentials.api_base_url);
 
     // Update configuration with new device credentials
     let mut config = existing_config.ok_or_else(|| {

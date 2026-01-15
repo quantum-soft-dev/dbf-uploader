@@ -117,6 +117,7 @@ async fn install_with_device_flow(params: InstallParams) -> Result<()> {
     println!("\n\n✓ Device authorized successfully!");
     println!("  Site ID: {}", credentials.site_id);
     println!("  Domain: {}", credentials.domain);
+    println!("  API Base URL: {}", credentials.api_base_url);
 
     // Create configuration with device credentials
     let config = create_config_device_flow(&params, credentials)?;
