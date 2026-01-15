@@ -42,14 +42,23 @@ impl BatchScheduler {
         let config = self.config.read().await.clone();
         let crontab = config.scheduler.crontab.clone();
 
-        info!(crontab = %crontab, "Starting scheduler");
+        // Convert 5-field cron to 6-field (add seconds at the beginning)
+        // tokio-cron-scheduler expects: "sec min hour day month weekday"
+        // Standard cron is: "min hour day month weekday"
+        let crontab_6field = if crontab.split_whitespace().count() == 5 {
+            format!("0 {}", crontab) // Add "0" for seconds at the beginning
+        } else {
+            crontab.clone()
+        };
+
+        info!(crontab = %crontab_6field, "Starting scheduler");
 
         // Create the batch processing job
         let config_arc = Arc::clone(&self.config);
         let token_manager = Arc::clone(&self.token_manager);
         let batch_lock = Arc::clone(&self.batch_lock);
 
-        let job = Job::new_async(crontab.as_str(), move |_uuid, _l| {
+        let job = Job::new_async(crontab_6field.as_str(), move |_uuid, _l| {
             let config_arc = Arc::clone(&config_arc);
             let token_manager = Arc::clone(&token_manager);
             let batch_lock = Arc::clone(&batch_lock);
