@@ -109,17 +109,21 @@ impl DeviceFlowClient {
             .send()
             .await
             .map_err(|e| {
-                ProcessingError::NetworkError(format!("Failed to send authorization request: {}", e))
+                ProcessingError::NetworkError(format!(
+                    "Failed to send authorization request: {}",
+                    e
+                ))
             })?;
 
         match response.status().as_u16() {
             200 => {
-                let auth_response: DeviceAuthorizationResponse = response.json().await.map_err(|e| {
-                    ProcessingError::NetworkError(format!(
-                        "Failed to parse authorization response: {}",
-                        e
-                    ))
-                })?;
+                let auth_response: DeviceAuthorizationResponse =
+                    response.json().await.map_err(|e| {
+                        ProcessingError::NetworkError(format!(
+                            "Failed to parse authorization response: {}",
+                            e
+                        ))
+                    })?;
 
                 tracing::info!(
                     user_code = %auth_response.user_code,
@@ -278,9 +282,7 @@ impl DeviceFlowClient {
                     // Note: slow_down should increase interval, but we handle that in the error
                     continue;
                 }
-                Err(ProcessingError::AuthenticationError(msg))
-                    if msg.contains("slow_down") =>
-                {
+                Err(ProcessingError::AuthenticationError(msg)) if msg.contains("slow_down") => {
                     // Increase interval by 5 seconds as per RFC 8628
                     interval += Duration::from_secs(5);
                     tracing::warn!(
@@ -332,10 +334,7 @@ mod tests {
     fn test_device_flow_client_https_only_validation() {
         let result = DeviceFlowClient::new("http://api.example.com".to_string(), true);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("must use HTTPS"));
+        assert!(result.unwrap_err().to_string().contains("must use HTTPS"));
     }
 
     #[test]
@@ -355,7 +354,10 @@ mod tests {
         let json = r#"{"siteId":"550e8400-e29b-41d4-a716-446655440000","domain":"c823d8b8-0e6f-4242-a350-d6ef335ab4e8_warehouse-01","clientSecret":"cs_secret123","apiBaseUrl":"https://api.dataforge.com"}"#;
         let credentials: DeviceCredentials = serde_json::from_str(json).unwrap();
         assert_eq!(credentials.site_id, "550e8400-e29b-41d4-a716-446655440000");
-        assert_eq!(credentials.domain, "c823d8b8-0e6f-4242-a350-d6ef335ab4e8_warehouse-01");
+        assert_eq!(
+            credentials.domain,
+            "c823d8b8-0e6f-4242-a350-d6ef335ab4e8_warehouse-01"
+        );
         assert_eq!(credentials.client_secret, "cs_secret123");
         assert_eq!(credentials.api_base_url, "https://api.dataforge.com");
     }

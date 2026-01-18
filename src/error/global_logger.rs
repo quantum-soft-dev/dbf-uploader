@@ -173,13 +173,8 @@ impl GlobalErrorLogger {
             );
         }
 
-        self.report(
-            error_type,
-            error.to_string(),
-            severity,
-            Some(metadata),
-        )
-        .await
+        self.report(error_type, error.to_string(), severity, Some(metadata))
+            .await
     }
 }
 

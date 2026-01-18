@@ -21,11 +21,9 @@ pub async fn authorize_device(params: AuthorizeDeviceParams) -> Result<()> {
 
     // Read existing config to get api_url and https_only
     let existing_config = if config_path.exists() {
-        Some(
-            Config::from_file(&config_path).map_err(|e| {
-                ProcessingError::ConfigurationError(format!("Failed to read config: {}", e))
-            })?,
-        )
+        Some(Config::from_file(&config_path).map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to read config: {}", e))
+        })?)
     } else {
         None
     };

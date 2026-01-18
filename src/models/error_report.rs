@@ -115,16 +115,9 @@ impl GlobalErrorReport {
         // Limit metadata to 20 keys
         if let Some(ref mut metadata) = self.metadata {
             if metadata.len() > 20 {
-                tracing::warn!(
-                    "Metadata has {} keys, truncating to 20",
-                    metadata.len()
-                );
+                tracing::warn!("Metadata has {} keys, truncating to 20", metadata.len());
                 // Keep only first 20 keys
-                let keys_to_remove: Vec<String> = metadata
-                    .keys()
-                    .skip(20)
-                    .cloned()
-                    .collect();
+                let keys_to_remove: Vec<String> = metadata.keys().skip(20).cloned().collect();
                 for key in keys_to_remove {
                     metadata.remove(&key);
                 }

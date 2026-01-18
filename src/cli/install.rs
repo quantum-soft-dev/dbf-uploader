@@ -304,9 +304,7 @@ fn set_config_permissions(config_path: &Path) -> Result<()> {
     let disable_inheritance = Command::new("icacls")
         .args([&config_path_str, "/inheritance:d"])
         .output()
-        .map_err(|e| {
-            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
-        })?;
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e)))?;
 
     if !disable_inheritance.status.success() {
         return Err(ProcessingError::ConfigurationError(format!(
@@ -327,9 +325,7 @@ fn set_config_permissions(config_path: &Path) -> Result<()> {
     let grant_system = Command::new("icacls")
         .args([&config_path_str, "/grant", "SYSTEM:(F)"])
         .output()
-        .map_err(|e| {
-            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
-        })?;
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e)))?;
 
     if !grant_system.status.success() {
         return Err(ProcessingError::ConfigurationError(format!(
@@ -342,9 +338,7 @@ fn set_config_permissions(config_path: &Path) -> Result<()> {
     let grant_admins = Command::new("icacls")
         .args([&config_path_str, "/grant", "Administrators:(F)"])
         .output()
-        .map_err(|e| {
-            ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e))
-        })?;
+        .map_err(|e| ProcessingError::ConfigurationError(format!("Failed to run icacls: {}", e)))?;
 
     if !grant_admins.status.success() {
         return Err(ProcessingError::ConfigurationError(format!(
