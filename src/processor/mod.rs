@@ -74,8 +74,16 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
     if dbf_files.is_empty() {
         info!(
             batch_id = %batch.batch_id,
-            "No DBF files found, batch complete"
+            "No DBF files found, completing empty batch"
         );
+        // Must notify server that batch is complete (even if empty)
+        let token = token_manager.get_valid_token().await?;
+        if let Err(e) = batch_client
+            .complete_batch(&server_batch_id, &token, &config)
+            .await
+        {
+            warn!(error = %e, "Failed to mark empty batch as completed on server");
+        }
         batch.status = BatchStatus::Completed;
         return Ok(batch);
     }
