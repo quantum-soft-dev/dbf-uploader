@@ -43,8 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("Windows Service Error: {}", e);
                 eprintln!();
                 eprintln!("Usage:");
-                eprintln!("  Install service:   data_exporter.exe install --username <USER> --password <PASS> ...");
+                eprintln!("  Traditional auth:  data_exporter.exe install --account <ACCOUNT> --username <USER> --password <PASS> --source-dir <DIR>");
+                eprintln!("  Device flow:       data_exporter.exe install --use-device-flow --site-name <SITE> --source-dir <DIR>");
                 eprintln!("  Uninstall service: data_exporter.exe uninstall");
+                eprintln!("  Re-authorize:      data_exporter.exe authorize-device --site-name <SITE>");
                 eprintln!("  Run as service:    Start-Service -Name \"data-exporter\"");
                 eprintln!();
                 eprintln!("For more options, run: data_exporter.exe --help");

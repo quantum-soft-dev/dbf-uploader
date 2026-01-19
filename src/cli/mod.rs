@@ -58,7 +58,7 @@ pub enum Commands {
         #[arg(long, default_value = "https://dev.dfm.bitbi.io")]
         api_url: String,
 
-        /// DBF encoding (CP866, Windows1251, UTF8)
+        /// DBF encoding (CP866, Windows1251, Windows1255, ISO8859-8, UTF8)
         #[arg(long, default_value = "CP866")]
         encoding: String,
 

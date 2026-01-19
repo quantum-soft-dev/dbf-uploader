@@ -31,19 +31,20 @@ Windows сервис для автоматического экспорта DBF 
 
 ### Установить сервис
 
+#### Вариант 1: Traditional Authentication (username/password)
+
 ```powershell
 # Распакуйте архив
 Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 # Установите сервис (требуются права администратора)
-# ВАЖНО: API URL должен включать версию API (например /api/v1)
 .\data_exporter.exe install `
   --account "your-account-id" `
   --username "your_username" `
   --password "your_password" `
   --source-dir "C:\Data\DBF" `
   --crontab "0 8,12,16,18 * * *" `
-  --api-url "https://api.example.com" `
+  --api-url "https://dev.dfm.bitbi.io" `
   --encoding "Windows1255"
 
 # Для локального тестирования с HTTP (небезопасно!)
@@ -56,6 +57,38 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
   --api-url "http://localhost:8080" `
   --encoding "Windows1255" `
   --no-https
+```
+
+#### Вариант 2: Device Authorization Flow (RFC 8628)
+
+Для headless устройств или упрощенной авторизации без хранения паролей:
+
+```powershell
+# Установите сервис с Device Flow
+.\data_exporter.exe install `
+  --use-device-flow `
+  --site-name "warehouse-01" `
+  --site-description "Main warehouse terminal" `
+  --source-dir "C:\Data\DBF" `
+  --crontab "*/5 * * * *" `
+  --api-url "https://dev.dfm.bitbi.io"
+
+# Система отобразит код авторизации:
+# Open: https://dev.dfm.bitbi.io/device-verify
+# Enter code: ABCD-1234
+#
+# Откройте URL в браузере, введите код, выберите сайт и авторизуйте устройство
+```
+
+**Переподключение к другому сайту:**
+
+```powershell
+# Переавторизация устройства для работы с другим сайтом
+.\data_exporter.exe authorize-device `
+  --site-name "warehouse-02" `
+  --site-description "Secondary warehouse"
+
+# Сервис автоматически начнет использовать новые credentials (hot-reload)
 ```
 
 **Параметры установки**:
