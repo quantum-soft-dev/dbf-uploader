@@ -43,13 +43,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 eprintln!("Windows Service Error: {}", e);
                 eprintln!();
                 eprintln!("Usage:");
-                eprintln!("  Traditional auth:  data_exporter.exe install --account <ACCOUNT> --username <USER> --password <PASS> --source-dir <DIR>");
-                eprintln!("  Device flow:       data_exporter.exe install --use-device-flow --site-name <SITE> --source-dir <DIR>");
-                eprintln!("  Uninstall service: data_exporter.exe uninstall");
-                eprintln!("  Re-authorize:      data_exporter.exe authorize-device --site-name <SITE>");
-                eprintln!("  Run as service:    Start-Service -Name \"data-exporter\"");
                 eprintln!();
-                eprintln!("For more options, run: data_exporter.exe --help");
+                eprintln!("  Traditional auth:");
+                eprintln!("    data_exporter.exe install --account <ACCOUNT> --username <USER> --password <PASS> \\");
+                eprintln!("      --source-dir <DIR> [--crontab <CRON>] [--api-url <URL>] [--encoding <ENC>]");
+                eprintln!();
+                eprintln!("  Device flow:");
+                eprintln!("    data_exporter.exe install --use-device-flow --site-name <SITE> \\");
+                eprintln!("      --source-dir <DIR> [--site-description <DESC>] [--crontab <CRON>] [--api-url <URL>]");
+                eprintln!();
+                eprintln!("  Uninstall:");
+                eprintln!("    data_exporter.exe uninstall");
+                eprintln!();
+                eprintln!("  Re-authorize:");
+                eprintln!("    data_exporter.exe authorize-device --site-name <SITE> [--site-description <DESC>]");
+                eprintln!();
+                eprintln!("  Run as service:");
+                eprintln!("    Start-Service -Name \"data-exporter\"");
+                eprintln!();
+                eprintln!("Optional parameters:");
+                eprintln!("  --crontab <CRON>      Schedule (default: \"*/5 * * * *\" - every 5 minutes)");
+                eprintln!("  --api-url <URL>       API base URL (default: https://dev.dfm.bitbi.io)");
+                eprintln!("  --encoding <ENC>      DBF encoding (default: CP866)");
+                eprintln!("  --no-https            Allow HTTP connections (insecure, testing only)");
+                eprintln!();
+                eprintln!("For detailed help, run: data_exporter.exe --help");
                 std::process::exit(1);
             }
         }
