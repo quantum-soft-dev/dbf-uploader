@@ -18,8 +18,10 @@ pub struct InstallerApp {
 
     // Layout frames
     header_frame: nwg::Frame,
+    side_panel: nwg::Frame,
     content_frame: nwg::Frame,
-    button_separator: nwg::Frame,
+    button_separator_top: nwg::Frame,
+    button_separator_bottom: nwg::Frame,
 
     // Header
     header_title: nwg::Label,
@@ -253,76 +255,150 @@ mod installer_ui {
         fn build_ui(mut data: InstallerApp) -> Result<InstallerUi, nwg::NwgError> {
             // Window
             nwg::Window::builder()
-                .size((600, 400))
+                .size((550, 360))
                 .position((300, 300))
-                .title("Data Exporter Installer")
+                .title("Data Exporter Setup")
                 .flags(nwg::WindowFlags::WINDOW | nwg::WindowFlags::VISIBLE)
                 .build(&mut data.window)?;
 
-            // Welcome screen
-            nwg::Label::builder()
-                .text("Welcome to Data Exporter Installer\n\nThis wizard will guide you through the installation process.\n\nClick Next to continue.")
-                .position((40, 60))
-                .size((520, 200))
+            // Side panel (left side - blue/gray)
+            nwg::Frame::builder()
+                .position((0, 0))
+                .size((164, 300))
                 .parent(&data.window)
-                .build(&mut data.welcome_label)?;
+                .build(&mut data.side_panel)?;
 
-            // Directory selection screen
+            // Header frame - white background for title area
+            nwg::Frame::builder()
+                .position((164, 0))
+                .size((386, 65))
+                .parent(&data.window)
+                .build(&mut data.header_frame)?;
+
+            // Header title
             nwg::Label::builder()
-                .text("Select Installation Directory:")
-                .position((40, 60))
-                .size((520, 25))
+                .text("Welcome to Data Exporter Setup")
+                .position((174, 10))
+                .size((360, 25))
+                .background_color(Some([255, 255, 255]))
+                .parent(&data.window)
+                .build(&mut data.header_title)?;
+
+            // Header subtitle
+            nwg::Label::builder()
+                .text("This wizard will install Data Exporter on your computer.")
+                .position((184, 35))
+                .size((350, 20))
+                .background_color(Some([255, 255, 255]))
+                .parent(&data.window)
+                .build(&mut data.header_subtitle)?;
+
+            // Separator line (top - dark)
+            nwg::Frame::builder()
+                .position((164, 65))
+                .size((386, 1))
+                .parent(&data.window)
+                .build(&mut data.button_separator_top)?;
+
+            // Separator line (bottom - light) for 3D effect
+            nwg::Frame::builder()
+                .position((164, 66))
+                .size((386, 1))
+                .parent(&data.window)
+                .build(&mut data.button_separator_bottom)?;
+
+            // Content frame
+            nwg::Frame::builder()
+                .position((164, 67))
+                .size((386, 233))
+                .parent(&data.window)
+                .build(&mut data.content_frame)?;
+
+            // Welcome text
+            nwg::Label::builder()
+                .text("Setup will install Data Exporter on your computer.\n\nIt is recommended that you close all other applications before continuing.\n\nClick Next to continue.")
+                .position((184, 100))
+                .size((346, 180))
+                .background_color(Some([240, 240, 240]))
+                .parent(&data.window)
+                .build(&mut data.welcome_text)?;
+
+            // Directory selection label
+            nwg::Label::builder()
+                .text("Destination Folder:")
+                .position((184, 100))
+                .size((346, 20))
+                .background_color(Some([240, 240, 240]))
                 .parent(&data.window)
                 .build(&mut data.dir_label)?;
 
+            // Directory input
             nwg::TextInput::builder()
-                .position((40, 90))
-                .size((420, 25))
+                .position((184, 125))
+                .size((280, 25))
                 .parent(&data.window)
                 .build(&mut data.dir_input)?;
 
+            // Browse button
             nwg::Button::builder()
                 .text("Browse...")
-                .position((470, 90))
-                .size((90, 25))
+                .position((474, 125))
+                .size((70, 25))
                 .parent(&data.window)
                 .build(&mut data.browse_button)?;
 
-            // Progress screen
+            // Progress label
             nwg::Label::builder()
                 .text("Installing...")
-                .position((40, 120))
-                .size((520, 25))
+                .position((184, 120))
+                .size((346, 20))
+                .background_color(Some([240, 240, 240]))
                 .parent(&data.window)
                 .build(&mut data.progress_label)?;
 
+            // Progress bar
             nwg::ProgressBar::builder()
-                .position((40, 150))
-                .size((520, 25))
+                .position((184, 145))
+                .size((346, 25))
                 .range(0..100)
                 .parent(&data.window)
                 .build(&mut data.progress_bar)?;
 
-            // Completion screen
+            // Completion text
             nwg::Label::builder()
-                .text("Installation Complete!\n\nData Exporter has been successfully installed.\n\nThe Configurator will now launch to complete the setup.")
-                .position((40, 80))
-                .size((520, 200))
+                .text("Data Exporter has been successfully installed.\n\nThe Configurator will now launch to complete the setup.\n\nClick Finish to exit Setup.")
+                .position((184, 100))
+                .size((346, 180))
+                .background_color(Some([240, 240, 240]))
                 .parent(&data.window)
-                .build(&mut data.complete_label)?;
+                .build(&mut data.complete_text)?;
 
-            // Buttons
+            // Buttons (standard Windows installer layout)
+            nwg::Button::builder()
+                .text("Cancel")
+                .position((20, 315))
+                .size((75, 30))
+                .parent(&data.window)
+                .build(&mut data.cancel_button)?;
+
+            nwg::Button::builder()
+                .text("< Back")
+                .position((315, 315))
+                .size((75, 30))
+                .parent(&data.window)
+                .build(&mut data.back_button)?;
+
             nwg::Button::builder()
                 .text("Next >")
-                .position((460, 330))
-                .size((100, 30))
+                .position((400, 315))
+                .size((80, 30))
                 .parent(&data.window)
                 .build(&mut data.next_button)?;
 
             nwg::Button::builder()
                 .text("Finish")
-                .position((460, 330))
-                .size((100, 30))
+                .position((400, 315))
+                .size((80, 30))
                 .parent(&data.window)
                 .build(&mut data.finish_button)?;
 
@@ -349,6 +425,10 @@ mod installer_ui {
                                 ui.on_finish();
                             } else if &handle == &ui.browse_button {
                                 ui.on_browse();
+                            } else if &handle == &ui.back_button {
+                                ui.on_back();
+                            } else if &handle == &ui.cancel_button {
+                                ui.exit();
                             }
                         }
                         _ => {}
@@ -388,7 +468,15 @@ mod installer_ui {
 
 fn main() {
     nwg::init().expect("Failed to init Native Windows GUI");
-    nwg::Font::set_global_family("Segoe UI").expect("Failed to set default font");
+
+    // Set smaller font size for better appearance
+    let mut font = nwg::Font::default();
+    nwg::Font::builder()
+        .family("Segoe UI")
+        .size(16)
+        .build(&mut font)
+        .expect("Failed to create font");
+    nwg::Font::set_global_default(Some(font));
 
     let _ui = InstallerApp::build_ui(Default::default()).expect("Failed to build UI");
 

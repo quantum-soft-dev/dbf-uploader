@@ -5,7 +5,8 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         let mut res = winres::WindowsResource::new();
-        res.set_icon("res/icon.ico");
+        // Skip icon for now - will be added later
+        // res.set_icon("res/icon.ico");
         res.set("ProductName", "Data Exporter");
         res.set("FileDescription", "Data Exporter Installer");
         res.set("CompanyName", "");
