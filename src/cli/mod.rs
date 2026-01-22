@@ -12,7 +12,8 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "data_exporter")]
 #[command(about = "Data Exporter Service - DBF to CSV/gzip uploader")]
-#[command(version)]
+#[command(long_version = crate::version::Version::detailed())]
+#[command(version = crate::version::Version::get())]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

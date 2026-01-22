@@ -1,8 +1,8 @@
 // Windows Service implementation
 #[cfg(windows)]
-use crate::error::Result;
+use common::error::Result;
 #[cfg(windows)]
-use crate::models::Config;
+use common::models::Config;
 #[cfg(windows)]
 use crate::service::BatchScheduler;
 #[cfg(windows)]
@@ -76,7 +76,7 @@ async fn load_config_with_retry(
         // Check if service stop was requested
         if stop_signal.load(Ordering::Relaxed) {
             warn!("Service stop requested during config loading, exiting");
-            return Err(crate::error::ProcessingError::ConfigurationError(
+            return Err(common::error::ProcessingError::ConfigurationError(
                 "Service stop requested".to_string(),
             ));
         }
@@ -120,7 +120,7 @@ async fn load_config_with_retry(
                         // Check stop signal before sleeping
                         if stop_signal.load(Ordering::Relaxed) {
                             warn!("Service stop requested during retry wait, exiting");
-                            return Err(crate::error::ProcessingError::ConfigurationError(
+                            return Err(common::error::ProcessingError::ConfigurationError(
                                 "Service stop requested".to_string(),
                             ));
                         }
@@ -139,7 +139,7 @@ async fn load_config_with_retry(
                 } else {
                     // Other config errors (TOML parsing, validation, etc.) - fail immediately
                     error!("Failed to load config: {}", e);
-                    return Err(crate::error::ProcessingError::ConfigurationError(format!(
+                    return Err(common::error::ProcessingError::ConfigurationError(format!(
                         "Failed to load config: {}",
                         e
                     )));
@@ -185,7 +185,7 @@ fn run_service_impl() -> Result<()> {
 
     info!("========================================");
     info!("Data Exporter Service Starting");
-    info!("Version: {}", crate::version::Version::detailed());
+    info!("Version: {}", common::version::Version::detailed());
     info!("========================================");
 
     // Create tokio runtime early for async config loading
@@ -197,7 +197,7 @@ fn run_service_impl() -> Result<()> {
         }
         Err(e) => {
             error!("Failed to create tokio runtime: {}", e);
-            return Err(crate::error::ProcessingError::ConfigurationError(format!(
+            return Err(common::error::ProcessingError::ConfigurationError(format!(
                 "Failed to create tokio runtime: {}",
                 e
             )));
@@ -244,7 +244,7 @@ fn run_service_impl() -> Result<()> {
         }
         Err(e) => {
             error!("Failed to register service control handler: {}", e);
-            return Err(crate::error::ProcessingError::ConfigurationError(format!(
+            return Err(common::error::ProcessingError::ConfigurationError(format!(
                 "Failed to register service control handler: {}",
                 e
             )));
@@ -263,7 +263,7 @@ fn run_service_impl() -> Result<()> {
         process_id: None,
     }) {
         error!("Failed to set service status to running: {}", e);
-        return Err(crate::error::ProcessingError::ConfigurationError(format!(
+        return Err(common::error::ProcessingError::ConfigurationError(format!(
             "Failed to set service status to running: {}",
             e
         )));
@@ -320,7 +320,7 @@ fn run_service_impl() -> Result<()> {
             process_id: None,
         })
         .map_err(|e| {
-            crate::error::ProcessingError::ConfigurationError(format!(
+            common::error::ProcessingError::ConfigurationError(format!(
                 "Failed to set service status to stopped: {}",
                 e
             ))

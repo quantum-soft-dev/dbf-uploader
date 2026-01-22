@@ -14,9 +14,9 @@ pub use data::ProcessingData;
 pub use scanner::scan_directory;
 pub use uploader::upload_file;
 
-use crate::auth::TokenManager;
-use crate::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
-use crate::models::{Batch, BatchStatus, Config, ErrorReport};
+use common::auth::TokenManager;
+use common::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
+use common::models::{Batch, BatchStatus, Config, ErrorReport};
 use crate::vss;
 use std::io::ErrorKind;
 use std::sync::Arc;
@@ -186,7 +186,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
                 Ok(vss_copy_path) => {
                     // Create DbfFile pointing to the VSS copy
                     let vss_dbf_file =
-                        crate::models::DbfFile::new(vss_copy_path.clone(), &temp_dir);
+                        common::models::DbfFile::new(vss_copy_path.clone(), &temp_dir);
 
                     // Process the VSS copy
                     match process_single_file(
@@ -338,7 +338,7 @@ pub async fn run_batch(config: Config, token_manager: Arc<TokenManager>) -> Resu
 
 /// Process a single DBF file through the complete pipeline (in-memory)
 async fn process_single_file(
-    dbf_file: &crate::models::DbfFile,
+    dbf_file: &common::models::DbfFile,
     server_batch_id: &str,
     config: &Config,
     token_manager: &Arc<TokenManager>,
@@ -417,7 +417,7 @@ async fn report_processing_error(
         error.error_type().to_string(),
         error.to_string(),
         Some(error.detailed_message()),
-        crate::version::Version::get(),
+        common::version::Version::get(),
     );
 
     // Try to get a token, but continue even if we can't
