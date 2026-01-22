@@ -1,4 +1,6 @@
 // Main Configurator Application Window
+use crate::config_manager::ConfigManager;
+use common::models::Config;
 use native_windows_gui as nwg;
 use nwg::NativeUi;
 use std::cell::RefCell;
@@ -20,7 +22,6 @@ impl Default for Section {
     }
 }
 
-#[derive(Default)]
 pub struct ConfiguratorApp {
     window: nwg::Window,
 
@@ -49,8 +50,6 @@ pub struct ConfiguratorApp {
     settings_source_label: nwg::Label,
     settings_source_input: nwg::TextInput,
     settings_source_browse: nwg::Button,
-    settings_batch_label: nwg::Label,
-    settings_batch_input: nwg::TextInput,
 
     // Section: Schedule
     schedule_cron_label: nwg::Label,
@@ -75,15 +74,91 @@ pub struct ConfiguratorApp {
     // State
     current_section: RefCell<Section>,
     config_path: RefCell<std::path::PathBuf>,
+    config: RefCell<Config>,
+}
+
+impl Default for ConfiguratorApp {
+    fn default() -> Self {
+        Self {
+            window: Default::default(),
+            nav_frame: Default::default(),
+            nav_title: Default::default(),
+            nav_auth_button: Default::default(),
+            nav_settings_button: Default::default(),
+            nav_schedule_button: Default::default(),
+            nav_service_button: Default::default(),
+            nav_status_button: Default::default(),
+            content_frame: Default::default(),
+            section_title: Default::default(),
+            auth_desc_label: Default::default(),
+            auth_status_label: Default::default(),
+            auth_button: Default::default(),
+            auth_code_label: Default::default(),
+            settings_server_label: Default::default(),
+            settings_server_input: Default::default(),
+            settings_source_label: Default::default(),
+            settings_source_input: Default::default(),
+            settings_source_browse: Default::default(),
+            schedule_cron_label: Default::default(),
+            schedule_cron_input: Default::default(),
+            schedule_help_label: Default::default(),
+            service_status_label: Default::default(),
+            service_install_button: Default::default(),
+            service_start_button: Default::default(),
+            service_stop_button: Default::default(),
+            service_uninstall_button: Default::default(),
+            status_info_label: Default::default(),
+            status_refresh_button: Default::default(),
+            save_button: Default::default(),
+            cancel_button: Default::default(),
+            current_section: RefCell::new(Section::Auth),
+            config_path: RefCell::new(std::path::PathBuf::new()),
+            config: RefCell::new(ConfigManager::default_config()),
+        }
+    }
 }
 
 impl ConfiguratorApp {
     fn init(&self) {
         let config_dir = std::env::current_dir()
             .unwrap_or_else(|_| std::path::PathBuf::from("."));
-        *self.config_path.borrow_mut() = config_dir.join("config.toml");
+        let config_path = config_dir.join("config.toml");
+        *self.config_path.borrow_mut() = config_path.clone();
+
+        // Load configuration
+        let config_manager = ConfigManager::new(&config_path);
+        let config = config_manager.load().unwrap_or_else(|_| ConfigManager::default_config());
+
+        // Update UI with loaded config
+        self.load_config_to_ui(&config);
+        *self.config.borrow_mut() = config;
 
         self.show_section(Section::Auth);
+    }
+
+    fn load_config_to_ui(&self, config: &Config) {
+        // Update UI fields from config
+        self.settings_server_input.set_text(&config.api.base_url);
+        self.settings_source_input.set_text(&config.src.source_dir.to_string_lossy());
+        self.schedule_cron_input.set_text(&config.scheduler.crontab);
+
+        // Update auth status
+        if config.credential.is_device_flow() {
+            self.auth_status_label.set_text("Status: Authenticated (Device Flow)");
+        } else {
+            self.auth_status_label.set_text("Status: Not authenticated");
+        }
+    }
+
+    fn save_config_from_ui(&self) -> Config {
+        let mut config = self.config.borrow().clone();
+
+        // Update config from UI fields
+        config.api.base_url = self.settings_server_input.text();
+        config.src.source_dir = std::path::PathBuf::from(self.settings_source_input.text());
+        config.scheduler.crontab = self.schedule_cron_input.text();
+
+        config
     }
 
     fn show_section(&self, section: Section) {
@@ -110,8 +185,6 @@ impl ConfiguratorApp {
         self.settings_source_label.set_visible(false);
         self.settings_source_input.set_visible(false);
         self.settings_source_browse.set_visible(false);
-        self.settings_batch_label.set_visible(false);
-        self.settings_batch_input.set_visible(false);
 
         self.schedule_cron_label.set_visible(false);
         self.schedule_cron_input.set_visible(false);
@@ -140,8 +213,6 @@ impl ConfiguratorApp {
                 self.settings_source_label.set_visible(true);
                 self.settings_source_input.set_visible(true);
                 self.settings_source_browse.set_visible(true);
-                self.settings_batch_label.set_visible(true);
-                self.settings_batch_input.set_visible(true);
             }
             Section::Schedule => {
                 self.schedule_cron_label.set_visible(true);
@@ -208,7 +279,28 @@ impl ConfiguratorApp {
     }
 
     fn on_save(&self) {
-        nwg::modal_info_message(&self.window, "Save", "Configuration saved");
+        // Save config from UI
+        let config = self.save_config_from_ui();
+        let config_path = self.config_path.borrow().clone();
+        let config_manager = ConfigManager::new(&config_path);
+
+        match config_manager.save(&config) {
+            Ok(_) => {
+                *self.config.borrow_mut() = config;
+                nwg::modal_info_message(
+                    &self.window,
+                    "Success",
+                    &format!("Configuration saved to:\n{}", config_path.display()),
+                );
+            }
+            Err(e) => {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to save configuration:\n{}", e),
+                );
+            }
+        }
     }
 
     fn on_cancel(&self) {
@@ -361,20 +453,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .size((80, 28))
             .parent(&data.window)
             .build(&mut data.settings_source_browse)?;
-
-        nwg::Label::builder()
-            .text("Batch Size:")
-            .position((200, 165))
-            .size((150, 25))
-            .parent(&data.window)
-            .build(&mut data.settings_batch_label)?;
-
-        nwg::TextInput::builder()
-            .text("100")
-            .position((360, 165))
-            .size((100, 28))
-            .parent(&data.window)
-            .build(&mut data.settings_batch_input)?;
 
         // === Section: Schedule ===
         nwg::Label::builder()

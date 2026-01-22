@@ -358,7 +358,9 @@ dependencies = [
  "common",
  "native-windows-derive",
  "native-windows-gui",
+ "serde",
  "tokio",
+ "toml 0.8.23",
 ]
 
 [[package]]

@@ -1,8 +1,9 @@
 // Data Exporter Configurator
 // GUI application for configuring Data Exporter service
 
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
+mod config_manager;
 mod ui;
 
 use native_windows_gui as nwg;
