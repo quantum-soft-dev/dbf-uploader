@@ -145,9 +145,7 @@ impl ConfiguratorApp {
         self.load_config_to_ui(&config);
         *self.config.borrow_mut() = config;
 
-        // Refresh service status
-        self.refresh_service_status();
-
+        // Show Auth section first (don't block on service status check)
         self.show_section(Section::Auth);
     }
 
@@ -250,6 +248,8 @@ impl ConfiguratorApp {
                 self.service_start_button.set_visible(true);
                 self.service_stop_button.set_visible(true);
                 self.service_uninstall_button.set_visible(true);
+                // Refresh status when entering Service section
+                self.refresh_service_status();
             }
             Section::Status => {
                 self.status_info_label.set_visible(true);
@@ -632,7 +632,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("")
             .position((360, 105))
             .size((410, 28))
-            .focus(true)
             .parent(&data.window)
             .build(&mut data.auth_site_name_input)?;
 
@@ -647,7 +646,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("")
             .position((360, 145))
             .size((410, 28))
-            .focus(true)
             .parent(&data.window)
             .build(&mut data.auth_site_desc_input)?;
 
@@ -691,7 +689,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("https://")
             .position((360, 75))
             .size((410, 28))
-            .focus(true)
             .parent(&data.window)
             .build(&mut data.settings_server_input)?;
 
@@ -705,7 +702,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .position((360, 120))
             .size((320, 28))
-            .focus(true)
             .parent(&data.window)
             .build(&mut data.settings_source_input)?;
 
@@ -728,7 +724,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("0 0 8,12,16,18 * * *")
             .position((360, 75))
             .size((410, 28))
-            .focus(true)
             .parent(&data.window)
             .build(&mut data.schedule_cron_input)?;
 
