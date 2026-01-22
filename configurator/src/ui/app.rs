@@ -1,6 +1,8 @@
 // Main Configurator Application Window
 use crate::config_manager::ConfigManager;
-use common::models::Config;
+use crate::service_manager::ServiceManager;
+use common::auth::device_flow::{DeviceFlowClient, SiteInfo};
+use common::models::{Config, DeviceCredentials};
 use native_windows_gui as nwg;
 use nwg::NativeUi;
 use std::cell::RefCell;
@@ -40,9 +42,14 @@ pub struct ConfiguratorApp {
 
     // Section: Authentication
     auth_desc_label: nwg::Label,
+    auth_site_name_label: nwg::Label,
+    auth_site_name_input: nwg::TextInput,
+    auth_site_desc_label: nwg::Label,
+    auth_site_desc_input: nwg::TextInput,
     auth_status_label: nwg::Label,
     auth_button: nwg::Button,
     auth_code_label: nwg::Label,
+    auth_url_label: nwg::Label,
 
     // Section: Settings
     settings_server_label: nwg::Label,
@@ -91,9 +98,14 @@ impl Default for ConfiguratorApp {
             content_frame: Default::default(),
             section_title: Default::default(),
             auth_desc_label: Default::default(),
+            auth_site_name_label: Default::default(),
+            auth_site_name_input: Default::default(),
+            auth_site_desc_label: Default::default(),
+            auth_site_desc_input: Default::default(),
             auth_status_label: Default::default(),
             auth_button: Default::default(),
             auth_code_label: Default::default(),
+            auth_url_label: Default::default(),
             settings_server_label: Default::default(),
             settings_server_input: Default::default(),
             settings_source_label: Default::default(),
@@ -132,6 +144,9 @@ impl ConfiguratorApp {
         // Update UI with loaded config
         self.load_config_to_ui(&config);
         *self.config.borrow_mut() = config;
+
+        // Refresh service status
+        self.refresh_service_status();
 
         self.show_section(Section::Auth);
     }
@@ -176,9 +191,14 @@ impl ConfiguratorApp {
 
         // Hide all sections
         self.auth_desc_label.set_visible(false);
+        self.auth_site_name_label.set_visible(false);
+        self.auth_site_name_input.set_visible(false);
+        self.auth_site_desc_label.set_visible(false);
+        self.auth_site_desc_input.set_visible(false);
         self.auth_status_label.set_visible(false);
         self.auth_button.set_visible(false);
         self.auth_code_label.set_visible(false);
+        self.auth_url_label.set_visible(false);
 
         self.settings_server_label.set_visible(false);
         self.settings_server_input.set_visible(false);
@@ -203,9 +223,14 @@ impl ConfiguratorApp {
         match section {
             Section::Auth => {
                 self.auth_desc_label.set_visible(true);
+                self.auth_site_name_label.set_visible(true);
+                self.auth_site_name_input.set_visible(true);
+                self.auth_site_desc_label.set_visible(true);
+                self.auth_site_desc_input.set_visible(true);
                 self.auth_status_label.set_visible(true);
                 self.auth_button.set_visible(true);
                 self.auth_code_label.set_visible(true);
+                self.auth_url_label.set_visible(true);
             }
             Section::Settings => {
                 self.settings_server_label.set_visible(true);
@@ -234,11 +259,157 @@ impl ConfiguratorApp {
     }
 
     fn on_auth_button(&self) {
-        nwg::modal_info_message(
-            &self.window,
-            "Authentication",
-            "Device Authorization Flow will be implemented here",
-        );
+        // Get site info from UI
+        let site_name = self.auth_site_name_input.text();
+        if site_name.trim().is_empty() {
+            nwg::modal_error_message(&self.window, "Error", "Please enter a site name");
+            return;
+        }
+
+        let site_description = self.auth_site_desc_input.text();
+        let site_description = if site_description.trim().is_empty() {
+            None
+        } else {
+            Some(site_description)
+        };
+
+        // Get server URL from config
+        let config = self.config.borrow();
+        let base_url = config.api.base_url.clone();
+        let https_only = config.api.https_only;
+        drop(config);
+
+        // Disable button during process
+        self.auth_button.set_enabled(false);
+        self.auth_status_label
+            .set_text("Starting device authorization...");
+
+        // Create DeviceFlowClient
+        let client = match DeviceFlowClient::new(base_url.clone(), https_only) {
+            Ok(c) => c,
+            Err(e) => {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to create client: {}", e),
+                );
+                self.auth_button.set_enabled(true);
+                self.auth_status_label
+                    .set_text("Status: Not authenticated");
+                return;
+            }
+        };
+
+        // Run device flow in background thread
+        let site_info = SiteInfo {
+            site_name,
+            site_description,
+        };
+
+        // Use tokio runtime
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let auth_result = rt.block_on(async {
+            client.authorize(site_info).await
+        });
+
+        match auth_result {
+            Ok(auth_response) => {
+                // Display authorization instructions
+                self.auth_status_label.set_text("Waiting for authorization...");
+                self.auth_code_label.set_text(&format!(
+                    "1. Open: {}\n2. Enter code: {}",
+                    auth_response.verification_uri, auth_response.user_code
+                ));
+                self.auth_url_label.set_text(&format!(
+                    "Code expires in {} minutes",
+                    auth_response.expires_in / 60
+                ));
+
+                // Poll for credentials
+                let device_code = auth_response.device_code.clone();
+                let interval = auth_response.interval;
+                let expires_in = auth_response.expires_in;
+
+                let poll_result = rt.block_on(async {
+                    let mut poll_interval = tokio::time::interval(std::time::Duration::from_secs(interval));
+                    let start_time = std::time::Instant::now();
+                    let timeout = std::time::Duration::from_secs(expires_in);
+
+                    loop {
+                        poll_interval.tick().await;
+
+                        if start_time.elapsed() >= timeout {
+                            return Err("Authorization timeout".to_string());
+                        }
+
+                        match client.poll_for_token(&device_code).await {
+                            Ok(Some(credentials)) => return Ok(credentials),
+                            Ok(None) => continue,
+                            Err(e) => return Err(e.to_string()),
+                        }
+                    }
+                });
+
+                match poll_result {
+                    Ok(credentials) => {
+                        // Save credentials to config
+                        let mut config = self.config.borrow_mut();
+                        config.credential.device = Some(DeviceCredentials {
+                            site_id: credentials.site_id,
+                            domain: credentials.domain,
+                            client_secret: credentials.client_secret,
+                        });
+                        // Update API base URL from credentials
+                        config.api.base_url = credentials.api_base_url;
+                        drop(config);
+
+                        // Save config to file
+                        let config_path = self.config_path.borrow().clone();
+                        let config_manager = ConfigManager::new(&config_path);
+                        let config = self.config.borrow().clone();
+                        if let Err(e) = config_manager.save(&config) {
+                            nwg::modal_error_message(
+                                &self.window,
+                                "Error",
+                                &format!("Failed to save credentials: {}", e),
+                            );
+                        }
+
+                        self.auth_status_label
+                            .set_text("Status: Authenticated (Device Flow)");
+                        self.auth_code_label.set_text("");
+                        self.auth_url_label.set_text("");
+                        nwg::modal_info_message(
+                            &self.window,
+                            "Success",
+                            "Device authorization completed successfully!",
+                        );
+                    }
+                    Err(e) => {
+                        self.auth_status_label
+                            .set_text("Status: Authorization failed");
+                        self.auth_code_label.set_text("");
+                        self.auth_url_label.set_text("");
+                        nwg::modal_error_message(
+                            &self.window,
+                            "Error",
+                            &format!("Authorization failed: {}", e),
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to start authorization: {}", e),
+                );
+                self.auth_status_label
+                    .set_text("Status: Not authenticated");
+            }
+        }
+
+        self.auth_button.set_enabled(true);
     }
 
     fn on_browse_source(&self) {
@@ -259,23 +430,75 @@ impl ConfiguratorApp {
     }
 
     fn on_service_install(&self) {
-        nwg::modal_info_message(&self.window, "Service", "Install service");
+        match ServiceManager::install() {
+            Ok(msg) => {
+                nwg::modal_info_message(&self.window, "Success", &msg);
+                self.refresh_service_status();
+            }
+            Err(e) => {
+                nwg::modal_error_message(&self.window, "Error", &format!("Failed to install service:\n{}", e));
+            }
+        }
     }
 
     fn on_service_start(&self) {
-        nwg::modal_info_message(&self.window, "Service", "Start service");
+        match ServiceManager::start() {
+            Ok(msg) => {
+                nwg::modal_info_message(&self.window, "Success", &msg);
+                self.refresh_service_status();
+            }
+            Err(e) => {
+                nwg::modal_error_message(&self.window, "Error", &format!("Failed to start service:\n{}", e));
+            }
+        }
     }
 
     fn on_service_stop(&self) {
-        nwg::modal_info_message(&self.window, "Service", "Stop service");
+        match ServiceManager::stop() {
+            Ok(msg) => {
+                nwg::modal_info_message(&self.window, "Success", &msg);
+                self.refresh_service_status();
+            }
+            Err(e) => {
+                nwg::modal_error_message(&self.window, "Error", &format!("Failed to stop service:\n{}", e));
+            }
+        }
     }
 
     fn on_service_uninstall(&self) {
-        nwg::modal_info_message(&self.window, "Service", "Uninstall service");
+        // Confirm before uninstalling
+        let result = nwg::modal_message(
+            &self.window,
+            &nwg::MessageParams {
+                title: "Confirm Uninstall",
+                content: "Are you sure you want to uninstall the service?\n\nThis will stop and remove the Windows service.",
+                buttons: nwg::MessageButtons::YesNo,
+                icons: nwg::MessageIcons::Warning,
+            },
+        );
+
+        if result == nwg::MessageChoice::Yes {
+            match ServiceManager::uninstall() {
+                Ok(msg) => {
+                    nwg::modal_info_message(&self.window, "Success", &msg);
+                    self.refresh_service_status();
+                }
+                Err(e) => {
+                    nwg::modal_error_message(&self.window, "Error", &format!("Failed to uninstall service:\n{}", e));
+                }
+            }
+        }
+    }
+
+    fn refresh_service_status(&self) {
+        let status = ServiceManager::get_status();
+        self.service_status_label
+            .set_text(&format!("Service Status: {}", status));
     }
 
     fn on_status_refresh(&self) {
-        nwg::modal_info_message(&self.window, "Status", "Refresh status");
+        self.refresh_service_status();
+        nwg::modal_info_message(&self.window, "Status", "Status refreshed");
     }
 
     fn on_save(&self) {
@@ -399,25 +622,60 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .build(&mut data.auth_desc_label)?;
 
         nwg::Label::builder()
+            .text("Site Name:")
+            .position((200, 105))
+            .size((150, 25))
+            .parent(&data.window)
+            .build(&mut data.auth_site_name_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((360, 105))
+            .size((410, 28))
+            .parent(&data.window)
+            .build(&mut data.auth_site_name_input)?;
+
+        nwg::Label::builder()
+            .text("Description (optional):")
+            .position((200, 145))
+            .size((150, 25))
+            .parent(&data.window)
+            .build(&mut data.auth_site_desc_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((360, 145))
+            .size((410, 28))
+            .parent(&data.window)
+            .build(&mut data.auth_site_desc_input)?;
+
+        nwg::Label::builder()
             .text("Status: Not authenticated")
-            .position((200, 110))
+            .position((200, 185))
             .size((580, 25))
             .parent(&data.window)
             .build(&mut data.auth_status_label)?;
 
         nwg::Button::builder()
             .text("Start Device Authorization")
-            .position((200, 150))
+            .position((200, 220))
             .size((220, 40))
             .parent(&data.window)
             .build(&mut data.auth_button)?;
 
         nwg::Label::builder()
             .text("")
-            .position((200, 210))
-            .size((580, 100))
+            .position((200, 275))
+            .size((580, 60))
             .parent(&data.window)
             .build(&mut data.auth_code_label)?;
+
+        nwg::Label::builder()
+            .text("")
+            .position((200, 345))
+            .size((580, 30))
+            .parent(&data.window)
+            .build(&mut data.auth_url_label)?;
 
         // === Section: Settings ===
         nwg::Label::builder()

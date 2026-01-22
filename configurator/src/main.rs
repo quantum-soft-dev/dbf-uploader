@@ -4,6 +4,7 @@
 #![windows_subsystem = "windows"]
 
 mod config_manager;
+mod service_manager;
 mod ui;
 
 use native_windows_gui as nwg;
