@@ -2,9 +2,7 @@
 members = [
     "common",
     "service",
-    "installer",
     "configurator",
-    "uninstaller",
 ]
 resolver = "2"
 
