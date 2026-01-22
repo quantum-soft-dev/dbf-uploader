@@ -1,12 +1,27 @@
-// Data Exporter Configurator (GUI)
-// TODO: Implement GUI configurator using native-windows-gui
+// Data Exporter Configurator
+// GUI application for configuring Data Exporter service
+
+// #![windows_subsystem = "windows"]
+
+mod ui;
+
+use native_windows_gui as nwg;
+use nwg::NativeUi;
 
 fn main() {
-    println!("Data Exporter Configurator - GUI (To be implemented)");
-    println!("This will be a Windows GUI application using native-windows-gui");
-    println!("Features:");
-    println!("  - Device Flow authorization");
-    println!("  - Scheduler configuration");
-    println!("  - Settings management");
-    println!("  - Service control (register/start/stop/restart)");
+    nwg::init().expect("Failed to init Native Windows GUI");
+
+    // Set font
+    let mut font = nwg::Font::default();
+    nwg::Font::builder()
+        .family("Segoe UI")
+        .size(17)
+        .build(&mut font)
+        .expect("Failed to create font");
+    nwg::Font::set_global_default(Some(font));
+
+    let _ui = ui::ConfiguratorApp::build_ui(Default::default())
+        .expect("Failed to build UI");
+
+    nwg::dispatch_thread_events();
 }
