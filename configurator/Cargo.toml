@@ -39,5 +39,8 @@ cron = "0.15"
 # Open URLs in default browser
 open = "5"
 
+# Windows API for UI update
+winapi = { version = "0.3", features = ["winuser"] }
+
 [build-dependencies]
 embed-resource = "3"

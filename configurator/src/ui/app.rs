@@ -10,6 +10,18 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
+/// Process pending Windows messages to update UI
+fn process_pending_messages() {
+    unsafe {
+        use winapi::um::winuser::{DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE};
+        let mut msg: MSG = std::mem::zeroed();
+        while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum Section {
     #[default]
@@ -474,6 +486,9 @@ impl ConfiguratorApp {
                     "Code expires in {} minutes",
                     auth_response.expires_in / 60
                 ));
+
+                // Force UI update to show the code before blocking
+                process_pending_messages();
 
                 // Poll for credentials
                 let device_code = auth_response.device_code.clone();
