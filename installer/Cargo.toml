@@ -2,7 +2,7 @@
 name = "data-exporter-installer"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+
 description = "MSI installer for Data Exporter"
 
 # This crate is just for WiX metadata - no Rust code
