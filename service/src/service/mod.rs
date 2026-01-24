@@ -5,6 +5,3 @@ pub mod scheduler;
 pub mod windows_service;
 
 pub use scheduler::BatchScheduler;
-
-#[cfg(windows)]
-pub use windows_service::run_service;

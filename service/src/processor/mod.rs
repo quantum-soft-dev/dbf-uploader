@@ -8,16 +8,13 @@ pub mod scanner;
 pub mod uploader;
 
 pub use batch_client::BatchClient;
-pub use compressor::compress_csv;
-pub use converter::convert_dbf_to_csv;
 pub use data::ProcessingData;
 pub use scanner::scan_directory;
-pub use uploader::upload_file;
 
+use crate::vss;
 use common::auth::TokenManager;
 use common::error::{log_error_locally, ErrorReporter, ProcessingError, Result};
 use common::models::{Batch, BatchStatus, Config, ErrorReport};
-use crate::vss;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};

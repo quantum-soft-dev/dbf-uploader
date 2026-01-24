@@ -192,23 +192,23 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 5
 
-- [ ] T073 [P] [US5] Write contract test for /api/errors endpoint in tests/contract/error_report_test.rs
-- [ ] T074 [P] [US5] Write contract test for /api/batches/{id}/errors endpoint in tests/contract/error_report_test.rs
-- [ ] T075 [P] [US5] Write unit test for error severity classification in common/src/error/reporter.rs
-- [ ] T076 [P] [US5] Write unit test for local file fallback when server unreachable in common/src/error/logger.rs
-- [ ] T077 [P] [US5] Write unit test for panic handler logging in common/src/error/global_logger.rs
-- [ ] T078 [P] [US5] Write unit test for log rotation (daily) in common/src/error/logger.rs
+- [X] T073 [P] [US5] Write contract test for /api/errors endpoint in tests/contract/error_report_test.rs
+- [X] T074 [P] [US5] Write contract test for /api/batches/{id}/errors endpoint in tests/contract/error_report_test.rs
+- [X] T075 [P] [US5] Write unit test for error severity classification in common/src/error/reporter.rs
+- [X] T076 [P] [US5] Write unit test for local file fallback when server unreachable in common/src/error/logger.rs
+- [X] T077 [P] [US5] Write unit test for panic handler logging in common/src/error/global_logger.rs
+- [X] T078 [P] [US5] Write unit test for log rotation (daily) in common/src/error/logger.rs
 
 ### Implementation for User Story 5
 
-- [ ] T079 [US5] Implement error severity classification (Critical, Error, Warning, Info) in common/src/error/reporter.rs
-- [ ] T080 [US5] Implement server error reporting client in common/src/error/reporter.rs
-- [ ] T081 [US5] Implement batch error reporting client (POST /api/batches/{id}/errors) in common/src/error/reporter.rs
-- [ ] T082 [US5] Implement local file logging with daily rotation in common/src/error/logger.rs
-- [ ] T083 [US5] Implement fallback to local logging when server unreachable in common/src/error/reporter.rs
-- [ ] T084 [US5] Implement panic handler with fallback log location in common/src/error/global_logger.rs
-- [ ] T085 [US5] Implement error metadata collection (version, paths, details) in common/src/error/reporter.rs
-- [ ] T086 [US5] Create common/src/error/mod.rs exporting all error modules
+- [X] T079 [US5] Implement error severity classification (Critical, Error, Warning, Info) in common/src/error/reporter.rs
+- [X] T080 [US5] Implement server error reporting client in common/src/error/reporter.rs
+- [X] T081 [US5] Implement batch error reporting client (POST /api/batches/{id}/errors) in common/src/error/reporter.rs
+- [X] T082 [US5] Implement local file logging with daily rotation in common/src/error/logger.rs
+- [X] T083 [US5] Implement fallback to local logging when server unreachable in common/src/error/reporter.rs
+- [X] T084 [US5] Implement panic handler with fallback log location in common/src/error/global_logger.rs
+- [X] T085 [US5] Implement error metadata collection (version, paths, details) in common/src/error/reporter.rs
+- [X] T086 [US5] Create common/src/error/mod.rs exporting all error modules
 
 **Checkpoint**: Errors are classified by severity. Reports sent to server with fallback to local logs. Panics are captured before exit.
 
@@ -222,20 +222,20 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 6
 
-- [ ] T087 [P] [US6] Write unit test for graceful shutdown signal handling in service/src/service/windows_service.rs
-- [ ] T088 [P] [US6] Write unit test for config retry with exponential backoff in service/src/config/watcher.rs
-- [ ] T089 [P] [US6] Write integration test for config hot-reload in tests/integration/config_reload_test.rs
+- [X] T087 [P] [US6] Write unit test for graceful shutdown signal handling in service/src/service/windows_service.rs
+- [X] T088 [P] [US6] Write unit test for config retry with exponential backoff in service/src/config/watcher.rs
+- [X] T089 [P] [US6] Write integration test for config hot-reload in tests/integration/config_reload_test.rs
 
 ### Implementation for User Story 6
 
-- [ ] T090 [US6] Implement Windows SCM integration using windows-service in service/src/service/windows_service.rs
-- [ ] T091 [US6] Implement Start, Stop, Interrogate command handlers in service/src/service/windows_service.rs
-- [ ] T092 [US6] Implement graceful shutdown (complete current file, then stop) in service/src/service/windows_service.rs
-- [ ] T093 [US6] Implement config loading from TOML in service/src/config/loader.rs
-- [ ] T094 [US6] Implement config retry with exponential backoff (1, 2, 4, 8, 16 min, then hourly) in service/src/config/loader.rs
-- [ ] T095 [US6] Implement config hot-reload before each batch in service/src/config/watcher.rs
-- [ ] T096 [US6] Implement service status reporting (Stopped on fatal error) in service/src/service/windows_service.rs
-- [ ] T097 [US6] Mark admin-required tests with #[ignore] attribute in service/src/service/windows_service.rs
+- [X] T090 [US6] Implement Windows SCM integration using windows-service in service/src/service/windows_service.rs
+- [X] T091 [US6] Implement Start, Stop, Interrogate command handlers in service/src/service/windows_service.rs
+- [X] T092 [US6] Implement graceful shutdown (complete current file, then stop) in service/src/service/windows_service.rs
+- [X] T093 [US6] Implement config loading from TOML in service/src/config/loader.rs
+- [X] T094 [US6] Implement config retry with exponential backoff (1, 2, 4, 8, 16 min, then hourly) in service/src/config/loader.rs
+- [X] T095 [US6] Implement config hot-reload before each batch in service/src/config/watcher.rs
+- [X] T096 [US6] Implement service status reporting (Stopped on fatal error) in service/src/service/windows_service.rs
+- [X] T097 [US6] Mark admin-required tests with #[ignore] attribute in service/src/service/windows_service.rs
 
 **Checkpoint**: Service integrates with Windows SCM. Stop signal completes current work. Config reloads automatically.
 
@@ -249,20 +249,20 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 7
 
-- [ ] T098 [P] [US7] Write unit test for include pattern matching in service/src/processor/filter.rs
-- [ ] T099 [P] [US7] Write unit test for exclude pattern matching in service/src/processor/filter.rs
-- [ ] T100 [P] [US7] Write unit test for exclude taking precedence over include in service/src/processor/filter.rs
-- [ ] T101 [P] [US7] Write unit test for default behavior (all DBF files) when no patterns in service/src/processor/filter.rs
-- [ ] T102 [P] [US7] Write integration test for pattern-based directory scanning in tests/integration/filter_test.rs
+- [X] T098 [P] [US7] Write unit test for include pattern matching in service/src/processor/filter.rs
+- [X] T099 [P] [US7] Write unit test for exclude pattern matching in service/src/processor/filter.rs
+- [X] T100 [P] [US7] Write unit test for exclude taking precedence over include in service/src/processor/filter.rs
+- [X] T101 [P] [US7] Write unit test for default behavior (all DBF files) when no patterns in service/src/processor/filter.rs
+- [X] T102 [P] [US7] Write integration test for pattern-based directory scanning in tests/integration/filter_test.rs
 
 ### Implementation for User Story 7
 
-- [ ] T103 [US7] Implement glob pattern matching using globset in service/src/processor/filter.rs
-- [ ] T104 [US7] Implement include pattern filter (match at least one) in service/src/processor/filter.rs
-- [ ] T105 [US7] Implement exclude pattern filter (skip if matched) in service/src/processor/filter.rs
-- [ ] T106 [US7] Implement directory scanner with pattern filtering in service/src/processor/scanner.rs
-- [ ] T107 [US7] Implement recursive .dbf file discovery (case-insensitive) in service/src/processor/scanner.rs
-- [ ] T108 [US7] Integrate filter with scanner in batch processing pipeline in service/src/processor/mod.rs
+- [X] T103 [US7] Implement glob pattern matching using globset in service/src/processor/filter.rs
+- [X] T104 [US7] Implement include pattern filter (match at least one) in service/src/processor/filter.rs
+- [X] T105 [US7] Implement exclude pattern filter (skip if matched) in service/src/processor/filter.rs
+- [X] T106 [US7] Implement directory scanner with pattern filtering in service/src/processor/scanner.rs
+- [X] T107 [US7] Implement recursive .dbf file discovery (case-insensitive) in service/src/processor/scanner.rs
+- [X] T108 [US7] Integrate filter with scanner in batch processing pipeline in service/src/processor/mod.rs
 
 **Checkpoint**: Files are filtered by include/exclude patterns. Default behavior processes all DBF files.
 
@@ -272,12 +272,12 @@ Based on plan.md workspace structure:
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T109 [P] Run cargo clippy and fix all warnings
-- [ ] T110 [P] Run cargo fmt to ensure consistent formatting
-- [ ] T111 Verify all tests pass with cargo test
+- [X] T109 [P] Run cargo clippy and fix all warnings
+- [X] T110 [P] Run cargo fmt to ensure consistent formatting
+- [X] T111 Verify all tests pass with cargo test
 - [ ] T112 [P] Run ignored tests (admin required) with cargo test -- --ignored
 - [ ] T113 Run quickstart.md validation scenarios
-- [ ] T114 [P] Build release binary with cargo build --release
+- [X] T114 [P] Build release binary with cargo build --release
 - [ ] T115 Create service installer script (if not exists)
 
 ---
