@@ -2,26 +2,28 @@ name: Gemini PR Reviewer
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
 
 jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write # Нужно для публикации комментариев
+      pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Google Gemini PR Review
-        uses: google-gemini/gemini-review-action@v1 # Используйте актуальную версию
+      - name: Gemini Code Review
+        uses: sshnaidm/gemini-code-review-action@v1
         with:
-          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Кастомный промпт для Rust Windows Service проекта
-          custom_prompt: |
+          gemini-key: ${{ secrets.GEMINI_API_KEY }}
+          model: gemini-2.5-flash
+          context-lines: '15'
+          add-files: 'true'
+          review-title: 'Gemini Code Review'
+          prompt: |
             Ты эксперт по Rust и Windows-разработке. Это проект data-exporter — Windows-сервис для:
             - Конвертации DBF файлов в CSV
             - Сжатия gzip и загрузки на облачный сервер
