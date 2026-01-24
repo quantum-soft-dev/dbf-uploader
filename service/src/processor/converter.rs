@@ -74,9 +74,9 @@ fn convert_with_encoding<E: dbase::Encoding + 'static>(
             Ok(record) => {
                 let csv_record = convert_record_to_csv(&record, &field_names)?;
 
-                // Estimate size before writing
+                // Estimate size before writing (with 20% safety margin for CSV escaping overhead)
                 let record_size: usize = csv_record.iter().map(|s| s.len() + 1).sum(); // +1 for delimiter/newline
-                estimated_size += record_size;
+                estimated_size += record_size + record_size / 5; // Add 20% margin for escaping
 
                 csv_writer.write_record(&csv_record).map_err(|e| {
                     ProcessingError::ConversionError(format!("Failed to write CSV record: {}", e))

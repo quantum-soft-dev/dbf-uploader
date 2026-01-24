@@ -320,7 +320,8 @@ impl ConfiguratorApp {
         };
 
         // Use tokio runtime
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let rt = tokio::runtime::Runtime::new()
+            .expect("Failed to create tokio runtime for device authorization");
         let auth_result = rt.block_on(async { client.authorize(site_info).await });
 
         match auth_result {
