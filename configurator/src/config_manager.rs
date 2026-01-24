@@ -72,7 +72,7 @@ impl ConfigManager {
                 device: None,
             },
             api: ApiConfig {
-                base_url: "https://".to_string(),
+                base_url: "https://dev.dfm.bitbi.io".to_string(),
                 https_only: true,
             },
             encoding: EncodingConfig {
