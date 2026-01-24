@@ -96,8 +96,8 @@
       <!-- Service executable -->
       <Component Id="ServiceExe" Guid="C2D3E4F5-A6B7-8C9D-0E1F-2A3B4C5D6E7F">
         <File Id="DataExporterExe"
-              Name="data_exporter.exe"
-              Source="$(var.CargoTargetDir)\release\data_exporter.exe"
+              Name="data_exporter_service.exe"
+              Source="$(var.CargoTargetDir)\release\data_exporter_service.exe"
               KeyPath="yes" />
 
         <!-- Windows Service registration -->
@@ -121,8 +121,8 @@
       <!-- Configurator executable -->
       <Component Id="ConfiguratorExe" Guid="D3E4F5A6-B7C8-9D0E-1F2A-3B4C5D6E7F8A">
         <File Id="ConfiguratorExe"
-              Name="data_exporter_configurator.exe"
-              Source="$(var.CargoTargetDir)\release\data_exporter_configurator.exe"
+              Name="configurator.exe"
+              Source="$(var.CargoTargetDir)\release\configurator.exe"
               KeyPath="yes" />
       </Component>
 
