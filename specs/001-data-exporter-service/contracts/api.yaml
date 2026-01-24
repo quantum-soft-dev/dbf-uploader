@@ -1,0 +1,497 @@
+openapi: 3.1.0
+info:
+  title: Data Exporter API
+  description: API contract for Data Exporter Windows Service communication with server
+  version: 1.0.0
+  contact:
+    name: Data Exporter Team
+
+servers:
+  - url: https://api.example.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: Authenticate and obtain JWT token
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/device/code:
+    post:
+      operationId: requestDeviceCode
+      summary: Request device authorization code
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCodeRequest'
+      responses:
+        '200':
+          description: Device code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCodeResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/device/token:
+    post:
+      operationId: pollDeviceToken
+      summary: Poll for device token after user authorization
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTokenRequest'
+      responses:
+        '200':
+          description: Token granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTokenResponse'
+        '400':
+          description: Authorization pending or denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTokenPendingResponse'
+
+  /api/batches/start:
+    post:
+      operationId: startBatch
+      summary: Register batch processing start
+      tags:
+        - Batch Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchStartRequest'
+      responses:
+        '201':
+          description: Batch registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchStartResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/batches/{batchId}/complete:
+    post:
+      operationId: completeBatch
+      summary: Report batch completion
+      tags:
+        - Batch Management
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCompleteRequest'
+      responses:
+        '200':
+          description: Batch completion acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchCompleteResponse'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Batch not found
+
+  /api/batches/{batchId}/errors:
+    post:
+      operationId: reportBatchError
+      summary: Report error during batch processing
+      tags:
+        - Error Reporting
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorReport'
+      responses:
+        '201':
+          description: Error reported
+        '401':
+          description: Unauthorized
+        '404':
+          description: Batch not found
+
+  /api/errors:
+    post:
+      operationId: reportGlobalError
+      summary: Report error outside batch context
+      tags:
+        - Error Reporting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalErrorReport'
+      responses:
+        '201':
+          description: Error reported
+        '401':
+          description: Unauthorized
+
+  /api/files/upload:
+    post:
+      operationId: uploadFile
+      summary: Upload gzipped CSV file
+      tags:
+        - File Upload
+      parameters:
+        - name: X-Batch-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Associated batch ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Gzipped CSV file
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          description: Invalid file or missing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error (retry eligible)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - account
+        - username
+        - password
+      properties:
+        account:
+          type: string
+          description: Account identifier
+        username:
+          type: string
+          description: Username
+        password:
+          type: string
+          format: password
+          description: Password
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - expires_at
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        expires_at:
+          type: string
+          format: date-time
+          description: Token expiration timestamp
+
+    DeviceCodeRequest:
+      type: object
+      required:
+        - account
+        - client_id
+      properties:
+        account:
+          type: string
+        client_id:
+          type: string
+          description: Unique client identifier
+
+    DeviceCodeResponse:
+      type: object
+      required:
+        - device_code
+        - user_code
+        - verification_uri
+        - expires_in
+        - interval
+      properties:
+        device_code:
+          type: string
+          description: Device code for polling
+        user_code:
+          type: string
+          description: Code to display to user
+        verification_uri:
+          type: string
+          format: uri
+          description: URI for user to visit
+        expires_in:
+          type: integer
+          description: Seconds until device code expires
+        interval:
+          type: integer
+          description: Minimum polling interval in seconds
+
+    DeviceTokenRequest:
+      type: object
+      required:
+        - device_code
+        - client_id
+      properties:
+        device_code:
+          type: string
+        client_id:
+          type: string
+
+    DeviceTokenResponse:
+      type: object
+      required:
+        - access_token
+        - refresh_token
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+
+    DeviceTokenPendingResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          enum:
+            - authorization_pending
+            - slow_down
+            - access_denied
+            - expired_token
+
+    BatchStartRequest:
+      type: object
+      required:
+        - client_version
+        - source_dir
+        - file_count
+      properties:
+        client_version:
+          type: string
+          description: Service version (e.g., "1.0.0")
+        source_dir:
+          type: string
+          description: Source directory path
+        file_count:
+          type: integer
+          minimum: 0
+          description: Number of files to process
+
+    BatchStartResponse:
+      type: object
+      required:
+        - batch_id
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+          description: Server-assigned batch ID
+
+    BatchCompleteRequest:
+      type: object
+      required:
+        - status
+        - processed_count
+        - failed_count
+        - duration_ms
+      properties:
+        status:
+          type: string
+          enum:
+            - success
+            - with-warnings
+            - failed
+          description: Final batch status
+        processed_count:
+          type: integer
+          minimum: 0
+        failed_count:
+          type: integer
+          minimum: 0
+        duration_ms:
+          type: integer
+          minimum: 0
+          description: Batch processing duration in milliseconds
+
+    BatchCompleteResponse:
+      type: object
+      required:
+        - acknowledged
+      properties:
+        acknowledged:
+          type: boolean
+
+    ErrorReport:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          maxLength: 100
+          description: Error classification
+        message:
+          type: string
+          maxLength: 1000
+          description: Human-readable error description
+        error_details:
+          type: string
+          description: Detailed error information (stack trace, cause chain)
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional context
+
+    GlobalErrorReport:
+      type: object
+      required:
+        - type
+        - message
+        - severity
+      properties:
+        type:
+          type: string
+          maxLength: 100
+        message:
+          type: string
+          maxLength: 10000
+        severity:
+          type: string
+          enum:
+            - CRITICAL
+            - ERROR
+            - WARNING
+            - INFO
+        metadata:
+          type: object
+          additionalProperties: true
+          maxProperties: 20
+          description: Max 20 keys, 10KB total
+
+    UploadResponse:
+      type: object
+      required:
+        - status
+        - file_id
+      properties:
+        status:
+          type: string
+          enum:
+            - uploaded
+        file_id:
+          type: string
+          format: uuid
+          description: Server-assigned file ID
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error description

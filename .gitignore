@@ -1,5 +1,29 @@
+# Build output
 /target
+debug/
+release/
+
+# CI artifacts
 /ci-artifacts
 
-
+# Test data
 *.dbf
+
+# IDE
+.idea/
+.vscode/
+
+# Environment and logs
+*.log
+.env*
+
+# Rust-specific
+*.rs.bk
+*.rlib
+*.prof*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp

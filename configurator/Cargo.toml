@@ -1,0 +1,27 @@
+[package]
+name = "data-exporter-configurator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "configurator"
+path = "src/main.rs"
+
+[dependencies]
+# Common library
+common = { workspace = true }
+
+# GUI Framework
+native-windows-gui = { workspace = true }
+native-windows-derive = { workspace = true }
+
+# Async Runtime (for device flow)
+tokio = { workspace = true }
+
+# Error Handling
+anyhow = { workspace = true }
+
+# Configuration
+toml = { workspace = true }
+serde = { workspace = true }

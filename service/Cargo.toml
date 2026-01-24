@@ -1,0 +1,76 @@
+[package]
+name = "data-exporter-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "data_exporter_service"
+path = "src/lib.rs"
+
+[[bin]]
+name = "data_exporter_service"
+path = "src/main.rs"
+
+[dependencies]
+# Common library
+common = { workspace = true }
+
+# Windows Service
+windows-service = { workspace = true }
+
+# Async Runtime
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tokio-cron-scheduler = { workspace = true }
+
+# DBF Parsing
+dbase = { workspace = true }
+
+# CSV Writing
+csv = { workspace = true }
+
+# Compression
+flate2 = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+
+# File Watching
+notify-debouncer-mini = { workspace = true }
+
+# Encoding
+encoding_rs = { workspace = true }
+
+# VSS (Volume Shadow Copy Service)
+rawcopy-rs = { workspace = true }
+
+# File pattern matching
+globset = { workspace = true }
+
+# HTTP Client
+reqwest = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# DateTime
+chrono = { workspace = true }
+
+# Error Handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+# Feature flag for VSS tests that require administrator privileges
+vss-tests = []
+
+[dev-dependencies]
+wiremock = { workspace = true }
+tempfile = { workspace = true }
+tokio-test = { workspace = true }

@@ -1,0 +1,79 @@
+[package]
+name = "data_exporter"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.82.0"
+
+[dependencies]
+# Windows Service
+windows-service = "0.7"
+
+# Async Runtime
+tokio = { version = "1", features = ["full"] }
+tokio-cron-scheduler = "0.13"
+
+# HTTP Client
+# Using native-tls instead of rustls to avoid ring compilation issues on ARM64 Windows
+reqwest = { version = "0.12", features = ["native-tls", "multipart", "json"], default-features = false }
+
+# DBF Parsing
+dbase = { version = "0.5", features = ["yore"] }
+
+# Configuration
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# CSV Writing
+csv = "1"
+
+# Compression
+flate2 = "1"
+
+# Error Handling
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+# File Watching
+notify-debouncer-mini = "0.4"
+
+# Encoding
+encoding_rs = "0.8"
+
+# Base64 for Basic Auth
+base64 = "0.22"
+
+# DateTime
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# VSS (Volume Shadow Copy Service) via rawcopy-rs
+rawcopy-rs = "0.1"
+
+# File pattern matching (glob patterns)
+globset = "0.4.15"
+
+[dev-dependencies]
+tempfile = "3"
+
+[build-dependencies]
+vergen-git2 = { version = "1", features = ["build", "cargo", "rustc"] }
+anyhow = "1"
+
+[lib]
+name = "data_exporter"
+path = "src/lib.rs"
+
+[[bin]]
+name = "data_exporter"
+path = "src/main.rs"
