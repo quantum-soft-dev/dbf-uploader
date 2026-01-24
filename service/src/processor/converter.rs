@@ -66,6 +66,7 @@ fn convert_with_encoding<E: dbase::Encoding + 'static>(
 
     // Process each record
     let mut record_count = 0;
+    let mut skipped_count = 0;
     let mut estimated_size = 0usize;
 
     for result in reader.iter_records() {
@@ -116,9 +117,20 @@ fn convert_with_encoding<E: dbase::Encoding + 'static>(
                     dbf_file.path.display(),
                     e
                 );
+                skipped_count += 1;
                 continue;
             }
         }
+    }
+
+    // Log warning if records were skipped
+    if skipped_count > 0 {
+        warn!(
+            file = %dbf_file.path.display(),
+            skipped = skipped_count,
+            total = record_count + skipped_count,
+            "Skipped corrupted records during conversion"
+        );
     }
 
     // Flush and finish writing
@@ -168,6 +180,7 @@ fn write_to_temp_file(
     })?;
 
     let mut csv_writer = Writer::from_writer(buf_writer);
+    let mut skipped_count = 0;
 
     // Continue processing remaining records
     for result in reader.iter_records() {
@@ -185,6 +198,7 @@ fn write_to_temp_file(
                     dbf_file.path.display(),
                     e
                 );
+                skipped_count += 1;
                 continue;
             }
         }
@@ -193,6 +207,16 @@ fn write_to_temp_file(
     csv_writer.flush().map_err(|e| {
         ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
     })?;
+
+    // Log warning if records were skipped
+    if skipped_count > 0 {
+        warn!(
+            file = %dbf_file.path.display(),
+            skipped = skipped_count,
+            total = record_count + skipped_count,
+            "Skipped corrupted records during conversion"
+        );
+    }
 
     info!(
         "Converted {} records from DBF to temp CSV file: {} ({} KB)",
@@ -261,6 +285,7 @@ fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
 
     // Process each record
     let mut record_count = 0;
+    let mut skipped_count = 0;
     for result in reader.iter_records() {
         match result {
             Ok(record) => {
@@ -276,6 +301,7 @@ fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
                     dbf_file.path.display(),
                     e
                 );
+                skipped_count += 1;
                 // Continue processing other records instead of failing
                 continue;
             }
@@ -286,6 +312,16 @@ fn convert_to_file_with_encoding<E: dbase::Encoding + 'static>(
     csv_writer.flush().map_err(|e| {
         ProcessingError::ConversionError(format!("Failed to flush CSV writer: {}", e))
     })?;
+
+    // Log warning if records were skipped
+    if skipped_count > 0 {
+        warn!(
+            file = %dbf_file.path.display(),
+            skipped = skipped_count,
+            total = record_count + skipped_count,
+            "Skipped corrupted records during conversion"
+        );
+    }
 
     debug!(
         "Converted {} records from DBF to CSV: {}",

@@ -9,12 +9,19 @@ Auto-generated from all feature plans. Last updated: 2025-10-05
 
 ## Project Structure
 ```
-src/
-tests/
+common/          # Shared library (auth, models, error handling)
+service/         # Windows service implementation
+configurator/    # Native Windows GUI for configuration
+tests/           # Integration tests
 ```
 
 ## Commands
-cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLOGIES] cargo clippy
+```bash
+cargo test       # Run all tests
+cargo clippy     # Lint code
+cargo fmt        # Format code
+cargo build --release  # Build release binaries
+```
 
 ## Code Style
 Rust (latest stable, targeting Windows 10+ / Windows Server 2016+): Follow standard conventions
