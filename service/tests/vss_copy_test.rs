@@ -6,28 +6,24 @@
 // To run these tests:
 // cargo test --features vss-tests -- --ignored
 
+// Imports used only when vss-tests feature is enabled
+#[cfg(all(target_os = "windows", feature = "vss-tests"))]
 use std::fs::{self, File};
+#[cfg(all(target_os = "windows", feature = "vss-tests"))]
 use std::io::Write;
 
 /// Helper function to check if VSS is available on this system
-#[allow(dead_code)]
+#[cfg(all(target_os = "windows", feature = "vss-tests"))]
 fn is_vss_available() -> bool {
     // VSS is only available on Windows
     cfg!(target_os = "windows")
 }
 
 /// Helper function to check if we have administrator privileges
+#[cfg(all(target_os = "windows", feature = "vss-tests"))]
 #[allow(dead_code)]
 fn has_admin_privileges() -> bool {
-    // On Windows, try to check if we can access system directories
-    #[cfg(target_os = "windows")]
-    {
-        std::fs::metadata("C:\\Windows\\System32\\config").is_ok()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        false
-    }
+    std::fs::metadata("C:\\Windows\\System32\\config").is_ok()
 }
 
 /// T065 - Integration test for VSS copy with feature flag
