@@ -81,7 +81,7 @@
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
 
       <!-- Registry key for install path -->
-      <Component Id="RegistryComponent" Guid="B1C2D3E4-F5A6-7B8C-9D0E-1F2A3B4C5D6E">
+      <Component Id="RegistryComponent" Guid="B1C2D3E4-F5A6-7B8C-9D0E-1F2A3B4C5D6E" Win64="yes">
         <RegistryKey Root="HKLM" Key="SOFTWARE\DataExporter">
           <RegistryValue Name="InstallPath"
                          Type="string"
@@ -94,7 +94,7 @@
       </Component>
 
       <!-- Service executable -->
-      <Component Id="ServiceExe" Guid="C2D3E4F5-A6B7-8C9D-0E1F-2A3B4C5D6E7F">
+      <Component Id="ServiceExe" Guid="C2D3E4F5-A6B7-8C9D-0E1F-2A3B4C5D6E7F" Win64="yes">
         <File Id="DataExporterExe"
               Name="data_exporter_service.exe"
               Source="$(var.CargoTargetDir)\release\data_exporter_service.exe"
@@ -119,7 +119,7 @@
       </Component>
 
       <!-- Configurator executable -->
-      <Component Id="ConfiguratorExe" Guid="D3E4F5A6-B7C8-9D0E-1F2A-3B4C5D6E7F8A">
+      <Component Id="ConfiguratorExe" Guid="D3E4F5A6-B7C8-9D0E-1F2A-3B4C5D6E7F8A" Win64="yes">
         <File Id="ConfiguratorExe"
               Name="configurator.exe"
               Source="$(var.CargoTargetDir)\release\configurator.exe"
@@ -127,7 +127,7 @@
       </Component>
 
       <!-- Default configuration file (never overwrite on upgrade) -->
-      <Component Id="DefaultConfig" Guid="E4F5A6B7-C8D9-0E1F-2A3B-4C5D6E7F8A9B" NeverOverwrite="yes">
+      <Component Id="DefaultConfig" Guid="E4F5A6B7-C8D9-0E1F-2A3B-4C5D6E7F8A9B" NeverOverwrite="yes" Win64="yes">
         <File Id="ConfigToml"
               Name="config.toml"
               Source="$(var.CargoTargetDir)\..\config.example.toml"
@@ -135,7 +135,7 @@
       </Component>
 
       <!-- Logs directory -->
-      <Component Id="LogsDirectory" Guid="F5A6B7C8-D9E0-1F2A-3B4C-5D6E7F8A9B0C">
+      <Component Id="LogsDirectory" Guid="F5A6B7C8-D9E0-1F2A-3B4C-5D6E7F8A9B0C" Win64="yes">
         <CreateFolder Directory="LogsFolder">
           <Permission User="SYSTEM" GenericAll="yes" />
           <Permission User="Administrators" GenericAll="yes" />
@@ -152,7 +152,7 @@
         <Shortcut Id="ConfiguratorShortcut"
                   Name="Data Exporter Configurator"
                   Description="Configure the Data Exporter service"
-                  Target="[INSTALLFOLDER]data_exporter_configurator.exe"
+                  Target="[INSTALLFOLDER]configurator.exe"
                   WorkingDirectory="INSTALLFOLDER" />
 
         <RemoveFolder Id="RemoveProgramsFolder" On="uninstall" />
