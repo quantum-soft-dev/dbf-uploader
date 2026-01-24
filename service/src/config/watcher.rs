@@ -1,4 +1,4 @@
-// Config file watcher module
+//! Config file watcher module for hot-reload functionality
 use common::error::{ProcessingError, Result};
 use common::models::Config;
 use notify_debouncer_mini::{new_debouncer, notify, DebounceEventResult, Debouncer};
