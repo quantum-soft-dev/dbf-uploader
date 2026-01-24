@@ -5,7 +5,7 @@
 
 use common::models::config::SourceConfig;
 use globset::{GlobSet, GlobSetBuilder};
-use std::sync::OnceLock;
+use std::sync::RwLock;
 
 /// Compiled filter patterns (cached for performance)
 #[derive(Debug)]
@@ -99,27 +99,40 @@ impl FileFilter {
 }
 
 /// Cached global filter instance (reloaded when config changes)
-static CACHED_FILTER: OnceLock<FileFilter> = OnceLock::new();
+/// Uses RwLock to allow updates on config reload
+static CACHED_FILTER: RwLock<Option<FileFilter>> = RwLock::new(None);
 
 /// Initialize or update the global file filter
+/// This is called at the start of each batch to pick up config changes
 pub fn set_global_filter(config: &SourceConfig) -> Result<(), String> {
     let filter = FileFilter::from_config(config)?;
 
-    // Clear old cache and set new one
-    // Note: OnceLock doesn't support clearing, so we just overwrite
-    // This is called once per batch, so it's acceptable
-    let _ = CACHED_FILTER.set(filter);
+    // Update the cached filter - this will apply new patterns on next batch
+    let mut guard = CACHED_FILTER
+        .write()
+        .map_err(|e| format!("Failed to acquire filter lock: {}", e))?;
+    *guard = Some(filter);
 
+    tracing::debug!("Global file filter updated from config");
     Ok(())
 }
 
 /// Check if a file should be processed using the global filter
 pub fn should_process_file(filename: &str) -> bool {
-    if let Some(filter) = CACHED_FILTER.get() {
-        filter.should_process(filename)
-    } else {
-        // No filter configured, process all files
-        true
+    match CACHED_FILTER.read() {
+        Ok(guard) => {
+            if let Some(ref filter) = *guard {
+                filter.should_process(filename)
+            } else {
+                // No filter configured, process all files
+                true
+            }
+        }
+        Err(_) => {
+            // Lock poisoned, process all files as fallback
+            tracing::warn!("Filter lock poisoned, processing all files");
+            true
+        }
     }
 }
 

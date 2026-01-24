@@ -276,7 +276,7 @@ fn run_service_impl() -> Result<()> {
     info!("Creating BatchScheduler");
 
     runtime.block_on(async {
-        match BatchScheduler::new(config).await {
+        match BatchScheduler::new(config, config_path).await {
             Ok(mut sched) => {
                 info!("Scheduler created successfully");
 

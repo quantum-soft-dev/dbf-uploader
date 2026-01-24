@@ -4,6 +4,7 @@ use crate::processor::run_batch;
 use common::auth::TokenManager;
 use common::error::{ProcessingError, Result};
 use common::models::Config;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -12,6 +13,7 @@ use tracing::{debug, error, info, warn};
 pub struct BatchScheduler {
     scheduler: JobScheduler,
     config: Arc<RwLock<Config>>,
+    config_path: Arc<PathBuf>,
     token_manager: Arc<TokenManager>,
     config_watcher: Option<ConfigWatcher>,
     batch_lock: Arc<Mutex<bool>>, // Lock to prevent concurrent batch execution
@@ -19,18 +21,21 @@ pub struct BatchScheduler {
 
 impl BatchScheduler {
     /// Create a new scheduler with the given configuration
-    pub async fn new(config: Config) -> Result<Self> {
+    /// The config_path is used to reload configuration before each batch
+    pub async fn new(config: Config, config_path: PathBuf) -> Result<Self> {
         let scheduler = JobScheduler::new().await.map_err(|e| {
             ProcessingError::ConfigurationError(format!("Failed to create scheduler: {}", e))
         })?;
 
         let token_manager = Arc::new(TokenManager::new(&config)?);
         let config_arc = Arc::new(RwLock::new(config));
+        let config_path_arc = Arc::new(config_path);
         let batch_lock = Arc::new(Mutex::new(false)); // false = not running
 
         Ok(Self {
             scheduler,
             config: config_arc,
+            config_path: config_path_arc,
             token_manager,
             config_watcher: None,
             batch_lock,
@@ -55,11 +60,13 @@ impl BatchScheduler {
 
         // Create the batch processing job
         let config_arc = Arc::clone(&self.config);
+        let config_path = Arc::clone(&self.config_path);
         let token_manager = Arc::clone(&self.token_manager);
         let batch_lock = Arc::clone(&self.batch_lock);
 
         let job = Job::new_async(crontab_6field.as_str(), move |_uuid, _l| {
             let config_arc = Arc::clone(&config_arc);
+            let config_path = Arc::clone(&config_path);
             let token_manager = Arc::clone(&token_manager);
             let batch_lock = Arc::clone(&batch_lock);
 
@@ -76,10 +83,29 @@ impl BatchScheduler {
                 *is_running = true;
                 drop(is_running); // Release lock while batch runs
 
-                // Reload config at start of each batch (respects config file changes)
-                let current_config = {
-                    let config_guard = config_arc.read().await;
-                    config_guard.clone()
+                // Reload config from disk at start of each batch (hot-reload)
+                let reload_result: std::result::Result<Config, String> = Config::from_file(&config_path)
+                    .map_err(|e| e.to_string());
+
+                let current_config = match reload_result {
+                    Ok(new_config) => {
+                        // Update the shared config for other components
+                        {
+                            let mut config_guard = config_arc.write().await;
+                            *config_guard = new_config.clone();
+                        }
+                        debug!("Config reloaded from disk before batch");
+                        new_config
+                    }
+                    Err(error_msg) => {
+                        // On reload failure, use cached config
+                        warn!(
+                            error = %error_msg,
+                            "Failed to reload config from disk, using cached config"
+                        );
+                        let config_guard = config_arc.read().await;
+                        config_guard.clone()
+                    }
                 };
 
                 info!("========================================");
@@ -168,6 +194,7 @@ impl BatchScheduler {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use tempfile::NamedTempFile;
 
     fn create_test_config() -> Config {
         Config {
@@ -195,10 +222,16 @@ mod tests {
         }
     }
 
+    fn create_test_config_path() -> PathBuf {
+        // Use a dummy path for tests - config reload will fail but fallback to cached
+        PathBuf::from("/tmp/test_config.toml")
+    }
+
     #[tokio::test]
     async fn test_scheduler_creation() {
         let config = create_test_config();
-        let scheduler = BatchScheduler::new(config).await;
+        let config_path = create_test_config_path();
+        let scheduler = BatchScheduler::new(config, config_path).await;
         assert!(scheduler.is_ok());
     }
 
@@ -206,8 +239,9 @@ mod tests {
     async fn test_scheduler_invalid_crontab() {
         let mut config = create_test_config();
         config.scheduler.crontab = "invalid cron".to_string();
+        let config_path = create_test_config_path();
 
-        let scheduler = BatchScheduler::new(config).await;
+        let scheduler = BatchScheduler::new(config, config_path).await;
         // Scheduler creation should succeed, but starting will fail
         assert!(scheduler.is_ok());
 
@@ -219,7 +253,8 @@ mod tests {
     #[tokio::test]
     async fn test_config_reload() {
         let config = create_test_config();
-        let scheduler = BatchScheduler::new(config).await.unwrap();
+        let config_path = create_test_config_path();
+        let scheduler = BatchScheduler::new(config, config_path).await.unwrap();
 
         let mut new_config = create_test_config();
         new_config.scheduler.crontab = "0 30 * * * *".to_string();
@@ -247,8 +282,9 @@ mod tests {
         for cron in valid_crons {
             let mut config = create_test_config();
             config.scheduler.crontab = cron.to_string();
+            let config_path = create_test_config_path();
 
-            let scheduler = BatchScheduler::new(config).await;
+            let scheduler = BatchScheduler::new(config, config_path).await;
             assert!(
                 scheduler.is_ok(),
                 "Failed to create scheduler with cron: {}",
@@ -284,8 +320,9 @@ mod tests {
         for cron in invalid_crons {
             let mut config = create_test_config();
             config.scheduler.crontab = cron.to_string();
+            let config_path = create_test_config_path();
 
-            let scheduler = BatchScheduler::new(config).await;
+            let scheduler = BatchScheduler::new(config, config_path).await;
             assert!(
                 scheduler.is_ok(),
                 "Scheduler creation should succeed for: {}",
@@ -306,7 +343,8 @@ mod tests {
     #[tokio::test]
     async fn test_batch_lock_initialized_false() {
         let config = create_test_config();
-        let scheduler = BatchScheduler::new(config).await.unwrap();
+        let config_path = create_test_config_path();
+        let scheduler = BatchScheduler::new(config, config_path).await.unwrap();
 
         // The batch lock should be initialized to false (not running)
         let is_running = scheduler.batch_lock.lock().await;

@@ -33,53 +33,76 @@ pub fn scan_directory(config: &Config) -> Result<Vec<DbfFile>> {
     let mut dbf_files = Vec::new();
     let mut filtered_count = 0;
 
+    let mut error_count = 0;
+
     // Recursively walk the directory tree
-    match walk_directory(source_dir, source_dir, &mut dbf_files, &mut filtered_count) {
-        Ok(_) => {
-            if filtered_count > 0 {
-                info!(
-                    found = dbf_files.len(),
-                    filtered = filtered_count,
-                    "Scan complete: {} files found, {} filtered out",
-                    dbf_files.len(),
-                    filtered_count
-                );
-            } else {
-                debug!("Scan complete: found {} DBF files", dbf_files.len());
-            }
-            Ok(dbf_files)
-        }
-        Err(e) => {
-            warn!("Error during directory scan: {}", e);
-            // Return empty vec if directory is inaccessible, but don't fail
-            // This allows batch processing to continue with other operations
-            Ok(Vec::new())
-        }
+    // Errors in subdirectories are logged but don't stop the scan
+    walk_directory(
+        source_dir,
+        source_dir,
+        &mut dbf_files,
+        &mut filtered_count,
+        &mut error_count,
+    );
+
+    if filtered_count > 0 || error_count > 0 {
+        info!(
+            found = dbf_files.len(),
+            filtered = filtered_count,
+            errors = error_count,
+            "Scan complete: {} files found, {} filtered out, {} errors",
+            dbf_files.len(),
+            filtered_count,
+            error_count
+        );
+    } else {
+        debug!("Scan complete: found {} DBF files", dbf_files.len());
     }
+
+    Ok(dbf_files)
 }
 
 /// Internal recursive function to walk directory tree
+/// Errors are logged but don't stop the scan - partial results are returned
 fn walk_directory(
     current_dir: &Path,
     source_dir: &Path,
     dbf_files: &mut Vec<DbfFile>,
     filtered_count: &mut usize,
-) -> Result<()> {
-    let entries = std::fs::read_dir(current_dir).map_err(|e| {
-        ProcessingError::DirectoryInaccessible(format!(
-            "Cannot read directory {}: {}",
-            current_dir.display(),
-            e
-        ))
-    })?;
+    error_count: &mut usize,
+) {
+    let entries = match std::fs::read_dir(current_dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            warn!(
+                dir = %current_dir.display(),
+                error = %e,
+                "Cannot read directory, skipping"
+            );
+            *error_count += 1;
+            return;
+        }
+    };
 
     for entry in entries {
-        let entry = entry.map_err(ProcessingError::FileReadError)?;
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                warn!(
+                    dir = %current_dir.display(),
+                    error = %e,
+                    "Error reading directory entry, skipping"
+                );
+                *error_count += 1;
+                continue;
+            }
+        };
+
         let path = entry.path();
 
         if path.is_dir() {
-            // Recurse into subdirectories
-            walk_directory(&path, source_dir, dbf_files, filtered_count)?;
+            // Recurse into subdirectories - errors don't stop the scan
+            walk_directory(&path, source_dir, dbf_files, filtered_count, error_count);
         } else if path.is_file() {
             // Check if file has .dbf extension (case-insensitive)
             if let Some(extension) = path.extension() {
@@ -122,8 +145,6 @@ fn walk_directory(
             }
         }
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
