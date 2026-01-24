@@ -9,19 +9,14 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum Section {
+    #[default]
     Auth,
     Settings,
     Schedule,
     Service,
     Status,
-}
-
-impl Default for Section {
-    fn default() -> Self {
-        Section::Auth
-    }
 }
 
 pub struct ConfiguratorApp {
@@ -436,12 +431,11 @@ impl ConfiguratorApp {
             .action(nwg::FileDialogAction::OpenDirectory)
             .build(&mut dialog)
             .is_ok()
+            && dialog.run(Some(&self.window))
         {
-            if dialog.run(Some(&self.window)) {
-                if let Ok(directory) = dialog.get_selected_item() {
-                    self.settings_source_input
-                        .set_text(&directory.to_string_lossy());
-                }
+            if let Ok(directory) = dialog.get_selected_item() {
+                self.settings_source_input
+                    .set_text(&directory.to_string_lossy());
             }
         }
     }
@@ -872,43 +866,43 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             if let Some(ui) = evt_ui.upgrade() {
                 match evt {
                     nwg::Event::OnWindowClose => {
-                        if &handle == &ui.window {
+                        if handle == ui.window {
                             ui.exit();
                         }
                     }
                     nwg::Event::OnButtonClick => {
                         // Navigation
-                        if &handle == &ui.nav_auth_button {
+                        if handle == ui.nav_auth_button {
                             ui.show_section(Section::Auth);
-                        } else if &handle == &ui.nav_settings_button {
+                        } else if handle == ui.nav_settings_button {
                             ui.show_section(Section::Settings);
-                        } else if &handle == &ui.nav_schedule_button {
+                        } else if handle == ui.nav_schedule_button {
                             ui.show_section(Section::Schedule);
-                        } else if &handle == &ui.nav_service_button {
+                        } else if handle == ui.nav_service_button {
                             ui.show_section(Section::Service);
-                        } else if &handle == &ui.nav_status_button {
+                        } else if handle == ui.nav_status_button {
                             ui.show_section(Section::Status);
                         }
                         // Actions
-                        else if &handle == &ui.auth_button {
+                        else if handle == ui.auth_button {
                             ui.on_auth_button();
-                        } else if &handle == &ui.settings_source_browse {
+                        } else if handle == ui.settings_source_browse {
                             ui.on_browse_source();
-                        } else if &handle == &ui.service_refresh_button {
+                        } else if handle == ui.service_refresh_button {
                             ui.refresh_service_status();
-                        } else if &handle == &ui.service_install_button {
+                        } else if handle == ui.service_install_button {
                             ui.on_service_install();
-                        } else if &handle == &ui.service_start_button {
+                        } else if handle == ui.service_start_button {
                             ui.on_service_start();
-                        } else if &handle == &ui.service_stop_button {
+                        } else if handle == ui.service_stop_button {
                             ui.on_service_stop();
-                        } else if &handle == &ui.service_uninstall_button {
+                        } else if handle == ui.service_uninstall_button {
                             ui.on_service_uninstall();
-                        } else if &handle == &ui.status_refresh_button {
+                        } else if handle == ui.status_refresh_button {
                             ui.on_status_refresh();
-                        } else if &handle == &ui.save_button {
+                        } else if handle == ui.save_button {
                             ui.on_save();
-                        } else if &handle == &ui.cancel_button {
+                        } else if handle == ui.cancel_button {
                             ui.on_cancel();
                         }
                     }

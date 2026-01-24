@@ -194,7 +194,6 @@ impl BatchScheduler {
 mod tests {
     use super::*;
     use std::path::PathBuf;
-    use tempfile::NamedTempFile;
 
     fn create_test_config() -> Config {
         Config {

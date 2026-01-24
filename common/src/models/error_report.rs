@@ -568,7 +568,7 @@ mod tests {
 
         report.add_metadata("string_val".to_string(), serde_json::json!("hello"));
         report.add_metadata("int_val".to_string(), serde_json::json!(123));
-        report.add_metadata("float_val".to_string(), serde_json::json!(3.14));
+        report.add_metadata("float_val".to_string(), serde_json::json!(2.5));
         report.add_metadata("bool_val".to_string(), serde_json::json!(true));
         report.add_metadata("null_val".to_string(), serde_json::json!(null));
         report.add_metadata("array_val".to_string(), serde_json::json!([1, 2, 3]));
@@ -584,7 +584,7 @@ mod tests {
             &serde_json::json!("hello")
         );
         assert_eq!(metadata.get("int_val").unwrap(), &serde_json::json!(123));
-        assert_eq!(metadata.get("float_val").unwrap(), &serde_json::json!(3.14));
+        assert_eq!(metadata.get("float_val").unwrap(), &serde_json::json!(2.5));
         assert_eq!(metadata.get("bool_val").unwrap(), &serde_json::json!(true));
         assert_eq!(metadata.get("null_val").unwrap(), &serde_json::json!(null));
         assert_eq!(

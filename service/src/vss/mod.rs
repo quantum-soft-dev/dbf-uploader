@@ -162,7 +162,6 @@ mod tests {
 /// These tests are in the processor module since is_file_locked is defined there
 #[cfg(test)]
 pub mod locked_file_tests {
-    use std::io::{Error as IoError, ErrorKind};
 
     /// Check if an error represents a locked file based on OS error codes
     pub fn is_locked_error_code(os_error: i32) -> bool {

@@ -166,7 +166,15 @@ impl Config {
         }
 
         // Validate credentials - either traditional or device flow must be present
-        if self.credential.device.is_none() {
+        if let Some(device) = &self.credential.device {
+            // Device flow credentials validation
+            if device.domain.is_empty() {
+                return Err("Device domain cannot be empty".into());
+            }
+            if device.client_secret.is_empty() {
+                return Err("Device client_secret cannot be empty".into());
+            }
+        } else {
             // Traditional credentials validation
             if self.credential.account.is_empty() {
                 return Err("Account cannot be empty when not using device flow".into());
@@ -176,15 +184,6 @@ impl Config {
             }
             if self.credential.password.is_empty() {
                 return Err("Password cannot be empty when not using device flow".into());
-            }
-        } else {
-            // Device flow credentials validation
-            let device = self.credential.device.as_ref().unwrap();
-            if device.domain.is_empty() {
-                return Err("Device domain cannot be empty".into());
-            }
-            if device.client_secret.is_empty() {
-                return Err("Device client_secret cannot be empty".into());
             }
         }
 

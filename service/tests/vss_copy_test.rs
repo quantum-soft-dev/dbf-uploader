@@ -8,15 +8,16 @@
 
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::Path;
 
 /// Helper function to check if VSS is available on this system
+#[allow(dead_code)]
 fn is_vss_available() -> bool {
     // VSS is only available on Windows
     cfg!(target_os = "windows")
 }
 
 /// Helper function to check if we have administrator privileges
+#[allow(dead_code)]
 fn has_admin_privileges() -> bool {
     // On Windows, try to check if we can access system directories
     #[cfg(target_os = "windows")]
@@ -110,9 +111,6 @@ fn test_vss_feature_flag_compilation() {
     {
         println!("vss-tests feature is disabled");
     }
-
-    // Always passes - just a compilation check
-    assert!(true);
 }
 
 /// Test that VSS module is accessible
@@ -123,7 +121,7 @@ fn test_vss_module_accessible() {
 
     // VssError should be accessible
     // copy_locked_file function should be callable (though it will fail without proper setup)
-    assert!(true);
+    // This test verifies only that the types and functions compile correctly
 }
 
 /// T065 - Test deferred file retry workflow

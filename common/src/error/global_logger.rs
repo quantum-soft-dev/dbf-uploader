@@ -269,7 +269,7 @@ fn write_panic_to_file(entry: &str) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use tempfile::TempDir;
 
     #[test]

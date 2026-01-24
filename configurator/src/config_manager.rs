@@ -44,6 +44,7 @@ impl ConfigManager {
     }
 
     /// Check if config file exists
+    #[allow(dead_code)]
     pub fn exists(&self) -> bool {
         self.config_path.exists()
     }
