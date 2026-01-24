@@ -731,6 +731,38 @@ impl ConfiguratorApp {
         // Save config from UI
         let config = self.save_config_from_ui();
 
+        // Validate HTTPS URL requirement
+        if config.api.https_only {
+            let url = config.api.base_url.trim().to_lowercase();
+            if !url.starts_with("https://") {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Validation Error",
+                    "Server URL must use HTTPS when https_only is enabled.\n\nEither:\n- Change URL to start with https://\n- Or disable https_only in config (not recommended)",
+                );
+                return;
+            }
+        }
+
+        // Validate source directory exists
+        if !config.src.source_dir.exists() {
+            let result = nwg::modal_message(
+                &self.window,
+                &nwg::MessageParams {
+                    title: "Warning",
+                    content: &format!(
+                        "Source directory does not exist:\n{}\n\nSave anyway?",
+                        config.src.source_dir.display()
+                    ),
+                    buttons: nwg::MessageButtons::YesNo,
+                    icons: nwg::MessageIcons::Warning,
+                },
+            );
+            if result == nwg::MessageChoice::No {
+                return;
+            }
+        }
+
         // Validate cron expression before saving
         if let Err(e) = Self::validate_cron_static(&config.scheduler.crontab) {
             nwg::modal_error_message(&self.window, "Validation Error", &e);
