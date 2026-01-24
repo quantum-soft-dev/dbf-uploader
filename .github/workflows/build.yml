@@ -66,11 +66,13 @@ jobs:
     - name: Build release
       run: cargo build --release --verbose
 
-    - name: Upload release binary
+    - name: Upload release binaries
       uses: actions/upload-artifact@v4
       with:
         name: data_exporter-windows-x86_64
-        path: target/release/data_exporter.exe
+        path: |
+          target/release/data_exporter.exe
+          target/release/data_exporter_configurator.exe
         retention-days: 30
         if-no-files-found: error
 
@@ -78,6 +80,8 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: data_exporter-windows-x86_64-debug
-        path: target/release/data_exporter.pdb
+        path: |
+          target/release/data_exporter.pdb
+          target/release/data_exporter_configurator.pdb
         retention-days: 7
         if-no-files-found: warn

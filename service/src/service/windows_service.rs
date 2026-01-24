@@ -8,8 +8,6 @@ use common::models::Config;
 #[cfg(windows)]
 use std::ffi::OsString;
 #[cfg(windows)]
-use std::path::PathBuf;
-#[cfg(windows)]
 use std::sync::{Arc, Mutex};
 #[cfg(windows)]
 use std::time::Duration;
@@ -151,12 +149,13 @@ async fn load_config_with_retry(
 
 #[cfg(windows)]
 fn run_service_impl() -> Result<()> {
+    use common::paths::{get_config_path, get_log_dir};
     use tracing_appender::rolling::{RollingFileAppender, Rotation};
 
     // Initialize tracing with daily log rotation
-    // Logs will be in C:\Program Files\data-exporter\logs\
+    // Logs will be in {install_dir}\logs\
     // Old logs will be automatically renamed with date suffix
-    let log_dir = PathBuf::from(r"C:\Program Files\data-exporter\logs");
+    let log_dir = get_log_dir();
 
     // Create logs directory if it doesn't exist
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
@@ -209,7 +208,7 @@ fn run_service_impl() -> Result<()> {
     let stop_signal_clone = stop_signal.clone();
 
     // Load configuration with retry logic
-    let config_path = PathBuf::from(r"C:\Program Files\data-exporter\config.toml");
+    let config_path = get_config_path();
     info!("Loading config from: {}", config_path.display());
     let config = runtime.block_on(load_config_with_retry(&config_path, stop_signal.clone()))?;
 

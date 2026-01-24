@@ -1,10 +1,9 @@
 // Windows Service Management for Configurator
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use common::paths::get_install_dir;
 use std::process::Command;
 
 const SERVICE_NAME: &str = "data-exporter";
-const INSTALL_DIR: &str = r"C:\Program Files\data-exporter";
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ServiceStatus {
@@ -71,7 +70,7 @@ impl ServiceManager {
         }
 
         // Check if service executable exists in installation directory
-        let exe_path = PathBuf::from(INSTALL_DIR).join("data_exporter.exe");
+        let exe_path = get_install_dir().join("data_exporter.exe");
         if !exe_path.exists() {
             return Err(anyhow::anyhow!(
                 "Service executable not found at: {}\n\n\
@@ -81,7 +80,7 @@ impl ServiceManager {
         }
 
         // Check if config exists
-        let config_path = PathBuf::from(INSTALL_DIR).join("config.toml");
+        let config_path = get_install_dir().join("config.toml");
         if !config_path.exists() {
             return Err(anyhow::anyhow!(
                 "Configuration file not found at: {}\n\n\
@@ -211,9 +210,9 @@ impl ServiceManager {
         }
 
         // Check installation paths
-        let exe_path = PathBuf::from(INSTALL_DIR).join("data_exporter.exe");
-        let config_path = PathBuf::from(INSTALL_DIR).join("config.toml");
-        let log_dir = PathBuf::from(INSTALL_DIR).join("logs");
+        let exe_path = get_install_dir().join("data_exporter.exe");
+        let config_path = get_install_dir().join("config.toml");
+        let log_dir = get_install_dir().join("logs");
 
         info.push_str("\n--- Installation ---\n");
         info.push_str(&format!(

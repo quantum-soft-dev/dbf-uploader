@@ -26,26 +26,74 @@ jobs:
         toolchain: 1.82.0
         rustflags: ""
 
+    - name: Install WiX Toolset
+      run: |
+        # Download and install WiX Toolset v3.14
+        $wixUrl = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
+        $wixZip = "$env:TEMP\wix314-binaries.zip"
+        $wixDir = "$env:TEMP\wix314"
+        Invoke-WebRequest -Uri $wixUrl -OutFile $wixZip
+        Expand-Archive -Path $wixZip -DestinationPath $wixDir -Force
+        echo "$wixDir" >> $env:GITHUB_PATH
+
     - name: Build release binary
       run: cargo build --release --verbose
 
     - name: Run tests
       run: cargo test --release --verbose
 
+    - name: Build MSI installer
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        $targetDir = (Get-Location).Path + "\target"
+
+        # Create output directory
+        New-Item -ItemType Directory -Force -Path "target\wix" | Out-Null
+
+        # Compile WiX source
+        candle.exe `
+          -dCargoTargetDir="$targetDir" `
+          -dVersion="$version" `
+          -ext WixUtilExtension `
+          -ext WixUIExtension `
+          -out "target\wix\main.wixobj" `
+          "installer\wix\main.wxs"
+
+        # Link to create MSI
+        light.exe `
+          -ext WixUtilExtension `
+          -ext WixUIExtension `
+          -out "target\wix\data-exporter-$version-x86_64.msi" `
+          "target\wix\main.wixobj"
+
     - name: Create release archive
       run: |
         $version = "${{ github.ref_name }}"
         $archive = "data_exporter-$version-windows-x86_64.zip"
-        Compress-Archive -Path target/release/data_exporter.exe -DestinationPath $archive
+        Compress-Archive -Path target/release/data_exporter.exe, target/release/data_exporter_configurator.exe -DestinationPath $archive
         echo "ASSET_PATH=$archive" >> $env:GITHUB_ENV
         echo "ASSET_NAME=$archive" >> $env:GITHUB_ENV
 
+    - name: Set MSI path
+      run: |
+        $version = "${{ github.ref_name }}".TrimStart('v')
+        $msiPath = "target/wix/data-exporter-$version-x86_64.msi"
+        echo "MSI_PATH=$msiPath" >> $env:GITHUB_ENV
+        echo "MSI_NAME=data-exporter-$version-x86_64.msi" >> $env:GITHUB_ENV
+
     - name: Generate checksums
       run: |
+        # ZIP checksum
         $hash = Get-FileHash -Path $env:ASSET_PATH -Algorithm SHA256
         $checksumFile = "$env:ASSET_PATH.sha256"
         "$($hash.Hash.ToLower())  $env:ASSET_NAME" | Out-File -FilePath $checksumFile -Encoding ASCII
         echo "CHECKSUM_PATH=$checksumFile" >> $env:GITHUB_ENV
+
+        # MSI checksum
+        $msiHash = Get-FileHash -Path $env:MSI_PATH -Algorithm SHA256
+        $msiChecksumFile = "$env:MSI_PATH.sha256"
+        "$($msiHash.Hash.ToLower())  $env:MSI_NAME" | Out-File -FilePath $msiChecksumFile -Encoding ASCII
+        echo "MSI_CHECKSUM_PATH=$msiChecksumFile" >> $env:GITHUB_ENV
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -53,19 +101,31 @@ jobs:
         files: |
           ${{ env.ASSET_PATH }}
           ${{ env.CHECKSUM_PATH }}
+          ${{ env.MSI_PATH }}
+          ${{ env.MSI_CHECKSUM_PATH }}
         body: |
-          ## Data Exporter Service ${{ github.ref_name }}
+          ## Data Exporter ${{ github.ref_name }}
 
-          ### Installation
+          ### Installation Options
+
+          #### Option 1: MSI Installer (Recommended)
+          Download the `.msi` file and run the installer.
+          - Custom installation directory selection
+          - Windows service auto-registration
+          - Start Menu shortcuts
+          - Easy uninstall via Add/Remove Programs
+
+          #### Option 2: Manual Installation
           1. Download the ZIP archive
-          2. Extract `data_exporter.exe`
-          3. Run installation command:
-          ```
-          data_exporter.exe install --username <user> --password <pass> --source-dir <path> --api-url <url>
-          ```
+          2. Extract executables to desired location
+          3. Use the Configurator to set up the service
+
+          ### What's Included
+          - `data_exporter.exe` - Windows service
+          - `data_exporter_configurator.exe` - Configuration GUI
 
           ### Checksums
-          SHA256 checksums are provided in the `.sha256` file.
+          SHA256 checksums are provided in the `.sha256` files.
 
           ### Platform Support
           - Windows 10 or higher

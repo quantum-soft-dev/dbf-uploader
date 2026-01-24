@@ -3,6 +3,7 @@ members = [
     "common",
     "service",
     "configurator",
+    "installer",
 ]
 resolver = "2"
 
@@ -84,6 +85,9 @@ windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Ole",
 ] }
+
+# Windows Registry
+winreg = "0.55"
 
 # Testing dependencies
 wiremock = "0.6"

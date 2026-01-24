@@ -1,0 +1,24 @@
+[package]
+name = "data-exporter-installer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "MSI installer for Data Exporter"
+
+# This crate is just for WiX metadata - no Rust code
+[[bin]]
+name = "data-exporter-installer"
+path = "src/main.rs"
+
+[package.metadata.wix]
+# Upgrade GUID - must remain the same across versions for smooth upgrades
+upgrade-guid = "E8A3D4B1-7F2C-4E5A-9B8D-1C3E5F7A9B2D"
+
+# Path GUID - for the install directory registry
+path-guid = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+
+# Disable license/EULA dialogs (we have our own in the wxs)
+license = false
+eula = false
+
+[dependencies]
