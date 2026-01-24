@@ -10,6 +10,10 @@ use std::sync::{
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
+/// Debounce duration for file change events (2 seconds)
+/// This prevents multiple rapid changes from triggering multiple reloads
+const DEBOUNCE_DURATION_SECS: u64 = 2;
+
 pub struct ConfigWatcher {
     _debouncer: Debouncer<notify::RecommendedWatcher>,
     config_path: PathBuf,
@@ -21,20 +25,30 @@ impl ConfigWatcher {
     /// Watches the config file for changes and signals when it's modified
     pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self> {
         let config_path = config_path.as_ref().to_path_buf();
+        let config_file_name = config_path
+            .file_name()
+            .map(|n| n.to_os_string())
+            .unwrap_or_default();
 
         // Create channels for change notifications
         let (tx, rx) = channel();
 
-        // Create debouncer with 2-second delay
+        // Create debouncer with configurable delay
+        // Filter events to only the config file (not other files in the directory)
         let mut debouncer = new_debouncer(
-            Duration::from_secs(2),
+            Duration::from_secs(DEBOUNCE_DURATION_SECS),
             move |res: DebounceEventResult| match res {
                 Ok(events) => {
                     for event in events {
-                        debug!("Config file event: {:?}", event);
-                        // Signal that config has changed
-                        if tx.send(()).is_err() {
-                            error!("Failed to send config change notification");
+                        // Only react to changes in the config file, not other files in directory
+                        let is_config_file = event.path.file_name() == Some(&config_file_name);
+                        if is_config_file {
+                            debug!("Config file changed: {:?}", event.path);
+                            if tx.send(()).is_err() {
+                                error!("Failed to send config change notification");
+                            }
+                        } else {
+                            debug!("Ignoring non-config file change: {:?}", event.path);
                         }
                     }
                 }

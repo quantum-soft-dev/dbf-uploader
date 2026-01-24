@@ -171,15 +171,16 @@ impl ConfiguratorApp {
         self.schedule_cron_input.set_text(&config.scheduler.crontab);
 
         // Update include/exclude patterns
+        // Empty string in UI corresponds to None in config (no filtering)
         if let Some(ref patterns) = config.src.include_patterns {
             self.settings_include_input.set_text(&patterns.join(", "));
         } else {
-            self.settings_include_input.set_text("");
+            self.settings_include_input.set_text(""); // None = no include filter
         }
         if let Some(ref patterns) = config.src.exclude_patterns {
             self.settings_exclude_input.set_text(&patterns.join(", "));
         } else {
-            self.settings_exclude_input.set_text("");
+            self.settings_exclude_input.set_text(""); // None = no exclude filter
         }
 
         // Update auth status
@@ -386,9 +387,22 @@ impl ConfiguratorApp {
             site_description,
         };
 
-        // Use tokio runtime
-        let rt = tokio::runtime::Runtime::new()
-            .expect("Failed to create tokio runtime for device authorization");
+        // Create tokio runtime for async operations
+        // Note: block_on() will block UI thread during authorization.
+        // For a production app, consider using background threads with message passing.
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(r) => r,
+            Err(e) => {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to create async runtime: {}", e),
+                );
+                self.auth_button.set_enabled(true);
+                self.auth_status_label.set_text("Status: Not authenticated");
+                return;
+            }
+        };
         let auth_result = rt.block_on(async { client.authorize(site_info).await });
 
         match auth_result {
