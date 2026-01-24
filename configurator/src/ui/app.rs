@@ -27,6 +27,11 @@ impl Default for Section {
 pub struct ConfiguratorApp {
     window: nwg::Window,
 
+    // Fonts
+    title_font: nwg::Font,
+    heading_font: nwg::Font,
+    normal_font: nwg::Font,
+
     // Navigation panel
     nav_frame: nwg::Frame,
     nav_title: nwg::Label,
@@ -37,7 +42,6 @@ pub struct ConfiguratorApp {
     nav_status_button: nwg::Button,
 
     // Content area
-    content_frame: nwg::Frame,
     section_title: nwg::Label,
 
     // Section: Authentication
@@ -65,6 +69,7 @@ pub struct ConfiguratorApp {
 
     // Section: Service
     service_status_label: nwg::Label,
+    service_refresh_button: nwg::Button,
     service_install_button: nwg::Button,
     service_start_button: nwg::Button,
     service_stop_button: nwg::Button,
@@ -88,6 +93,9 @@ impl Default for ConfiguratorApp {
     fn default() -> Self {
         Self {
             window: Default::default(),
+            title_font: Default::default(),
+            heading_font: Default::default(),
+            normal_font: Default::default(),
             nav_frame: Default::default(),
             nav_title: Default::default(),
             nav_auth_button: Default::default(),
@@ -95,7 +103,6 @@ impl Default for ConfiguratorApp {
             nav_schedule_button: Default::default(),
             nav_service_button: Default::default(),
             nav_status_button: Default::default(),
-            content_frame: Default::default(),
             section_title: Default::default(),
             auth_desc_label: Default::default(),
             auth_site_name_label: Default::default(),
@@ -115,6 +122,7 @@ impl Default for ConfiguratorApp {
             schedule_cron_input: Default::default(),
             schedule_help_label: Default::default(),
             service_status_label: Default::default(),
+            service_refresh_button: Default::default(),
             service_install_button: Default::default(),
             service_start_button: Default::default(),
             service_stop_button: Default::default(),
@@ -209,6 +217,7 @@ impl ConfiguratorApp {
         self.schedule_help_label.set_visible(false);
 
         self.service_status_label.set_visible(false);
+        self.service_refresh_button.set_visible(false);
         self.service_install_button.set_visible(false);
         self.service_start_button.set_visible(false);
         self.service_stop_button.set_visible(false);
@@ -229,6 +238,8 @@ impl ConfiguratorApp {
                 self.auth_button.set_visible(true);
                 self.auth_code_label.set_visible(true);
                 self.auth_url_label.set_visible(true);
+                // Set focus to first input field
+                self.auth_site_name_input.set_focus();
             }
             Section::Settings => {
                 self.settings_server_label.set_visible(true);
@@ -236,20 +247,25 @@ impl ConfiguratorApp {
                 self.settings_source_label.set_visible(true);
                 self.settings_source_input.set_visible(true);
                 self.settings_source_browse.set_visible(true);
+                // Set focus to first input field
+                self.settings_server_input.set_focus();
             }
             Section::Schedule => {
                 self.schedule_cron_label.set_visible(true);
                 self.schedule_cron_input.set_visible(true);
                 self.schedule_help_label.set_visible(true);
+                // Set focus to input field
+                self.schedule_cron_input.set_focus();
             }
             Section::Service => {
                 self.service_status_label.set_visible(true);
+                self.service_refresh_button.set_visible(true);
                 self.service_install_button.set_visible(true);
                 self.service_start_button.set_visible(true);
                 self.service_stop_button.set_visible(true);
                 self.service_uninstall_button.set_visible(true);
-                // Refresh status when entering Service section
-                self.refresh_service_status();
+                // Don't refresh automatically to avoid UI freeze
+                // User can click Refresh button to check status
             }
             Section::Status => {
                 self.status_info_label.set_visible(true);
@@ -544,23 +560,42 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
     fn build_ui(mut data: ConfiguratorApp) -> Result<ConfiguratorUi, nwg::NwgError> {
         // Main window
         nwg::Window::builder()
-            .size((800, 550))
-            .position((250, 150))
+            .size((900, 600))
+            .position((200, 100))
             .title("Data Exporter Configurator")
             .flags(nwg::WindowFlags::WINDOW | nwg::WindowFlags::VISIBLE)
             .build(&mut data.window)?;
 
+        // Create fonts
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(20)
+            .weight(700)
+            .build(&mut data.title_font)?;
+
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(14)
+            .weight(600)
+            .build(&mut data.heading_font)?;
+
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(11)
+            .build(&mut data.normal_font)?;
+
         // === Navigation panel (left side) ===
         nwg::Frame::builder()
             .position((0, 0))
-            .size((180, 550))
+            .size((200, 600))
             .parent(&data.window)
             .build(&mut data.nav_frame)?;
 
         nwg::Label::builder()
             .text("Data Exporter")
             .position((15, 15))
-            .size((150, 30))
+            .size((170, 35))
+            .font(Some(&data.heading_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_title)?;
 
@@ -568,6 +603,7 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("Authentication")
             .position((15, 60))
             .size((150, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_auth_button)?;
 
@@ -575,6 +611,7 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("Settings")
             .position((15, 115))
             .size((150, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_settings_button)?;
 
@@ -582,6 +619,7 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("Schedule")
             .position((15, 170))
             .size((150, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_schedule_button)?;
 
@@ -589,6 +627,7 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("Service")
             .position((15, 225))
             .size((150, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_service_button)?;
 
@@ -596,207 +635,211 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .text("Status")
             .position((15, 280))
             .size((150, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_status_button)?;
 
-        // === Content area (right side) ===
-        nwg::Frame::builder()
-            .position((180, 0))
-            .size((620, 500))
-            .parent(&data.window)
-            .build(&mut data.content_frame)?;
-
         nwg::Label::builder()
             .text("Authentication")
-            .position((200, 20))
-            .size((580, 35))
+            .position((220, 20))
+            .size((660, 40))
+            .font(Some(&data.title_font))
             .parent(&data.window)
             .build(&mut data.section_title)?;
 
         // === Section: Authentication ===
         nwg::Label::builder()
             .text("Configure authentication using Device Authorization Flow")
-            .position((200, 70))
-            .size((580, 25))
+            .position((220, 75))
+            .size((660, 25))
             .parent(&data.window)
             .build(&mut data.auth_desc_label)?;
 
         nwg::Label::builder()
             .text("Site Name:")
-            .position((200, 105))
-            .size((150, 25))
+            .position((220, 115))
+            .size((160, 25))
             .parent(&data.window)
             .build(&mut data.auth_site_name_label)?;
 
         nwg::TextInput::builder()
             .text("")
-            .position((360, 105))
-            .size((410, 28))
+            .position((390, 115))
+            .size((470, 30))
             .parent(&data.window)
             .build(&mut data.auth_site_name_input)?;
 
         nwg::Label::builder()
             .text("Description (optional):")
-            .position((200, 145))
-            .size((150, 25))
+            .position((220, 160))
+            .size((160, 25))
             .parent(&data.window)
             .build(&mut data.auth_site_desc_label)?;
 
         nwg::TextInput::builder()
             .text("")
-            .position((360, 145))
-            .size((410, 28))
+            .position((390, 160))
+            .size((470, 30))
             .parent(&data.window)
             .build(&mut data.auth_site_desc_input)?;
 
         nwg::Label::builder()
             .text("Status: Not authenticated")
-            .position((200, 185))
-            .size((580, 25))
+            .position((220, 210))
+            .size((660, 25))
             .parent(&data.window)
             .build(&mut data.auth_status_label)?;
 
         nwg::Button::builder()
             .text("Start Device Authorization")
-            .position((200, 220))
-            .size((220, 40))
+            .position((220, 250))
+            .size((240, 40))
             .parent(&data.window)
             .build(&mut data.auth_button)?;
 
         nwg::Label::builder()
             .text("")
-            .position((200, 275))
-            .size((580, 60))
+            .position((220, 310))
+            .size((660, 70))
             .parent(&data.window)
             .build(&mut data.auth_code_label)?;
 
         nwg::Label::builder()
             .text("")
-            .position((200, 345))
-            .size((580, 30))
+            .position((220, 390))
+            .size((660, 35))
             .parent(&data.window)
             .build(&mut data.auth_url_label)?;
 
         // === Section: Settings ===
         nwg::Label::builder()
             .text("Server URL:")
-            .position((200, 75))
-            .size((150, 25))
+            .position((220, 85))
+            .size((160, 25))
             .parent(&data.window)
             .build(&mut data.settings_server_label)?;
 
         nwg::TextInput::builder()
             .text("https://")
-            .position((360, 75))
-            .size((410, 28))
+            .position((390, 85))
+            .size((470, 30))
             .parent(&data.window)
             .build(&mut data.settings_server_input)?;
 
         nwg::Label::builder()
             .text("Source Directory:")
-            .position((200, 120))
-            .size((150, 25))
+            .position((220, 135))
+            .size((160, 25))
             .parent(&data.window)
             .build(&mut data.settings_source_label)?;
 
         nwg::TextInput::builder()
-            .position((360, 120))
-            .size((320, 28))
+            .position((390, 135))
+            .size((370, 30))
             .parent(&data.window)
             .build(&mut data.settings_source_input)?;
 
         nwg::Button::builder()
             .text("Browse...")
-            .position((690, 120))
-            .size((80, 28))
+            .position((770, 135))
+            .size((90, 30))
             .parent(&data.window)
             .build(&mut data.settings_source_browse)?;
 
         // === Section: Schedule ===
         nwg::Label::builder()
             .text("Cron Expression:")
-            .position((200, 75))
-            .size((150, 25))
+            .position((220, 85))
+            .size((160, 25))
             .parent(&data.window)
             .build(&mut data.schedule_cron_label)?;
 
         nwg::TextInput::builder()
             .text("0 0 8,12,16,18 * * *")
-            .position((360, 75))
-            .size((410, 28))
+            .position((390, 85))
+            .size((470, 30))
             .parent(&data.window)
             .build(&mut data.schedule_cron_input)?;
 
         nwg::Label::builder()
             .text("Examples:\n\n  0 0 8,12,16,18 * * *    Run at 8am, 12pm, 4pm, 6pm daily\n\n  0 0 */4 * * *           Run every 4 hours\n\n  0 30 9 * * *            Run at 9:30am daily")
-            .position((200, 120))
-            .size((580, 200))
+            .position((220, 140))
+            .size((660, 220))
             .parent(&data.window)
             .build(&mut data.schedule_help_label)?;
 
         // === Section: Service ===
         nwg::Label::builder()
-            .text("Service Status: Unknown")
-            .position((200, 75))
-            .size((580, 25))
+            .text("Service Status: Click 'Refresh Status' to check")
+            .position((220, 85))
+            .size((450, 25))
             .parent(&data.window)
             .build(&mut data.service_status_label)?;
 
         nwg::Button::builder()
+            .text("Refresh Status")
+            .position((680, 80))
+            .size((130, 35))
+            .parent(&data.window)
+            .build(&mut data.service_refresh_button)?;
+
+        nwg::Button::builder()
             .text("Install Service")
-            .position((200, 120))
-            .size((150, 40))
+            .position((220, 140))
+            .size((160, 45))
             .parent(&data.window)
             .build(&mut data.service_install_button)?;
 
         nwg::Button::builder()
             .text("Start Service")
-            .position((365, 120))
-            .size((150, 40))
+            .position((395, 140))
+            .size((160, 45))
             .parent(&data.window)
             .build(&mut data.service_start_button)?;
 
         nwg::Button::builder()
             .text("Stop Service")
-            .position((530, 120))
-            .size((150, 40))
+            .position((570, 140))
+            .size((160, 45))
             .parent(&data.window)
             .build(&mut data.service_stop_button)?;
 
         nwg::Button::builder()
             .text("Uninstall Service")
-            .position((200, 175))
-            .size((150, 40))
+            .position((220, 200))
+            .size((160, 45))
             .parent(&data.window)
             .build(&mut data.service_uninstall_button)?;
 
         // === Section: Status ===
         nwg::Label::builder()
             .text("Service information will appear here")
-            .position((200, 75))
-            .size((580, 250))
+            .position((220, 85))
+            .size((660, 280))
             .parent(&data.window)
             .build(&mut data.status_info_label)?;
 
         nwg::Button::builder()
             .text("Refresh")
-            .position((200, 340))
-            .size((120, 40))
+            .position((220, 380))
+            .size((130, 45))
             .parent(&data.window)
             .build(&mut data.status_refresh_button)?;
 
         // === Bottom buttons ===
         nwg::Button::builder()
             .text("Save")
-            .position((590, 505))
-            .size((100, 40))
+            .position((660, 540))
+            .size((110, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.save_button)?;
 
         nwg::Button::builder()
             .text("Cancel")
-            .position((700, 505))
-            .size((100, 40))
+            .position((780, 540))
+            .size((110, 45))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.cancel_button)?;
 
@@ -834,6 +877,8 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.on_auth_button();
                         } else if &handle == &ui.settings_source_browse {
                             ui.on_browse_source();
+                        } else if &handle == &ui.service_refresh_button {
+                            ui.refresh_service_status();
                         } else if &handle == &ui.service_install_button {
                             ui.on_service_install();
                         } else if &handle == &ui.service_start_button {
