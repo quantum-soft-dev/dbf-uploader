@@ -1,7 +1,7 @@
 // Directory scanner for DBF files
+use crate::processor::filter;
 use common::error::{ProcessingError, Result};
 use common::models::{config::Config, DbfFile};
-use crate::processor::filter;
 use std::path::Path;
 use tracing::{debug, info, warn};
 

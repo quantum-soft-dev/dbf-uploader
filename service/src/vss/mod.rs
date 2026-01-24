@@ -142,7 +142,10 @@ mod tests {
         }
 
         // This will fail at rawcopy (file doesn't exist), but should create the directory first
-        let result = copy_locked_file(Path::new("C:\\nonexistent_test_file.dbf"), &non_existent_dir);
+        let result = copy_locked_file(
+            Path::new("C:\\nonexistent_test_file.dbf"),
+            &non_existent_dir,
+        );
 
         // Either the directory was created (and rawcopy failed), or initialization failed
         // We just verify the function handles missing directories gracefully

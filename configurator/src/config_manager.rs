@@ -21,28 +21,24 @@ impl ConfigManager {
             return Ok(Self::default_config());
         }
 
-        let contents = fs::read_to_string(&self.config_path)
-            .context("Failed to read config file")?;
+        let contents =
+            fs::read_to_string(&self.config_path).context("Failed to read config file")?;
 
-        let config: Config = toml::from_str(&contents)
-            .context("Failed to parse config file")?;
+        let config: Config = toml::from_str(&contents).context("Failed to parse config file")?;
 
         Ok(config)
     }
 
     /// Save configuration to file
     pub fn save(&self, config: &Config) -> Result<()> {
-        let toml_string = toml::to_string_pretty(config)
-            .context("Failed to serialize config")?;
+        let toml_string = toml::to_string_pretty(config).context("Failed to serialize config")?;
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = self.config_path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        fs::write(&self.config_path, toml_string)
-            .context("Failed to write config file")?;
+        fs::write(&self.config_path, toml_string).context("Failed to write config file")?;
 
         Ok(())
     }

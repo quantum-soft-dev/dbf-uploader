@@ -1,10 +1,10 @@
 // Windows Service implementation
 #[cfg(windows)]
+use crate::service::BatchScheduler;
+#[cfg(windows)]
 use common::error::Result;
 #[cfg(windows)]
 use common::models::Config;
-#[cfg(windows)]
-use crate::service::BatchScheduler;
 #[cfg(windows)]
 use std::ffi::OsString;
 #[cfg(windows)]

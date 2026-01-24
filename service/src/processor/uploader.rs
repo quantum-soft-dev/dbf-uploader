@@ -1,8 +1,8 @@
 // File uploader for gzip files
+use crate::processor::ProcessingData;
 use common::auth::JwtToken;
 use common::error::{ProcessingError, Result};
 use common::models::Config;
-use crate::processor::ProcessingData;
 use reqwest::{multipart, Client};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -383,7 +383,10 @@ mod tests {
         let elapsed = start.elapsed();
 
         // Assert
-        assert!(result.is_ok(), "Upload should eventually succeed after retries");
+        assert!(
+            result.is_ok(),
+            "Upload should eventually succeed after retries"
+        );
         // Should have waited at least 1s + 2s = 3s for backoff
         assert!(
             elapsed.as_secs() >= 3,
@@ -594,7 +597,10 @@ mod tests {
         .await;
 
         // Assert
-        assert!(result.is_err(), "Upload should fail after retries exhausted");
+        assert!(
+            result.is_err(),
+            "Upload should fail after retries exhausted"
+        );
         match result {
             Err(ProcessingError::UploadError(msg)) => {
                 assert!(

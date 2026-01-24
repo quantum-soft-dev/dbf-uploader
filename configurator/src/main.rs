@@ -22,8 +22,7 @@ fn main() {
         .expect("Failed to create font");
     nwg::Font::set_global_default(Some(font));
 
-    let _ui = ui::ConfiguratorApp::build_ui(Default::default())
-        .expect("Failed to build UI");
+    let _ui = ui::ConfiguratorApp::build_ui(Default::default()).expect("Failed to build UI");
 
     nwg::dispatch_thread_events();
 }

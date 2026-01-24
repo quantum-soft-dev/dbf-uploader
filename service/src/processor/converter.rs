@@ -1,8 +1,8 @@
 // DBF to CSV converter
+use crate::processor::ProcessingData;
 use common::error::{ProcessingError, Result};
 use common::file_utils::open_shared_read;
 use common::models::{Config, DbfFile, Encoding};
-use crate::processor::ProcessingData;
 use csv::Writer;
 use dbase::encoding::LossyCodePage;
 use dbase::yore::code_pages::{CP1251, CP1255, CP866};
@@ -450,9 +450,15 @@ mod tests {
         // When DBF has no encoding info (None), should use config fallback
         assert_eq!(get_encoding_enum(None, "CP866"), Encoding::CP866);
         assert_eq!(get_encoding_enum(None, "IBM866"), Encoding::CP866);
-        assert_eq!(get_encoding_enum(None, "WINDOWS-1251"), Encoding::Windows1251);
+        assert_eq!(
+            get_encoding_enum(None, "WINDOWS-1251"),
+            Encoding::Windows1251
+        );
         assert_eq!(get_encoding_enum(None, "CP1251"), Encoding::Windows1251);
-        assert_eq!(get_encoding_enum(None, "WINDOWS-1255"), Encoding::Windows1255);
+        assert_eq!(
+            get_encoding_enum(None, "WINDOWS-1255"),
+            Encoding::Windows1255
+        );
         assert_eq!(get_encoding_enum(None, "UTF-8"), Encoding::UTF8);
         assert_eq!(get_encoding_enum(None, "UTF8"), Encoding::UTF8);
         assert_eq!(get_encoding_enum(None, "ISO-8859-8"), Encoding::ISO8859_8);
@@ -470,8 +476,14 @@ mod tests {
         // Encoding detection should be case-insensitive
         assert_eq!(get_encoding_enum(None, "cp866"), Encoding::CP866);
         assert_eq!(get_encoding_enum(None, "CP866"), Encoding::CP866);
-        assert_eq!(get_encoding_enum(None, "windows-1251"), Encoding::Windows1251);
-        assert_eq!(get_encoding_enum(None, "WINDOWS-1251"), Encoding::Windows1251);
+        assert_eq!(
+            get_encoding_enum(None, "windows-1251"),
+            Encoding::Windows1251
+        );
+        assert_eq!(
+            get_encoding_enum(None, "WINDOWS-1251"),
+            Encoding::Windows1251
+        );
         assert_eq!(get_encoding_enum(None, "utf-8"), Encoding::UTF8);
         assert_eq!(get_encoding_enum(None, "UTF-8"), Encoding::UTF8);
     }
@@ -512,7 +524,10 @@ mod tests {
         for i in 1..=3 {
             let mut record = dbase::Record::default();
             record.insert("ID".to_string(), dbase::FieldValue::Numeric(Some(i as f64)));
-            record.insert("NAME".to_string(), dbase::FieldValue::Character(Some(format!("Test Record {}", i))));
+            record.insert(
+                "NAME".to_string(),
+                dbase::FieldValue::Character(Some(format!("Test Record {}", i))),
+            );
             file_writer.write_record(&record)?;
         }
 
@@ -539,9 +554,18 @@ mod tests {
         // Verify CSV content
         let csv_content = std::fs::read_to_string(&csv_path).expect("Failed to read CSV");
         assert!(csv_content.contains("ID,NAME"), "CSV should have header");
-        assert!(csv_content.contains("Test Record 1"), "CSV should contain data");
-        assert!(csv_content.contains("Test Record 2"), "CSV should contain data");
-        assert!(csv_content.contains("Test Record 3"), "CSV should contain data");
+        assert!(
+            csv_content.contains("Test Record 1"),
+            "CSV should contain data"
+        );
+        assert!(
+            csv_content.contains("Test Record 2"),
+            "CSV should contain data"
+        );
+        assert!(
+            csv_content.contains("Test Record 3"),
+            "CSV should contain data"
+        );
     }
 
     #[test]
@@ -560,9 +584,13 @@ mod tests {
 
         match &result.unwrap() {
             ProcessingData::InMemory(csv_bytes) => {
-                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                let csv_content =
+                    String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
                 assert!(csv_content.contains("ID,NAME"), "CSV should have header");
-                assert!(csv_content.contains("Test Record 1"), "CSV should contain data");
+                assert!(
+                    csv_content.contains("Test Record 1"),
+                    "CSV should contain data"
+                );
             }
             ProcessingData::TempFile(_) => {
                 // Small file should be in memory
@@ -580,7 +608,10 @@ mod tests {
 
         // Test character field
         let mut record = Record::default();
-        record.insert("F1".to_string(), FieldValue::Character(Some("Hello".to_string())));
+        record.insert(
+            "F1".to_string(),
+            FieldValue::Character(Some("Hello".to_string())),
+        );
         record.insert("F2".to_string(), FieldValue::Numeric(Some(42.5)));
         record.insert("F3".to_string(), FieldValue::Logical(Some(true)));
 
@@ -614,7 +645,10 @@ mod tests {
         let field_names = vec!["F1".to_string(), "MISSING".to_string()];
 
         let mut record = Record::default();
-        record.insert("F1".to_string(), FieldValue::Character(Some("test".to_string())));
+        record.insert(
+            "F1".to_string(),
+            FieldValue::Character(Some("test".to_string())),
+        );
         // MISSING field is not in record
 
         let result = convert_record_to_csv(&record, &field_names);
@@ -623,9 +657,9 @@ mod tests {
 
     // Helper to create DBF with CP866 encoding
     fn create_cp866_test_dbf(path: &std::path::Path) -> std::result::Result<(), dbase::Error> {
-        use dbase::{FieldName, TableWriterBuilder};
         use dbase::encoding::LossyCodePage;
         use dbase::yore::code_pages::CP866;
+        use dbase::{FieldName, TableWriterBuilder};
         use std::convert::TryFrom;
 
         let mut file_writer = TableWriterBuilder::new()
@@ -635,7 +669,10 @@ mod tests {
 
         // Russian text
         let mut record = dbase::Record::default();
-        record.insert("NAME".to_string(), dbase::FieldValue::Character(Some("Тест".to_string())));
+        record.insert(
+            "NAME".to_string(),
+            dbase::FieldValue::Character(Some("Тест".to_string())),
+        );
         file_writer.write_record(&record)?;
 
         file_writer.close()
@@ -659,7 +696,8 @@ mod tests {
 
         match &result.unwrap() {
             ProcessingData::InMemory(csv_bytes) => {
-                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                let csv_content =
+                    String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
                 // The Russian text should be converted to UTF-8
                 assert!(csv_content.contains("NAME"), "CSV should have header");
             }
@@ -671,9 +709,9 @@ mod tests {
 
     // Helper to create DBF with Windows-1251 encoding
     fn create_cp1251_test_dbf(path: &std::path::Path) -> std::result::Result<(), dbase::Error> {
-        use dbase::{FieldName, TableWriterBuilder};
         use dbase::encoding::LossyCodePage;
         use dbase::yore::code_pages::CP1251;
+        use dbase::{FieldName, TableWriterBuilder};
         use std::convert::TryFrom;
 
         let mut file_writer = TableWriterBuilder::new()
@@ -683,7 +721,10 @@ mod tests {
 
         // Russian text
         let mut record = dbase::Record::default();
-        record.insert("PRODUCT".to_string(), dbase::FieldValue::Character(Some("Компьютер".to_string())));
+        record.insert(
+            "PRODUCT".to_string(),
+            dbase::FieldValue::Character(Some("Компьютер".to_string())),
+        );
         file_writer.write_record(&record)?;
 
         file_writer.close()
@@ -707,7 +748,8 @@ mod tests {
 
         match &result.unwrap() {
             ProcessingData::InMemory(csv_bytes) => {
-                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                let csv_content =
+                    String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
                 assert!(csv_content.contains("PRODUCT"), "CSV should have header");
             }
             ProcessingData::TempFile(_) => {

@@ -140,14 +140,15 @@ impl Default for ConfiguratorApp {
 
 impl ConfiguratorApp {
     fn init(&self) {
-        let config_dir = std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let config_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let config_path = config_dir.join("config.toml");
         *self.config_path.borrow_mut() = config_path.clone();
 
         // Load configuration
         let config_manager = ConfigManager::new(&config_path);
-        let config = config_manager.load().unwrap_or_else(|_| ConfigManager::default_config());
+        let config = config_manager
+            .load()
+            .unwrap_or_else(|_| ConfigManager::default_config());
 
         // Update UI with loaded config
         self.load_config_to_ui(&config);
@@ -160,12 +161,14 @@ impl ConfiguratorApp {
     fn load_config_to_ui(&self, config: &Config) {
         // Update UI fields from config
         self.settings_server_input.set_text(&config.api.base_url);
-        self.settings_source_input.set_text(&config.src.source_dir.to_string_lossy());
+        self.settings_source_input
+            .set_text(&config.src.source_dir.to_string_lossy());
         self.schedule_cron_input.set_text(&config.scheduler.crontab);
 
         // Update auth status
         if config.credential.is_device_flow() {
-            self.auth_status_label.set_text("Status: Authenticated (Device Flow)");
+            self.auth_status_label
+                .set_text("Status: Authenticated (Device Flow)");
         } else {
             self.auth_status_label.set_text("Status: Not authenticated");
         }
@@ -310,8 +313,7 @@ impl ConfiguratorApp {
                     &format!("Failed to create client: {}", e),
                 );
                 self.auth_button.set_enabled(true);
-                self.auth_status_label
-                    .set_text("Status: Not authenticated");
+                self.auth_status_label.set_text("Status: Not authenticated");
                 return;
             }
         };
@@ -324,14 +326,13 @@ impl ConfiguratorApp {
 
         // Use tokio runtime
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let auth_result = rt.block_on(async {
-            client.authorize(site_info).await
-        });
+        let auth_result = rt.block_on(async { client.authorize(site_info).await });
 
         match auth_result {
             Ok(auth_response) => {
                 // Display authorization instructions
-                self.auth_status_label.set_text("Waiting for authorization...");
+                self.auth_status_label
+                    .set_text("Waiting for authorization...");
                 self.auth_code_label.set_text(&format!(
                     "1. Open: {}\n2. Enter code: {}",
                     auth_response.verification_uri, auth_response.user_code
@@ -347,7 +348,8 @@ impl ConfiguratorApp {
                 let expires_in = auth_response.expires_in;
 
                 let poll_result = rt.block_on(async {
-                    let mut poll_interval = tokio::time::interval(std::time::Duration::from_secs(interval));
+                    let mut poll_interval =
+                        tokio::time::interval(std::time::Duration::from_secs(interval));
                     let start_time = std::time::Instant::now();
                     let timeout = std::time::Duration::from_secs(expires_in);
 
@@ -420,8 +422,7 @@ impl ConfiguratorApp {
                     "Error",
                     &format!("Failed to start authorization: {}", e),
                 );
-                self.auth_status_label
-                    .set_text("Status: Not authenticated");
+                self.auth_status_label.set_text("Status: Not authenticated");
             }
         }
 
@@ -452,7 +453,11 @@ impl ConfiguratorApp {
                 self.refresh_service_status();
             }
             Err(e) => {
-                nwg::modal_error_message(&self.window, "Error", &format!("Failed to install service:\n{}", e));
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to install service:\n{}", e),
+                );
             }
         }
     }
@@ -464,7 +469,11 @@ impl ConfiguratorApp {
                 self.refresh_service_status();
             }
             Err(e) => {
-                nwg::modal_error_message(&self.window, "Error", &format!("Failed to start service:\n{}", e));
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to start service:\n{}", e),
+                );
             }
         }
     }
@@ -476,7 +485,11 @@ impl ConfiguratorApp {
                 self.refresh_service_status();
             }
             Err(e) => {
-                nwg::modal_error_message(&self.window, "Error", &format!("Failed to stop service:\n{}", e));
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to stop service:\n{}", e),
+                );
             }
         }
     }
@@ -500,7 +513,11 @@ impl ConfiguratorApp {
                     self.refresh_service_status();
                 }
                 Err(e) => {
-                    nwg::modal_error_message(&self.window, "Error", &format!("Failed to uninstall service:\n{}", e));
+                    nwg::modal_error_message(
+                        &self.window,
+                        "Error",
+                        &format!("Failed to uninstall service:\n{}", e),
+                    );
                 }
             }
         }

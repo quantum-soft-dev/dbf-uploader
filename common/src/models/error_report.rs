@@ -311,11 +311,8 @@ mod tests {
     #[test]
     fn test_validate_and_truncate_message_truncated_to_10000_chars() {
         let long_message = "y".repeat(15000);
-        let mut report = GlobalErrorReport::new(
-            "TestError".to_string(),
-            long_message,
-            ErrorSeverity::Error,
-        );
+        let mut report =
+            GlobalErrorReport::new("TestError".to_string(), long_message, ErrorSeverity::Error);
 
         assert_eq!(report.message.len(), 15000);
         report.validate_and_truncate();
@@ -458,10 +455,8 @@ mod tests {
 
     #[test]
     fn test_global_error_report_error_constructor() {
-        let report = GlobalErrorReport::error(
-            "OperationError".to_string(),
-            "Operation failed".to_string(),
-        );
+        let report =
+            GlobalErrorReport::error("OperationError".to_string(), "Operation failed".to_string());
 
         assert_eq!(report.error_type, "OperationError");
         assert_eq!(report.message, "Operation failed");
@@ -518,7 +513,10 @@ mod tests {
     #[test]
     fn test_add_metadata_to_existing_metadata() {
         let mut initial_metadata = HashMap::new();
-        initial_metadata.insert("existing_key".to_string(), serde_json::json!("existing_value"));
+        initial_metadata.insert(
+            "existing_key".to_string(),
+            serde_json::json!("existing_value"),
+        );
 
         let mut report = GlobalErrorReport::with_metadata(
             "TestError".to_string(),
@@ -554,7 +552,10 @@ mod tests {
 
         let metadata = report.metadata.as_ref().unwrap();
         assert_eq!(metadata.len(), 1);
-        assert_eq!(metadata.get("key").unwrap(), &serde_json::json!("new_value"));
+        assert_eq!(
+            metadata.get("key").unwrap(),
+            &serde_json::json!("new_value")
+        );
     }
 
     #[test]
@@ -571,17 +572,29 @@ mod tests {
         report.add_metadata("bool_val".to_string(), serde_json::json!(true));
         report.add_metadata("null_val".to_string(), serde_json::json!(null));
         report.add_metadata("array_val".to_string(), serde_json::json!([1, 2, 3]));
-        report.add_metadata("object_val".to_string(), serde_json::json!({"nested": "value"}));
+        report.add_metadata(
+            "object_val".to_string(),
+            serde_json::json!({"nested": "value"}),
+        );
 
         let metadata = report.metadata.as_ref().unwrap();
         assert_eq!(metadata.len(), 7);
-        assert_eq!(metadata.get("string_val").unwrap(), &serde_json::json!("hello"));
+        assert_eq!(
+            metadata.get("string_val").unwrap(),
+            &serde_json::json!("hello")
+        );
         assert_eq!(metadata.get("int_val").unwrap(), &serde_json::json!(123));
         assert_eq!(metadata.get("float_val").unwrap(), &serde_json::json!(3.14));
         assert_eq!(metadata.get("bool_val").unwrap(), &serde_json::json!(true));
         assert_eq!(metadata.get("null_val").unwrap(), &serde_json::json!(null));
-        assert_eq!(metadata.get("array_val").unwrap(), &serde_json::json!([1, 2, 3]));
-        assert_eq!(metadata.get("object_val").unwrap(), &serde_json::json!({"nested": "value"}));
+        assert_eq!(
+            metadata.get("array_val").unwrap(),
+            &serde_json::json!([1, 2, 3])
+        );
+        assert_eq!(
+            metadata.get("object_val").unwrap(),
+            &serde_json::json!({"nested": "value"})
+        );
     }
 
     // ==================== GlobalErrorReport Serialization Tests ====================

@@ -1,10 +1,10 @@
 // Data Exporter Windows Service
 // This binary runs ONLY as a Windows service - no CLI, no install/uninstall logic
 
-mod service;
-mod processor;
-mod vss;
 mod config;
+mod processor;
+mod service;
+mod vss;
 
 use anyhow::Result;
 

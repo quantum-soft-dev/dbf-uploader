@@ -1,6 +1,6 @@
 // CSV to gzip compressor
-use common::error::{ProcessingError, Result};
 use crate::processor::ProcessingData;
+use common::error::{ProcessingError, Result};
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::fs::File;
@@ -387,7 +387,10 @@ mod tests {
         match &result.unwrap() {
             ProcessingData::InMemory(gzip_bytes) => {
                 // Compression should reduce size significantly for text data
-                assert!(gzip_bytes.len() < csv_content.len(), "Gzip should compress text data");
+                assert!(
+                    gzip_bytes.len() < csv_content.len(),
+                    "Gzip should compress text data"
+                );
 
                 // Verify decompression
                 let cursor = std::io::Cursor::new(gzip_bytes.clone());
@@ -417,7 +420,11 @@ mod tests {
                 let compressed_size = gzip_bytes.len();
                 // Repetitive text should compress well (at least 50% reduction)
                 let ratio = (compressed_size as f64 / original_size as f64) * 100.0;
-                assert!(ratio < 50.0, "Expected >50% compression ratio, got {:.1}%", ratio);
+                assert!(
+                    ratio < 50.0,
+                    "Expected >50% compression ratio, got {:.1}%",
+                    ratio
+                );
             }
             ProcessingData::TempFile(_) => {
                 panic!("Expected in-memory result");

@@ -39,7 +39,9 @@ impl Version {
 
         format!(
             "{} (branch: {}, commit: {})",
-            version, git_branch, &git_sha[..7.min(git_sha.len())]
+            version,
+            git_branch,
+            &git_sha[..7.min(git_sha.len())]
         )
     }
 }

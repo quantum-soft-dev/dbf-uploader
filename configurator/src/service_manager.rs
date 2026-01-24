@@ -184,9 +184,7 @@ impl ServiceManager {
 
         // Try to stop the service first
         if status == ServiceStatus::Running {
-            let _ = Command::new("sc.exe")
-                .args(["stop", SERVICE_NAME])
-                .output();
+            let _ = Command::new("sc.exe").args(["stop", SERVICE_NAME]).output();
 
             // Wait for service to stop
             std::thread::sleep(std::time::Duration::from_secs(2));
