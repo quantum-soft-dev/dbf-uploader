@@ -41,9 +41,6 @@ jobs:
           use_sticky_comment: true
 
           prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
-
             Review this pull request for the data-exporter project.
 
             This is a Rust Windows service application that:
