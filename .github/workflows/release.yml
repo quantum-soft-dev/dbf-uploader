@@ -70,7 +70,7 @@ jobs:
       run: |
         $version = "${{ github.ref_name }}"
         $archive = "data_exporter-$version-windows-x86_64.zip"
-        Compress-Archive -Path target/release/data_exporter.exe, target/release/data_exporter_configurator.exe -DestinationPath $archive
+        Compress-Archive -Path target/release/data_exporter_service.exe, target/release/configurator.exe -DestinationPath $archive
         echo "ASSET_PATH=$archive" >> $env:GITHUB_ENV
         echo "ASSET_NAME=$archive" >> $env:GITHUB_ENV
 
@@ -121,8 +121,8 @@ jobs:
           3. Use the Configurator to set up the service
 
           ### What's Included
-          - `data_exporter.exe` - Windows service
-          - `data_exporter_configurator.exe` - Configuration GUI
+          - `data_exporter_service.exe` - Windows service
+          - `configurator.exe` - Configuration GUI
 
           ### Checksums
           SHA256 checksums are provided in the `.sha256` files.
