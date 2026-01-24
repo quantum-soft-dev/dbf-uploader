@@ -1,9 +1,11 @@
-# dbf-uploader Development Guidelines
+﻿# dbf-uploader Development Guidelines
 
 Auto-generated from all feature plans. Last updated: 2025-10-05
 
 ## Active Technologies
 - Rust (latest stable, targeting Windows 10+ / Windows Server 2016+) + windows-service crate for service management, cron parser for scheduling, reqwest for HTTP/HTTPS client, serde for TOML config, DBF parsing library, CSV writer, gzip compression, JWT validation library (001-technical-specifications-data)
+- Rust 1.82.0 (stable, as per `rust-version` in Cargo.toml) (001-data-exporter-service)
+- File-based (DBF source, temp CSV, GZIP output) (001-data-exporter-service)
 
 ## Project Structure
 ```
@@ -18,6 +20,7 @@ cargo test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECH
 Rust (latest stable, targeting Windows 10+ / Windows Server 2016+): Follow standard conventions
 
 ## Recent Changes
+- 001-data-exporter-service: Added Rust 1.82.0 (stable, as per `rust-version` in Cargo.toml)
 - 001-technical-specifications-data: Added Rust (latest stable, targeting Windows 10+ / Windows Server 2016+) + windows-service crate for service management, cron parser for scheduling, reqwest for HTTP/HTTPS client, serde for TOML config, DBF parsing library, CSV writer, gzip compression, JWT validation library
 
 <!-- MANUAL ADDITIONS START -->

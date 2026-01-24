@@ -14,7 +14,11 @@
       "Bash(curl:*)",
       "Bash(./target/release/data_exporter.exe:*)",
       "Bash(gh run list:*)",
-      "Bash(gh run watch:*)"
+      "Bash(gh run watch:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe /c \"target\\release\\configurator.exe\")",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
     ],
     "deny": [],
     "ask": []
