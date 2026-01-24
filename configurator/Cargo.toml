@@ -29,5 +29,8 @@ serde = { workspace = true }
 # Glob pattern validation
 globset = { workspace = true }
 
+# Cron expression parsing for validation
+cron = "0.15"
+
 [build-dependencies]
 embed-resource = "3"

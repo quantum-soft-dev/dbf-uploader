@@ -3,11 +3,13 @@ use crate::config_manager::ConfigManager;
 use crate::service_manager::ServiceManager;
 use common::auth::device_flow::{DeviceFlowClient, SiteInfo};
 use common::models::{Config, DeviceCredentials};
+use cron::Schedule;
 use native_windows_gui as nwg;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum Section {
@@ -65,6 +67,7 @@ pub struct ConfiguratorApp {
     // Section: Schedule
     schedule_cron_label: nwg::Label,
     schedule_cron_input: nwg::TextInput,
+    schedule_cron_error: nwg::Label,
     schedule_help_label: nwg::Label,
 
     // Section: Service
@@ -125,6 +128,7 @@ impl Default for ConfiguratorApp {
             settings_pattern_help_label: Default::default(),
             schedule_cron_label: Default::default(),
             schedule_cron_input: Default::default(),
+            schedule_cron_error: Default::default(),
             schedule_help_label: Default::default(),
             service_status_label: Default::default(),
             service_refresh_button: Default::default(),
@@ -208,6 +212,26 @@ impl ConfiguratorApp {
         }
     }
 
+    /// Validate cron expression statically, returns Ok(()) or Err(error message)
+    fn validate_cron_static(cron_text: &str) -> Result<(), String> {
+        let cron_text = cron_text.trim();
+
+        if cron_text.is_empty() {
+            return Err("Cron expression is required".to_string());
+        }
+
+        // Convert 5-field cron to 6-field for validation (add seconds)
+        let cron_6field = if cron_text.split_whitespace().count() == 5 {
+            format!("0 {}", cron_text)
+        } else {
+            cron_text.to_string()
+        };
+
+        Schedule::from_str(&cron_6field)
+            .map(|_| ())
+            .map_err(|e| format!("Invalid cron expression: {}", e))
+    }
+
     /// Validate glob patterns, returns Ok(()) or Err(error message)
     fn validate_patterns(patterns: &Option<Vec<String>>, field_name: &str) -> Result<(), String> {
         if let Some(ref pattern_list) = patterns {
@@ -221,6 +245,39 @@ impl ConfiguratorApp {
             }
         }
         Ok(())
+    }
+
+    /// Validate cron expression and update error label
+    fn validate_cron_expression(&self) {
+        let cron_text = self.schedule_cron_input.text();
+        let cron_text = cron_text.trim();
+
+        if cron_text.is_empty() {
+            self.schedule_cron_error.set_text("  Cron expression is required");
+            self.schedule_cron_error.set_visible(true);
+            return;
+        }
+
+        // Convert 5-field cron to 6-field for validation (add seconds)
+        let cron_6field = if cron_text.split_whitespace().count() == 5 {
+            format!("0 {}", cron_text)
+        } else {
+            cron_text.to_string()
+        };
+
+        match Schedule::from_str(&cron_6field) {
+            Ok(_) => {
+                // Valid cron expression - hide error
+                self.schedule_cron_error.set_text("");
+                self.schedule_cron_error.set_visible(false);
+            }
+            Err(_) => {
+                // Invalid cron expression - show error
+                self.schedule_cron_error
+                    .set_text("  Invalid cron expression");
+                self.schedule_cron_error.set_visible(true);
+            }
+        }
     }
 
     fn save_config_from_ui(&self) -> Config {
@@ -275,6 +332,7 @@ impl ConfiguratorApp {
 
         self.schedule_cron_label.set_visible(false);
         self.schedule_cron_input.set_visible(false);
+        self.schedule_cron_error.set_visible(false);
         self.schedule_help_label.set_visible(false);
 
         self.service_status_label.set_visible(false);
@@ -320,6 +378,8 @@ impl ConfiguratorApp {
                 self.schedule_cron_label.set_visible(true);
                 self.schedule_cron_input.set_visible(true);
                 self.schedule_help_label.set_visible(true);
+                // Validate current cron expression (will show/hide error label)
+                self.validate_cron_expression();
                 // Set focus to input field
                 self.schedule_cron_input.set_focus();
             }
@@ -620,6 +680,12 @@ impl ConfiguratorApp {
         // Save config from UI
         let config = self.save_config_from_ui();
 
+        // Validate cron expression before saving
+        if let Err(e) = Self::validate_cron_static(&config.scheduler.crontab) {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+
         // Validate patterns before saving
         if let Err(e) = Self::validate_patterns(&config.src.include_patterns, "include") {
             nwg::modal_error_message(&self.window, "Validation Error", &e);
@@ -906,9 +972,19 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .parent(&data.window)
             .build(&mut data.schedule_cron_input)?;
 
+        // Cron validation error label (red background, with padding)
+        nwg::Label::builder()
+            .text("")
+            .position((390, 125))
+            .size((470, 35))
+            .background_color(Some([255, 180, 180])) // Light red background
+            .font(Some(&data.normal_font))
+            .parent(&data.window)
+            .build(&mut data.schedule_cron_error)?;
+
         nwg::Label::builder()
             .text("Examples:\n\n  0 0 8,12,16,18 * * *    Run at 8am, 12pm, 4pm, 6pm daily\n\n  0 0 */4 * * *           Run every 4 hours\n\n  0 30 9 * * *            Run at 9:30am daily")
-            .position((220, 140))
+            .position((220, 165))
             .size((660, 220))
             .parent(&data.window)
             .build(&mut data.schedule_help_label)?;
@@ -1038,6 +1114,12 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.on_save();
                         } else if handle == ui.cancel_button {
                             ui.on_cancel();
+                        }
+                    }
+                    nwg::Event::OnTextInput => {
+                        // Real-time cron validation
+                        if handle == ui.schedule_cron_input {
+                            ui.validate_cron_expression();
                         }
                     }
                     _ => {}
