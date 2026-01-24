@@ -28,6 +28,7 @@ pub struct ConfiguratorApp {
     title_font: nwg::Font,
     heading_font: nwg::Font,
     normal_font: nwg::Font,
+    error_font: nwg::Font,
 
     // Navigation panel
     nav_frame: nwg::Frame,
@@ -67,7 +68,8 @@ pub struct ConfiguratorApp {
     // Section: Schedule
     schedule_cron_label: nwg::Label,
     schedule_cron_input: nwg::TextInput,
-    schedule_cron_error: nwg::Label,
+    schedule_cron_error_bg: nwg::Label,    // Background label (red color)
+    schedule_cron_error_label: nwg::Label, // Text label on top
     schedule_help_label: nwg::Label,
 
     // Section: Service
@@ -99,6 +101,7 @@ impl Default for ConfiguratorApp {
             title_font: Default::default(),
             heading_font: Default::default(),
             normal_font: Default::default(),
+            error_font: Default::default(),
             nav_frame: Default::default(),
             nav_title: Default::default(),
             nav_auth_button: Default::default(),
@@ -128,7 +131,8 @@ impl Default for ConfiguratorApp {
             settings_pattern_help_label: Default::default(),
             schedule_cron_label: Default::default(),
             schedule_cron_input: Default::default(),
-            schedule_cron_error: Default::default(),
+            schedule_cron_error_bg: Default::default(),
+            schedule_cron_error_label: Default::default(),
             schedule_help_label: Default::default(),
             service_status_label: Default::default(),
             service_refresh_button: Default::default(),
@@ -253,8 +257,9 @@ impl ConfiguratorApp {
         let cron_text = cron_text.trim();
 
         if cron_text.is_empty() {
-            self.schedule_cron_error.set_text("  Cron expression is required");
-            self.schedule_cron_error.set_visible(true);
+            self.schedule_cron_error_label.set_text("Cron expression is required");
+            self.schedule_cron_error_bg.set_visible(true);
+            self.schedule_cron_error_label.set_visible(true);
             return;
         }
 
@@ -268,14 +273,15 @@ impl ConfiguratorApp {
         match Schedule::from_str(&cron_6field) {
             Ok(_) => {
                 // Valid cron expression - hide error
-                self.schedule_cron_error.set_text("");
-                self.schedule_cron_error.set_visible(false);
+                self.schedule_cron_error_label.set_text("");
+                self.schedule_cron_error_bg.set_visible(false);
+                self.schedule_cron_error_label.set_visible(false);
             }
             Err(_) => {
                 // Invalid cron expression - show error
-                self.schedule_cron_error
-                    .set_text("  Invalid cron expression");
-                self.schedule_cron_error.set_visible(true);
+                self.schedule_cron_error_label.set_text("Invalid cron expression");
+                self.schedule_cron_error_bg.set_visible(true);
+                self.schedule_cron_error_label.set_visible(true);
             }
         }
     }
@@ -332,7 +338,8 @@ impl ConfiguratorApp {
 
         self.schedule_cron_label.set_visible(false);
         self.schedule_cron_input.set_visible(false);
-        self.schedule_cron_error.set_visible(false);
+        self.schedule_cron_error_bg.set_visible(false);
+        self.schedule_cron_error_label.set_visible(false);
         self.schedule_help_label.set_visible(false);
 
         self.service_status_label.set_visible(false);
@@ -760,6 +767,12 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .size(16)
             .build(&mut data.normal_font)?;
 
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(16)
+            .weight(700) // Bold
+            .build(&mut data.error_font)?;
+
         // === Navigation panel (left side) ===
         nwg::Frame::builder()
             .position((0, 0))
@@ -972,20 +985,30 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .parent(&data.window)
             .build(&mut data.schedule_cron_input)?;
 
-        // Cron validation error label (red background, with padding)
+        // Cron validation error - Background label (bright red)
         nwg::Label::builder()
             .text("")
             .position((390, 125))
-            .size((470, 35))
-            .background_color(Some([255, 180, 180])) // Light red background
-            .font(Some(&data.normal_font))
+            .size((470, 40))
+            .background_color(Some([220, 53, 69])) // Bootstrap danger red
             .parent(&data.window)
-            .build(&mut data.schedule_cron_error)?;
+            .build(&mut data.schedule_cron_error_bg)?;
+
+        // Error text label on top (with padding via position offset)
+        nwg::Label::builder()
+            .text("")
+            .position((405, 133)) // Offset by 15px left, 8px top for padding
+            .size((440, 25))
+            .font(Some(&data.error_font))
+            .background_color(Some([220, 53, 69])) // Same red background
+            .parent(&data.window)
+            .build(&mut data.schedule_cron_error_label)?;
 
         nwg::Label::builder()
             .text("Examples:\n\n  0 0 8,12,16,18 * * *    Run at 8am, 12pm, 4pm, 6pm daily\n\n  0 0 */4 * * *           Run every 4 hours\n\n  0 30 9 * * *            Run at 9:30am daily")
-            .position((220, 165))
+            .position((220, 175))
             .size((660, 220))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.schedule_help_label)?;
 
