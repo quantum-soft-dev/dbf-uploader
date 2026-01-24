@@ -60,3 +60,8 @@ chrono = { workspace = true }
 # Error Handling
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+tempfile = { workspace = true }
+tokio-test = { workspace = true }

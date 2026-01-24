@@ -366,4 +366,403 @@ base_url = "https://api.example.com"
         let config = Config::from_file(temp_file.path()).unwrap();
         assert_eq!(config.encoding.dbf_encoding, "CP866");
     }
+
+    #[test]
+    fn test_config_validation_empty_crontab() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = ""
+
+[src]
+source_dir = "{}"
+
+[credential]
+account = "test_account"
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Crontab expression cannot be empty"));
+    }
+
+    #[test]
+    fn test_config_validation_missing_account_without_device_flow() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Account cannot be empty when not using device flow"));
+    }
+
+    #[test]
+    fn test_config_validation_missing_username_without_device_flow() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+account = "test_account"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Username cannot be empty when not using device flow"));
+    }
+
+    #[test]
+    fn test_config_validation_missing_password_without_device_flow() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+account = "test_account"
+username = "test_user"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Password cannot be empty when not using device flow"));
+    }
+
+    #[test]
+    fn test_config_validation_device_flow_missing_domain() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+[credential.device]
+site_id = "test-site-id"
+domain = ""
+client_secret = "test_secret"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Device domain cannot be empty"));
+    }
+
+    #[test]
+    fn test_config_validation_device_flow_missing_client_secret() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+[credential.device]
+site_id = "test-site-id"
+domain = "test_domain"
+client_secret = ""
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Device client_secret cannot be empty"));
+    }
+
+    #[test]
+    fn test_config_validation_device_flow_valid() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+
+[credential]
+[credential.device]
+site_id = "test-site-id"
+domain = "test_domain"
+client_secret = "test_secret"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let config = Config::from_file(temp_file.path()).unwrap();
+        assert!(config.credential.is_device_flow());
+        assert_eq!(config.credential.full_username(), "test_domain");
+        assert_eq!(config.credential.password(), "test_secret");
+    }
+
+    #[test]
+    fn test_config_validation_invalid_include_pattern() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+include_patterns = ["[invalid"]
+
+[credential]
+account = "test_account"
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid include pattern"));
+        assert!(err_msg.contains("[invalid"));
+    }
+
+    #[test]
+    fn test_config_validation_invalid_exclude_pattern() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+exclude_patterns = ["[unclosed"]
+
+[credential]
+account = "test_account"
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = Config::from_file(temp_file.path());
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid exclude pattern"));
+        assert!(err_msg.contains("[unclosed"));
+    }
+
+    #[test]
+    fn test_config_validation_valid_glob_patterns() {
+        // Create temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_dir_path = temp_dir.path().to_str().unwrap();
+
+        let toml_content = format!(
+            r#"
+[scheduler]
+crontab = "*/5 * * * *"
+
+[src]
+source_dir = "{}"
+include_patterns = ["*.dbf", "data_*.DBF", "[a-z]*.dbf"]
+exclude_patterns = ["temp_*.dbf", "*.bak", "nsfcli.DBF"]
+
+[credential]
+account = "test_account"
+username = "test_user"
+password = "test_password"
+
+[api]
+base_url = "https://api.example.com"
+
+[encoding]
+dbf_encoding = "CP866"
+        "#,
+            temp_dir_path.replace('\\', "\\\\")
+        );
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(toml_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let config = Config::from_file(temp_file.path()).unwrap();
+        assert!(config.src.include_patterns.is_some());
+        assert_eq!(config.src.include_patterns.as_ref().unwrap().len(), 3);
+        assert!(config.src.exclude_patterns.is_some());
+        assert_eq!(config.src.exclude_patterns.as_ref().unwrap().len(), 3);
+    }
 }

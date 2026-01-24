@@ -35,6 +35,11 @@ tracing = { workspace = true }
 # File pattern matching
 globset = { workspace = true }
 
+[dev-dependencies]
+wiremock = { workspace = true }
+tempfile = { workspace = true }
+tokio-test = { workspace = true }
+
 [build-dependencies]
 vergen-git2 = { version = "1", features = ["build", "cargo", "rustc"] }
 anyhow = "1"

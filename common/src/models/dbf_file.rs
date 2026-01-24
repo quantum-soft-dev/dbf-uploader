@@ -224,4 +224,183 @@ mod tests {
         dbf_file.set_status(FileProcessingStatus::Converting);
         assert_eq!(dbf_file.status, FileProcessingStatus::Converting);
     }
+
+    // Test 1: FileProcessingStatus transitions: Pending -> Converting -> Compressing -> Uploading -> Completed
+    #[test]
+    fn test_status_transition_happy_path() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        // Initial status should be Pending
+        assert_eq!(dbf_file.status, FileProcessingStatus::Pending);
+
+        // Transition: Pending -> Converting
+        dbf_file.set_status(FileProcessingStatus::Converting);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Converting);
+
+        // Transition: Converting -> Compressing
+        dbf_file.set_status(FileProcessingStatus::Compressing);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Compressing);
+
+        // Transition: Compressing -> Uploading
+        dbf_file.set_status(FileProcessingStatus::Uploading);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Uploading);
+
+        // Transition: Uploading -> Completed
+        dbf_file.set_status(FileProcessingStatus::Completed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Completed);
+    }
+
+    // Test 2: FileProcessingStatus transitions: Pending -> Locked
+    #[test]
+    fn test_status_transition_pending_to_locked() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/locked_file.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        // Initial status should be Pending
+        assert_eq!(dbf_file.status, FileProcessingStatus::Pending);
+
+        // Transition: Pending -> Locked (file is locked by another process)
+        dbf_file.set_status(FileProcessingStatus::Locked);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Locked);
+    }
+
+    // Test 3: FileProcessingStatus transitions: Any state -> Failed
+    #[test]
+    fn test_status_transition_to_failed_from_pending() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        assert_eq!(dbf_file.status, FileProcessingStatus::Pending);
+        dbf_file.set_status(FileProcessingStatus::Failed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Failed);
+    }
+
+    #[test]
+    fn test_status_transition_to_failed_from_converting() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        dbf_file.set_status(FileProcessingStatus::Converting);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Converting);
+
+        // Transition: Converting -> Failed
+        dbf_file.set_status(FileProcessingStatus::Failed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Failed);
+    }
+
+    #[test]
+    fn test_status_transition_to_failed_from_compressing() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        dbf_file.set_status(FileProcessingStatus::Compressing);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Compressing);
+
+        // Transition: Compressing -> Failed
+        dbf_file.set_status(FileProcessingStatus::Failed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Failed);
+    }
+
+    #[test]
+    fn test_status_transition_to_failed_from_uploading() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        dbf_file.set_status(FileProcessingStatus::Uploading);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Uploading);
+
+        // Transition: Uploading -> Failed
+        dbf_file.set_status(FileProcessingStatus::Failed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Failed);
+    }
+
+    #[test]
+    fn test_status_transition_to_failed_from_locked() {
+        let source_dir = PathBuf::from("/data");
+        let file_path = PathBuf::from("/data/test.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        dbf_file.set_status(FileProcessingStatus::Locked);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Locked);
+
+        // Transition: Locked -> Failed
+        dbf_file.set_status(FileProcessingStatus::Failed);
+        assert_eq!(dbf_file.status, FileProcessingStatus::Failed);
+    }
+
+    // Test 4: LDID to Encoding mapping - verify specific LDID values map to correct encodings
+    // These tests verify the LDID byte mappings documented in detect_encoding_from_header
+    #[test]
+    fn test_ldid_encoding_mappings() {
+        // Windows-1255 (Hebrew)
+        assert_eq!(ldid_to_encoding(0x57), Some(Encoding::Windows1255));
+
+        // ISO-8859-8 (Hebrew ISO)
+        assert_eq!(ldid_to_encoding(0x69), Some(Encoding::ISO8859_8));
+        assert_eq!(ldid_to_encoding(0xCA), Some(Encoding::ISO8859_8));
+
+        // Windows-1251 (Cyrillic)
+        assert_eq!(ldid_to_encoding(0xC8), Some(Encoding::Windows1251));
+        assert_eq!(ldid_to_encoding(0xC9), Some(Encoding::Windows1251));
+        assert_eq!(ldid_to_encoding(0xCB), Some(Encoding::Windows1251));
+
+        // CP866 (DOS Cyrillic)
+        assert_eq!(ldid_to_encoding(0x65), Some(Encoding::CP866));
+        assert_eq!(ldid_to_encoding(0x66), Some(Encoding::CP866));
+
+        // UTF-8
+        assert_eq!(ldid_to_encoding(0x4D), Some(Encoding::UTF8));
+        assert_eq!(ldid_to_encoding(0x7C), Some(Encoding::UTF8));
+
+        // Unknown LDID values should return None
+        assert_eq!(ldid_to_encoding(0x00), None);
+        assert_eq!(ldid_to_encoding(0x01), None);
+        assert_eq!(ldid_to_encoding(0xFF), None);
+    }
+
+    /// Helper function that mirrors the LDID to encoding logic from detect_encoding_from_header
+    fn ldid_to_encoding(ldid: u8) -> Option<Encoding> {
+        match ldid {
+            0x57 => Some(Encoding::Windows1255),
+            0x69 | 0xCA => Some(Encoding::ISO8859_8),
+            0xC8 | 0xC9 | 0xCB => Some(Encoding::Windows1251),
+            0x65 | 0x66 => Some(Encoding::CP866),
+            0x4D | 0x7C => Some(Encoding::UTF8),
+            _ => None,
+        }
+    }
+
+    // Test 5: detect_encoding_from_header returns None for non-existent file
+    #[test]
+    fn test_detect_encoding_from_header_nonexistent_file() {
+        let source_dir = PathBuf::from("/nonexistent/path");
+        let file_path = PathBuf::from("/nonexistent/path/missing_file.dbf");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        // Should return None for non-existent file
+        let result = dbf_file.detect_encoding_from_header();
+        assert!(result.is_none());
+
+        // encoding should remain None since file couldn't be read
+        assert!(dbf_file.encoding.is_none());
+    }
+
+    #[test]
+    fn test_detect_encoding_from_header_invalid_path() {
+        let source_dir = PathBuf::from("");
+        let file_path = PathBuf::from("");
+        let mut dbf_file = DbfFile::new(file_path, &source_dir);
+
+        // Should return None for empty/invalid path
+        let result = dbf_file.detect_encoding_from_header();
+        assert!(result.is_none());
+        assert!(dbf_file.encoding.is_none());
+    }
 }

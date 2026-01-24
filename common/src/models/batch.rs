@@ -76,6 +76,11 @@ impl Batch {
     pub fn total_files(&self) -> usize {
         self.files.len() + self.locked_files.len()
     }
+
+    /// Transition the batch to a new status
+    pub fn transition_to(&mut self, new_status: BatchStatus) {
+        self.status = new_status;
+    }
 }
 
 #[cfg(test)]
@@ -159,5 +164,184 @@ mod tests {
         batch.mark_failed();
         assert_eq!(batch.processed_count, 0);
         assert_eq!(batch.failed_count, 1);
+    }
+
+    #[test]
+    fn test_transition_scanning_to_processing_to_completed() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Initial state is Scanning
+        assert_eq!(batch.status, BatchStatus::Scanning);
+
+        // Transition to Processing
+        batch.transition_to(BatchStatus::Processing);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Transition to Completed
+        batch.transition_to(BatchStatus::Completed);
+        assert_eq!(batch.status, BatchStatus::Completed);
+    }
+
+    #[test]
+    fn test_transition_scanning_to_processing_to_retrying_locked_to_completed() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Initial state is Scanning
+        assert_eq!(batch.status, BatchStatus::Scanning);
+
+        // Transition to Processing
+        batch.transition_to(BatchStatus::Processing);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Transition to RetryingLocked (when encountering locked files)
+        batch.transition_to(BatchStatus::RetryingLocked);
+        assert_eq!(batch.status, BatchStatus::RetryingLocked);
+
+        // Transition to Completed after retrying
+        batch.transition_to(BatchStatus::Completed);
+        assert_eq!(batch.status, BatchStatus::Completed);
+    }
+
+    #[test]
+    fn test_transition_scanning_to_processing_to_aborted() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Initial state is Scanning
+        assert_eq!(batch.status, BatchStatus::Scanning);
+
+        // Transition to Processing
+        batch.transition_to(BatchStatus::Processing);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Transition to Aborted (e.g., due to critical error)
+        batch.transition_to(BatchStatus::Aborted);
+        assert_eq!(batch.status, BatchStatus::Aborted);
+    }
+
+    #[test]
+    fn test_status_changes_reflected_correctly() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Verify initial state
+        assert_eq!(batch.status, BatchStatus::Scanning);
+
+        // Add files while scanning
+        batch.add_file(PathBuf::from("/tmp/file1.dbf"));
+        batch.add_file(PathBuf::from("/tmp/file2.dbf"));
+        assert_eq!(batch.status, BatchStatus::Scanning);
+        assert_eq!(batch.total_files(), 2);
+
+        // Transition to processing and verify status
+        batch.transition_to(BatchStatus::Processing);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Mark some files as processed/failed and verify counters
+        batch.mark_completed();
+        assert_eq!(batch.processed_count, 1);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        batch.mark_failed();
+        assert_eq!(batch.failed_count, 1);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Complete the batch
+        batch.transition_to(BatchStatus::Completed);
+        assert_eq!(batch.status, BatchStatus::Completed);
+        assert_eq!(batch.processed_count, 1);
+        assert_eq!(batch.failed_count, 1);
+    }
+
+    #[test]
+    fn test_total_files_with_regular_and_locked_files() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Start with no files
+        assert_eq!(batch.total_files(), 0);
+
+        // Add regular files
+        batch.add_file(PathBuf::from("/tmp/file1.dbf"));
+        batch.add_file(PathBuf::from("/tmp/file2.dbf"));
+        batch.add_file(PathBuf::from("/tmp/file3.dbf"));
+        assert_eq!(batch.files.len(), 3);
+        assert_eq!(batch.locked_files.len(), 0);
+        assert_eq!(batch.total_files(), 3);
+
+        // Add locked files
+        batch.defer_locked_file(PathBuf::from("/tmp/locked1.dbf"));
+        batch.defer_locked_file(PathBuf::from("/tmp/locked2.dbf"));
+        assert_eq!(batch.files.len(), 3);
+        assert_eq!(batch.locked_files.len(), 2);
+        assert_eq!(batch.total_files(), 5);
+
+        // Add more of each type
+        batch.add_file(PathBuf::from("/tmp/file4.dbf"));
+        batch.defer_locked_file(PathBuf::from("/tmp/locked3.dbf"));
+        assert_eq!(batch.files.len(), 4);
+        assert_eq!(batch.locked_files.len(), 3);
+        assert_eq!(batch.total_files(), 7);
+    }
+
+    #[test]
+    fn test_transition_to_method() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Test all possible status transitions
+        let statuses = [
+            BatchStatus::Scanning,
+            BatchStatus::Processing,
+            BatchStatus::RetryingLocked,
+            BatchStatus::Completed,
+            BatchStatus::Aborted,
+        ];
+
+        for status in statuses.iter() {
+            batch.transition_to(status.clone());
+            assert_eq!(batch.status, *status);
+        }
+    }
+
+    #[test]
+    fn test_full_workflow_with_locked_files() {
+        let config = create_test_config();
+        let mut batch = Batch::new(config);
+
+        // Scanning phase
+        assert_eq!(batch.status, BatchStatus::Scanning);
+        batch.add_file(PathBuf::from("/tmp/file1.dbf"));
+        batch.add_file(PathBuf::from("/tmp/file2.dbf"));
+        batch.add_file(PathBuf::from("/tmp/file3.dbf"));
+
+        // Transition to processing
+        batch.transition_to(BatchStatus::Processing);
+        assert_eq!(batch.status, BatchStatus::Processing);
+
+        // Process first file successfully
+        batch.mark_completed();
+
+        // Second file is locked - defer it
+        batch.defer_locked_file(PathBuf::from("/tmp/file2.dbf"));
+
+        // Process third file successfully
+        batch.mark_completed();
+
+        // Transition to retry locked files
+        batch.transition_to(BatchStatus::RetryingLocked);
+        assert_eq!(batch.status, BatchStatus::RetryingLocked);
+
+        // Successfully process locked file
+        batch.mark_completed();
+
+        // Transition to completed
+        batch.transition_to(BatchStatus::Completed);
+        assert_eq!(batch.status, BatchStatus::Completed);
+        assert_eq!(batch.processed_count, 3);
+        assert_eq!(batch.failed_count, 0);
+        assert_eq!(batch.total_files(), 4); // 3 original + 1 deferred locked file
     }
 }
