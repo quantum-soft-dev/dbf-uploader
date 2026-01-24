@@ -12,10 +12,12 @@ GUI application for configuring and managing the Data Exporter Windows service.
 ### Settings
 - **Server URL**: Configure the API endpoint
 - **Source Directory**: Select the directory containing DBF files to process
+- **Include/Exclude Patterns**: Filter DBF files with glob patterns
 - Browse button for easy directory selection
 
 ### Schedule
 - **Cron Expression**: Configure when the service runs
+- **Real-time Validation**: Instant feedback on cron expression validity
 - Built-in examples and help text
 - Supports 6-field cron syntax (tokio-cron-scheduler format)
 
@@ -24,11 +26,17 @@ GUI application for configuring and managing the Data Exporter Windows service.
 - **Start**: Start the service
 - **Stop**: Stop the service
 - **Uninstall**: Remove the service (with confirmation)
-- Real-time service status display
+- **Smart Button States**: Buttons are enabled/disabled based on service status
+- Real-time service status display with auto-refresh
 
 ### Status
 - View current service status
 - Refresh button to update status
+
+### UI Features
+- Application icon in title bar
+- Consistent font styling across all inputs
+- Error messages with visual highlighting
 
 ## Usage
 

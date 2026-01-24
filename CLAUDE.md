@@ -10,9 +10,10 @@ Auto-generated from all feature plans. Last updated: 2025-10-05
 
 ## Project Structure
 ```
-common/          # Shared library (auth, models, error handling)
+common/          # Shared library (auth, models, error handling, paths)
 service/         # Windows service implementation
 configurator/    # Native Windows GUI for configuration
+installer/       # WiX MSI installer
 tests/           # Integration tests
 ```
 
