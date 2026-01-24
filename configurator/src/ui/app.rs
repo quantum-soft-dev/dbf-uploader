@@ -676,22 +676,22 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .flags(nwg::WindowFlags::WINDOW | nwg::WindowFlags::VISIBLE)
             .build(&mut data.window)?;
 
-        // Create fonts
+        // Create fonts (increased sizes for better readability)
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(20)
+            .size(22)
             .weight(700)
             .build(&mut data.title_font)?;
 
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(14)
+            .size(18)
             .weight(600)
             .build(&mut data.heading_font)?;
 
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(11)
+            .size(16)
             .build(&mut data.normal_font)?;
 
         // === Navigation panel (left side) ===
