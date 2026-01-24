@@ -53,4 +53,17 @@ ConfigWatcher in `service/src/config/watcher.rs` monitors config.toml for change
 - Uses notify-debouncer-mini with 2-second debounce window
 - Changes detected via `has_changed()` method
 - Reload triggered automatically before each batch run
+
+## Configurator Tests
+
+Configurator validation unit tests are in `configurator/src/validation.rs`:
+- Cron expression validation (5-field and 6-field formats)
+- HTTPS URL validation
+- Glob pattern validation
+- Source directory existence checks
+
+Run configurator tests:
+```bash
+cargo test -p data-exporter-configurator --lib
+```
 <!-- MANUAL ADDITIONS END -->

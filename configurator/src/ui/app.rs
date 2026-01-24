@@ -3,13 +3,12 @@ use crate::config_manager::ConfigManager;
 use crate::service_manager::{ServiceManager, ServiceStatus};
 use common::auth::device_flow::{DeviceFlowClient, SiteInfo};
 use common::models::{Config, DeviceCredentials};
-use cron::Schedule;
+use configurator_lib::validation;
 use native_windows_gui as nwg;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum Section {
@@ -222,66 +221,23 @@ impl ConfiguratorApp {
         }
     }
 
-    /// Validate cron expression statically, returns Ok(()) or Err(error message)
-    fn validate_cron_static(cron_text: &str) -> Result<(), String> {
-        let cron_text = cron_text.trim();
-
-        if cron_text.is_empty() {
-            return Err("Cron expression is required".to_string());
-        }
-
-        // Convert 5-field cron to 6-field for validation (add seconds)
-        let cron_6field = if cron_text.split_whitespace().count() == 5 {
-            format!("0 {}", cron_text)
-        } else {
-            cron_text.to_string()
-        };
-
-        Schedule::from_str(&cron_6field)
-            .map(|_| ())
-            .map_err(|e| format!("Invalid cron expression: {}", e))
-    }
-
-    /// Validate glob patterns, returns Ok(()) or Err(error message)
-    fn validate_patterns(patterns: &Option<Vec<String>>, field_name: &str) -> Result<(), String> {
-        if let Some(ref pattern_list) = patterns {
-            for pattern in pattern_list {
-                if let Err(e) = globset::GlobBuilder::new(pattern).build() {
-                    return Err(format!(
-                        "Invalid {} pattern '{}': {}",
-                        field_name, pattern, e
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// Validate cron expression and update error label
     fn validate_cron_expression(&self) {
         let cron_text = self.schedule_cron_input.text();
-        let cron_text = cron_text.trim();
 
-        if cron_text.is_empty() {
-            self.show_cron_error("Cron expression is required");
-            return;
-        }
-
-        // Convert 5-field cron to 6-field for validation (add seconds)
-        let cron_6field = if cron_text.split_whitespace().count() == 5 {
-            format!("0 {}", cron_text)
-        } else {
-            cron_text.to_string()
-        };
-
-        match Schedule::from_str(&cron_6field) {
+        match validation::validate_cron(&cron_text) {
             Ok(_) => {
                 // Valid cron expression - hide error
                 self.schedule_cron_error.set_visible(false);
             }
-            Err(_) => {
+            Err(e) => {
                 // Invalid cron expression - show error
-                self.show_cron_error("Invalid cron expression");
+                let message = if e.contains("required") {
+                    "Cron expression is required"
+                } else {
+                    "Invalid cron expression"
+                };
+                self.show_cron_error(message);
             }
         }
     }
@@ -764,20 +720,17 @@ impl ConfiguratorApp {
         let config = self.save_config_from_ui();
 
         // Validate HTTPS URL requirement
-        if config.api.https_only {
-            let url = config.api.base_url.trim().to_lowercase();
-            if !url.starts_with("https://") {
-                nwg::modal_error_message(
-                    &self.window,
-                    "Validation Error",
-                    "Server URL must use HTTPS when https_only is enabled.\n\nEither:\n- Change URL to start with https://\n- Or disable https_only in config (not recommended)",
-                );
-                return;
-            }
+        if let Err(e) = validation::validate_https_url(&config.api.base_url, config.api.https_only) {
+            nwg::modal_error_message(
+                &self.window,
+                "Validation Error",
+                &format!("{}\n\nEither:\n- Change URL to start with https://\n- Or disable https_only in config (not recommended)", e),
+            );
+            return;
         }
 
         // Validate source directory exists
-        if !config.src.source_dir.exists() {
+        if !validation::validate_source_directory(&config.src.source_dir) {
             let result = nwg::modal_message(
                 &self.window,
                 &nwg::MessageParams {
@@ -796,17 +749,17 @@ impl ConfiguratorApp {
         }
 
         // Validate cron expression before saving
-        if let Err(e) = Self::validate_cron_static(&config.scheduler.crontab) {
+        if let Err(e) = validation::validate_cron(&config.scheduler.crontab) {
             nwg::modal_error_message(&self.window, "Validation Error", &e);
             return;
         }
 
         // Validate patterns before saving
-        if let Err(e) = Self::validate_patterns(&config.src.include_patterns, "include") {
+        if let Err(e) = validation::validate_patterns(&config.src.include_patterns, "include") {
             nwg::modal_error_message(&self.window, "Validation Error", &e);
             return;
         }
-        if let Err(e) = Self::validate_patterns(&config.src.exclude_patterns, "exclude") {
+        if let Err(e) = validation::validate_patterns(&config.src.exclude_patterns, "exclude") {
             nwg::modal_error_message(&self.window, "Validation Error", &e);
             return;
         }
