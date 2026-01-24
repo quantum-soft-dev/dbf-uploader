@@ -32,5 +32,8 @@ globset = { workspace = true }
 # Cron expression parsing for validation
 cron = "0.15"
 
+# Open URLs in default browser
+open = "5"
+
 [build-dependencies]
 embed-resource = "3"

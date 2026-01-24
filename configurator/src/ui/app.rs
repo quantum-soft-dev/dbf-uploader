@@ -54,6 +54,8 @@ pub struct ConfiguratorApp {
     auth_status_label: nwg::Label,
     auth_button: nwg::Button,
     auth_code_label: nwg::Label,
+    auth_code_input: nwg::TextInput, // TextInput for easy copy
+    auth_copy_button: nwg::Button,
     auth_url_label: nwg::Label,
 
     // Section: Settings
@@ -121,6 +123,8 @@ impl Default for ConfiguratorApp {
             auth_status_label: Default::default(),
             auth_button: Default::default(),
             auth_code_label: Default::default(),
+            auth_code_input: Default::default(),
+            auth_copy_button: Default::default(),
             auth_url_label: Default::default(),
             settings_server_label: Default::default(),
             settings_server_input: Default::default(),
@@ -335,6 +339,8 @@ impl ConfiguratorApp {
         self.auth_status_label.set_visible(false);
         self.auth_button.set_visible(false);
         self.auth_code_label.set_visible(false);
+        self.auth_code_input.set_visible(false);
+        self.auth_copy_button.set_visible(false);
         self.auth_url_label.set_visible(false);
 
         self.settings_server_label.set_visible(false);
@@ -374,6 +380,8 @@ impl ConfiguratorApp {
                 self.auth_status_label.set_visible(true);
                 self.auth_button.set_visible(true);
                 self.auth_code_label.set_visible(true);
+                self.auth_code_input.set_visible(true);
+                self.auth_copy_button.set_visible(true);
                 self.auth_url_label.set_visible(true);
                 // Set focus to first input field
                 self.auth_site_name_input.set_focus();
@@ -488,13 +496,24 @@ impl ConfiguratorApp {
 
         match auth_result {
             Ok(auth_response) => {
-                // Display authorization instructions
+                // Open browser with verification URL
+                if let Err(e) = open::that(&auth_response.verification_uri) {
+                    nwg::modal_error_message(
+                        &self.window,
+                        "Error",
+                        &format!(
+                            "Failed to open browser: {}\n\nPlease open manually:\n{}",
+                            e, auth_response.verification_uri
+                        ),
+                    );
+                }
+
+                // Display authorization code
                 self.auth_status_label
-                    .set_text("Waiting for authorization...");
-                self.auth_code_label.set_text(&format!(
-                    "1. Open: {}\n2. Enter code: {}",
-                    auth_response.verification_uri, auth_response.user_code
-                ));
+                    .set_text("Browser opened. Enter the code below:");
+                self.auth_code_label.set_text("Authorization Code:");
+                self.auth_code_input.set_text(&auth_response.user_code);
+                self.auth_code_input.set_readonly(true);
                 self.auth_url_label.set_text(&format!(
                     "Code expires in {} minutes",
                     auth_response.expires_in / 60
@@ -554,6 +573,7 @@ impl ConfiguratorApp {
                         self.auth_status_label
                             .set_text("Status: Authenticated (Device Flow)");
                         self.auth_code_label.set_text("");
+                        self.auth_code_input.set_text("");
                         self.auth_url_label.set_text("");
                         nwg::modal_info_message(
                             &self.window,
@@ -565,6 +585,7 @@ impl ConfiguratorApp {
                         self.auth_status_label
                             .set_text("Status: Authorization failed");
                         self.auth_code_label.set_text("");
+                        self.auth_code_input.set_text("");
                         self.auth_url_label.set_text("");
                         nwg::modal_error_message(
                             &self.window,
@@ -585,6 +606,17 @@ impl ConfiguratorApp {
         }
 
         self.auth_button.set_enabled(true);
+    }
+
+    fn on_copy_code(&self) {
+        let code = self.auth_code_input.text();
+        if !code.is_empty() {
+            // Select all text and copy to clipboard
+            self.auth_code_input.set_selection(0..code.len() as u32);
+            // Use Windows clipboard API through nwg
+            nwg::Clipboard::set_data_text(&self.window, &code);
+            self.auth_url_label.set_text("Code copied to clipboard!");
+        }
     }
 
     fn on_browse_source(&self) {
@@ -973,13 +1005,29 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::Label::builder()
             .text("")
             .position((220, 310))
-            .size((660, 70))
+            .size((160, 28))
             .parent(&data.window)
             .build(&mut data.auth_code_label)?;
 
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 310))
+            .size((300, 35))
+            .font(Some(&data.heading_font))
+            .readonly(true)
+            .parent(&data.window)
+            .build(&mut data.auth_code_input)?;
+
+        nwg::Button::builder()
+            .text("Copy Code")
+            .position((700, 310))
+            .size((100, 35))
+            .parent(&data.window)
+            .build(&mut data.auth_copy_button)?;
+
         nwg::Label::builder()
             .text("")
-            .position((220, 390))
+            .position((220, 360))
             .size((660, 35))
             .parent(&data.window)
             .build(&mut data.auth_url_label)?;
@@ -1200,6 +1248,8 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                         // Actions
                         else if handle == ui.auth_button {
                             ui.on_auth_button();
+                        } else if handle == ui.auth_copy_button {
+                            ui.on_copy_code();
                         } else if handle == ui.settings_source_browse {
                             ui.on_browse_source();
                         } else if handle == ui.service_refresh_button {
