@@ -56,6 +56,11 @@ pub struct ConfiguratorApp {
     settings_source_label: nwg::Label,
     settings_source_input: nwg::TextInput,
     settings_source_browse: nwg::Button,
+    settings_include_label: nwg::Label,
+    settings_include_input: nwg::TextInput,
+    settings_exclude_label: nwg::Label,
+    settings_exclude_input: nwg::TextInput,
+    settings_pattern_help_label: nwg::Label,
 
     // Section: Schedule
     schedule_cron_label: nwg::Label,
@@ -113,6 +118,11 @@ impl Default for ConfiguratorApp {
             settings_source_label: Default::default(),
             settings_source_input: Default::default(),
             settings_source_browse: Default::default(),
+            settings_include_label: Default::default(),
+            settings_include_input: Default::default(),
+            settings_exclude_label: Default::default(),
+            settings_exclude_input: Default::default(),
+            settings_pattern_help_label: Default::default(),
             schedule_cron_label: Default::default(),
             schedule_cron_input: Default::default(),
             schedule_help_label: Default::default(),
@@ -160,6 +170,18 @@ impl ConfiguratorApp {
             .set_text(&config.src.source_dir.to_string_lossy());
         self.schedule_cron_input.set_text(&config.scheduler.crontab);
 
+        // Update include/exclude patterns
+        if let Some(ref patterns) = config.src.include_patterns {
+            self.settings_include_input.set_text(&patterns.join(", "));
+        } else {
+            self.settings_include_input.set_text("");
+        }
+        if let Some(ref patterns) = config.src.exclude_patterns {
+            self.settings_exclude_input.set_text(&patterns.join(", "));
+        } else {
+            self.settings_exclude_input.set_text("");
+        }
+
         // Update auth status
         if config.credential.is_device_flow() {
             self.auth_status_label
@@ -169,6 +191,37 @@ impl ConfiguratorApp {
         }
     }
 
+    /// Parse comma-separated pattern string into Option<Vec<String>>
+    fn parse_patterns(input: &str) -> Option<Vec<String>> {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(
+                trimmed
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            )
+        }
+    }
+
+    /// Validate glob patterns, returns Ok(()) or Err(error message)
+    fn validate_patterns(patterns: &Option<Vec<String>>, field_name: &str) -> Result<(), String> {
+        if let Some(ref pattern_list) = patterns {
+            for pattern in pattern_list {
+                if let Err(e) = globset::GlobBuilder::new(pattern).build() {
+                    return Err(format!(
+                        "Invalid {} pattern '{}': {}",
+                        field_name, pattern, e
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn save_config_from_ui(&self) -> Config {
         let mut config = self.config.borrow().clone();
 
@@ -176,6 +229,10 @@ impl ConfiguratorApp {
         config.api.base_url = self.settings_server_input.text();
         config.src.source_dir = std::path::PathBuf::from(self.settings_source_input.text());
         config.scheduler.crontab = self.schedule_cron_input.text();
+
+        // Update include/exclude patterns
+        config.src.include_patterns = Self::parse_patterns(&self.settings_include_input.text());
+        config.src.exclude_patterns = Self::parse_patterns(&self.settings_exclude_input.text());
 
         config
     }
@@ -209,6 +266,11 @@ impl ConfiguratorApp {
         self.settings_source_label.set_visible(false);
         self.settings_source_input.set_visible(false);
         self.settings_source_browse.set_visible(false);
+        self.settings_include_label.set_visible(false);
+        self.settings_include_input.set_visible(false);
+        self.settings_exclude_label.set_visible(false);
+        self.settings_exclude_input.set_visible(false);
+        self.settings_pattern_help_label.set_visible(false);
 
         self.schedule_cron_label.set_visible(false);
         self.schedule_cron_input.set_visible(false);
@@ -245,6 +307,11 @@ impl ConfiguratorApp {
                 self.settings_source_label.set_visible(true);
                 self.settings_source_input.set_visible(true);
                 self.settings_source_browse.set_visible(true);
+                self.settings_include_label.set_visible(true);
+                self.settings_include_input.set_visible(true);
+                self.settings_exclude_label.set_visible(true);
+                self.settings_exclude_input.set_visible(true);
+                self.settings_pattern_help_label.set_visible(true);
                 // Set focus to first input field
                 self.settings_server_input.set_focus();
             }
@@ -532,6 +599,17 @@ impl ConfiguratorApp {
     fn on_save(&self) {
         // Save config from UI
         let config = self.save_config_from_ui();
+
+        // Validate patterns before saving
+        if let Err(e) = Self::validate_patterns(&config.src.include_patterns, "include") {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+        if let Err(e) = Self::validate_patterns(&config.src.exclude_patterns, "exclude") {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+
         let config_path = self.config_path.borrow().clone();
         let config_manager = ConfigManager::new(&config_path);
 
@@ -757,6 +835,41 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .size((90, 30))
             .parent(&data.window)
             .build(&mut data.settings_source_browse)?;
+
+        nwg::Label::builder()
+            .text("Include Patterns:")
+            .position((220, 185))
+            .size((160, 25))
+            .parent(&data.window)
+            .build(&mut data.settings_include_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 185))
+            .size((470, 30))
+            .parent(&data.window)
+            .build(&mut data.settings_include_input)?;
+
+        nwg::Label::builder()
+            .text("Exclude Patterns:")
+            .position((220, 235))
+            .size((160, 25))
+            .parent(&data.window)
+            .build(&mut data.settings_exclude_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 235))
+            .size((470, 30))
+            .parent(&data.window)
+            .build(&mut data.settings_exclude_input)?;
+
+        nwg::Label::builder()
+            .text("Patterns: Comma-separated glob patterns (e.g., *.dbf, nsf*.DBF)")
+            .position((220, 280))
+            .size((640, 40))
+            .parent(&data.window)
+            .build(&mut data.settings_pattern_help_label)?;
 
         // === Section: Schedule ===
         nwg::Label::builder()

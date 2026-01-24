@@ -25,3 +25,6 @@ anyhow = { workspace = true }
 # Configuration
 toml = { workspace = true }
 serde = { workspace = true }
+
+# Glob pattern validation
+globset = { workspace = true }

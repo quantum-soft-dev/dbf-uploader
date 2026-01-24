@@ -26,27 +26,26 @@ impl ConfigWatcher {
         let (tx, rx) = channel();
 
         // Create debouncer with 2-second delay
-        let debouncer =
-            new_debouncer(
-                Duration::from_secs(2),
-                move |res: DebounceEventResult| match res {
-                    Ok(events) => {
-                        for event in events {
-                            debug!("Config file event: {:?}", event);
-                            // Signal that config has changed
-                            if tx.send(()).is_err() {
-                                error!("Failed to send config change notification");
-                            }
+        let mut debouncer = new_debouncer(
+            Duration::from_secs(2),
+            move |res: DebounceEventResult| match res {
+                Ok(events) => {
+                    for event in events {
+                        debug!("Config file event: {:?}", event);
+                        // Signal that config has changed
+                        if tx.send(()).is_err() {
+                            error!("Failed to send config change notification");
                         }
                     }
-                    Err(error) => {
-                        warn!("Config watch error: {:?}", error);
-                    }
-                },
-            )
-            .map_err(|e| {
-                ProcessingError::ConfigurationError(format!("Failed to create file watcher: {}", e))
-            })?;
+                }
+                Err(error) => {
+                    warn!("Config watch error: {:?}", error);
+                }
+            },
+        )
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to create file watcher: {}", e))
+        })?;
 
         // Watch the config file's parent directory
         // (watching individual files can be problematic with some editors)
@@ -58,6 +57,17 @@ impl ConfigWatcher {
                 )
             })?
             .to_path_buf();
+
+        // Start watching the directory for changes
+        debouncer
+            .watcher()
+            .watch(&watch_path, notify::RecursiveMode::NonRecursive)
+            .map_err(|e| {
+                ProcessingError::ConfigurationError(format!(
+                    "Failed to watch config directory: {}",
+                    e
+                ))
+            })?;
 
         info!(
             path = %watch_path.display(),

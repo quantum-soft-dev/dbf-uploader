@@ -380,6 +380,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "common",
+ "globset",
  "native-windows-derive",
  "native-windows-gui",
  "serde",
