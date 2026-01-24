@@ -31,9 +31,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_ENDPOINT: https://api.openai.com/v1
-          MODEL: o1-mini
+          MODEL: gpt-4-turbo
           LANGUAGE: Russian
-          max_tokens: 16384
+          temperature: 0.2
+          max_tokens: 4096
           MAX_PATCH_LENGTH: 50000
           PROMPT: |
             Ты старший Rust-разработчик с опытом Windows-разработки. Проводи ТЩАТЕЛЬНОЕ и ДЕТАЛЬНОЕ code review.
