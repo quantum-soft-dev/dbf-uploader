@@ -81,7 +81,6 @@ impl AuthClient {
 
         tracing::debug!(
             url = %url,
-            username = %self.username,
             "Sending auth request"
         );
 

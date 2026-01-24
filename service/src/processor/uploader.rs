@@ -3,11 +3,12 @@ use crate::processor::ProcessingData;
 use common::auth::JwtToken;
 use common::error::{ProcessingError, Result};
 use common::models::Config;
-use reqwest::{multipart, Client};
+use reqwest::{multipart, Body, Client};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use tokio_util::io::ReaderStream;
 use tracing::{debug, warn};
 
 /// Upload gzip data (from memory or temp file) to the server
@@ -46,8 +47,8 @@ pub async fn upload_data(
                 batch_id
             );
 
-            // Upload directly from memory
-            upload_with_retry(&client, gzip_bytes, &filename, batch_id, token, config, 3).await
+            // Upload directly from memory (take ownership to avoid copy)
+            upload_with_retry(&client, gzip_bytes.clone(), &filename, batch_id, token, config, 3).await
         }
         ProcessingData::TempFile(gzip_path) => {
             debug!(
@@ -57,18 +58,8 @@ pub async fn upload_data(
                 batch_id
             );
 
-            // Read temp file into memory for upload
-            let mut file = File::open(gzip_path)
-                .await
-                .map_err(ProcessingError::FileReadError)?;
-
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer)
-                .await
-                .map_err(ProcessingError::FileReadError)?;
-
-            // Upload from memory
-            upload_with_retry(&client, &buffer, &filename, batch_id, token, config, 3).await
+            // Use streaming upload to avoid loading entire file into memory
+            upload_file_streaming(&client, gzip_path, &filename, batch_id, token, config, 3).await
 
             // Temp file will be deleted automatically by Drop when gzip_data goes out of scope
         }
@@ -120,13 +111,13 @@ pub async fn upload_file(
         .map_err(ProcessingError::FileReadError)?;
 
     // Try upload with retries
-    upload_with_retry(&client, &buffer, &filename, batch_id, token, config, 3).await
+    upload_with_retry(&client, buffer, &filename, batch_id, token, config, 3).await
 }
 
-/// Upload with retry logic for transient failures
-async fn upload_with_retry(
+/// Upload file with streaming (for large temp files)
+async fn upload_file_streaming(
     client: &Client,
-    file_data: &[u8],
+    file_path: &PathBuf,
     filename: &str,
     batch_id: &str,
     token: &JwtToken,
@@ -139,52 +130,36 @@ async fn upload_with_retry(
     );
 
     for attempt in 1..=max_retries {
-        match try_upload(client, file_data, filename, token, &url).await {
+        // Open file fresh for each attempt (in case of retry)
+        let file = File::open(file_path)
+            .await
+            .map_err(ProcessingError::FileReadError)?;
+
+        let file_size = file
+            .metadata()
+            .await
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // Create streaming body from file
+        let stream = ReaderStream::new(file);
+        let body = Body::wrap_stream(stream);
+
+        let part = multipart::Part::stream_with_length(body, file_size)
+            .file_name(filename.to_string())
+            .mime_str("application/gzip")
+            .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
+
+        let form = multipart::Form::new().part("files", part);
+
+        match try_upload_form(client, form, token, &url).await {
             Ok(_) => {
                 debug!("Upload successful: {}", filename);
                 return Ok(());
             }
             Err(e) => {
-                match &e {
-                    ProcessingError::UploadError(msg) if msg.contains("401") => {
-                        // Token expired - caller should renew and retry
-                        return Err(e);
-                    }
-                    ProcessingError::UploadError(msg) if msg.starts_with("4") => {
-                        // Client error (4xx) - don't retry, report and skip
-                        warn!("Client error uploading {}: {}", filename, msg);
-                        return Err(e);
-                    }
-                    ProcessingError::UploadError(msg) if msg.starts_with("5") => {
-                        // Server error (5xx) - retry with backoff
-                        if attempt < max_retries {
-                            let backoff = Duration::from_secs(2u64.pow(attempt - 1));
-                            warn!(
-                                "Server error uploading {} (attempt {}/{}), retrying in {:?}: {}",
-                                filename, attempt, max_retries, backoff, msg
-                            );
-                            tokio::time::sleep(backoff).await;
-                            continue;
-                        } else {
-                            warn!("Upload failed after {} attempts: {}", max_retries, msg);
-                            return Err(e);
-                        }
-                    }
-                    ProcessingError::NetworkError(_) => {
-                        // Network error - retry with backoff
-                        if attempt < max_retries {
-                            let backoff = Duration::from_secs(2u64.pow(attempt - 1));
-                            warn!(
-                                "Network error uploading {} (attempt {}/{}), retrying in {:?}",
-                                filename, attempt, max_retries, backoff
-                            );
-                            tokio::time::sleep(backoff).await;
-                            continue;
-                        } else {
-                            return Err(e);
-                        }
-                    }
-                    _ => return Err(e),
+                if !handle_upload_error(&e, filename, attempt, max_retries).await {
+                    return Err(e);
                 }
             }
         }
@@ -196,21 +171,107 @@ async fn upload_with_retry(
     )))
 }
 
-/// Single upload attempt
-async fn try_upload(
+/// Upload with retry logic for transient failures (in-memory data)
+async fn upload_with_retry(
     client: &Client,
-    file_data: &[u8],
+    file_data: Vec<u8>,
     filename: &str,
+    batch_id: &str,
+    token: &JwtToken,
+    config: &Config,
+    max_retries: u32,
+) -> Result<()> {
+    let url = format!(
+        "{}/api/v1/device/files/batches/{}/upload",
+        config.api.base_url, batch_id
+    );
+
+    for attempt in 1..=max_retries {
+        // Clone data for each attempt (in case of retry)
+        let part = multipart::Part::bytes(file_data.clone())
+            .file_name(filename.to_string())
+            .mime_str("application/gzip")
+            .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
+
+        let form = multipart::Form::new().part("files", part);
+
+        match try_upload_form(client, form, token, &url).await {
+            Ok(_) => {
+                debug!("Upload successful: {}", filename);
+                return Ok(());
+            }
+            Err(e) => {
+                if !handle_upload_error(&e, filename, attempt, max_retries).await {
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    Err(ProcessingError::UploadError(format!(
+        "Upload failed after {} retries",
+        max_retries
+    )))
+}
+
+/// Handle upload error and determine if retry should continue
+/// Returns true if should retry, false if should return error
+async fn handle_upload_error(
+    e: &ProcessingError,
+    filename: &str,
+    attempt: u32,
+    max_retries: u32,
+) -> bool {
+    match e {
+        ProcessingError::UploadError(msg) if msg.contains("401") => {
+            // Token expired - caller should renew and retry
+            false
+        }
+        ProcessingError::UploadError(msg) if msg.starts_with("4") => {
+            // Client error (4xx) - don't retry, report and skip
+            warn!("Client error uploading {}: {}", filename, msg);
+            false
+        }
+        ProcessingError::UploadError(msg) if msg.starts_with("5") => {
+            // Server error (5xx) - retry with backoff
+            if attempt < max_retries {
+                let backoff = Duration::from_secs(2u64.pow(attempt - 1));
+                warn!(
+                    "Server error uploading {} (attempt {}/{}), retrying in {:?}: {}",
+                    filename, attempt, max_retries, backoff, msg
+                );
+                tokio::time::sleep(backoff).await;
+                true
+            } else {
+                warn!("Upload failed after {} attempts: {}", max_retries, msg);
+                false
+            }
+        }
+        ProcessingError::NetworkError(_) => {
+            // Network error - retry with backoff
+            if attempt < max_retries {
+                let backoff = Duration::from_secs(2u64.pow(attempt - 1));
+                warn!(
+                    "Network error uploading {} (attempt {}/{}), retrying in {:?}",
+                    filename, attempt, max_retries, backoff
+                );
+                tokio::time::sleep(backoff).await;
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
+/// Single upload attempt with pre-built form
+async fn try_upload_form(
+    client: &Client,
+    form: multipart::Form,
     token: &JwtToken,
     url: &str,
 ) -> Result<()> {
-    // Create multipart form
-    let part = multipart::Part::bytes(file_data.to_vec())
-        .file_name(filename.to_string())
-        .mime_str("application/gzip")
-        .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
-
-    let form = multipart::Form::new().part("files", part);
 
     // Send request
     let response = client

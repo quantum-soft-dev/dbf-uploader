@@ -21,6 +21,7 @@ windows-service = { workspace = true }
 
 # Async Runtime
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tokio-cron-scheduler = { workspace = true }
 
 # DBF Parsing
