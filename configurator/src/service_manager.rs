@@ -198,11 +198,10 @@ impl ServiceManager {
                 // Parse and format the output
                 for line in stdout.lines() {
                     let line = line.trim();
-                    if line.starts_with("STATE") {
-                        info.push_str(&format!("{}\n", line));
-                    } else if line.starts_with("WIN32_EXIT_CODE") {
-                        info.push_str(&format!("{}\n", line));
-                    } else if line.starts_with("SERVICE_EXIT_CODE") {
+                    if line.starts_with("STATE")
+                        || line.starts_with("WIN32_EXIT_CODE")
+                        || line.starts_with("SERVICE_EXIT_CODE")
+                    {
                         info.push_str(&format!("{}\n", line));
                     }
                 }
@@ -218,17 +217,29 @@ impl ServiceManager {
         info.push_str(&format!(
             "Executable: {} {}\n",
             exe_path.display(),
-            if exe_path.exists() { "(found)" } else { "(not found)" }
+            if exe_path.exists() {
+                "(found)"
+            } else {
+                "(not found)"
+            }
         ));
         info.push_str(&format!(
             "Config: {} {}\n",
             config_path.display(),
-            if config_path.exists() { "(found)" } else { "(not found)" }
+            if config_path.exists() {
+                "(found)"
+            } else {
+                "(not found)"
+            }
         ));
         info.push_str(&format!(
             "Logs: {} {}\n",
             log_dir.display(),
-            if log_dir.exists() { "(exists)" } else { "(not created)" }
+            if log_dir.exists() {
+                "(exists)"
+            } else {
+                "(not created)"
+            }
         ));
 
         // Check for recent log files
@@ -251,7 +262,10 @@ impl ServiceManager {
                             .and_then(|m| m.modified())
                             .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
                     }) {
-                        info.push_str(&format!("Most recent: {}\n", recent.file_name().to_string_lossy()));
+                        info.push_str(&format!(
+                            "Most recent: {}\n",
+                            recent.file_name().to_string_lossy()
+                        ));
                     }
                 }
             }
