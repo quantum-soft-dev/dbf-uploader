@@ -5,7 +5,7 @@ use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::debug;
 
 /// Compress CSV data to gzip format (in memory or from temp file)
@@ -112,7 +112,7 @@ pub fn compress_csv_memory(csv_data: ProcessingData) -> Result<ProcessingData> {
 ///
 /// # Returns
 /// Path to the created gzip file
-pub fn compress_csv(csv_path: PathBuf, output_name: String) -> Result<PathBuf> {
+pub fn compress_csv(csv_path: &Path, output_name: String) -> Result<PathBuf> {
     debug!(
         "Compressing CSV file: {} -> {}",
         csv_path.display(),
@@ -128,7 +128,7 @@ pub fn compress_csv(csv_path: PathBuf, output_name: String) -> Result<PathBuf> {
     }
 
     // Open CSV file for reading
-    let csv_file = File::open(&csv_path).map_err(ProcessingError::FileReadError)?;
+    let csv_file = File::open(csv_path).map_err(ProcessingError::FileReadError)?;
     let mut csv_reader = BufReader::new(csv_file);
 
     // Create output path (in same directory as CSV)
@@ -212,7 +212,7 @@ mod tests {
 
         // Compress it
         let output_name = "test_output.csv.gz".to_string();
-        let result = compress_csv(csv_path.clone(), output_name);
+        let result = compress_csv(&csv_path, output_name);
         assert!(result.is_ok());
 
         let gzip_path = result.unwrap();
@@ -233,7 +233,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let csv_path = temp_dir.path().join("nonexistent.csv");
 
-        let result = compress_csv(csv_path, "output.csv.gz".to_string());
+        let result = compress_csv(&csv_path, "output.csv.gz".to_string());
         assert!(result.is_err());
         match result {
             Err(ProcessingError::FileReadError(_)) => (),
@@ -254,7 +254,7 @@ mod tests {
         fs::write(&csv_path, &csv_content).unwrap();
 
         // Compress it
-        let result = compress_csv(csv_path, "large.csv.gz".to_string());
+        let result = compress_csv(&csv_path, "large.csv.gz".to_string());
         assert!(result.is_ok());
 
         let gzip_path = result.unwrap();
@@ -277,7 +277,7 @@ mod tests {
         fs::write(&csv_path, "").unwrap();
 
         // Compress it
-        let result = compress_csv(csv_path, "empty.csv.gz".to_string());
+        let result = compress_csv(&csv_path, "empty.csv.gz".to_string());
         assert!(result.is_ok());
 
         let gzip_path = result.unwrap();

@@ -74,14 +74,28 @@ impl ConfigWatcher {
     /// Check if the config file has changed
     /// Returns true if a change was detected, false otherwise
     pub fn has_changed(&self) -> bool {
-        let receiver = self.change_receiver.lock().unwrap();
+        // Handle poisoned mutex gracefully - if poisoned, assume no change
+        let receiver = match self.change_receiver.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("Config watcher mutex was poisoned, recovering");
+                poisoned.into_inner()
+            }
+        };
         receiver.try_recv().is_ok()
     }
 
     /// Wait for config file change (blocking)
     /// Returns the new config if successfully loaded
     pub fn wait_for_change(&self) -> Result<Config> {
-        let receiver = self.change_receiver.lock().unwrap();
+        // Handle poisoned mutex gracefully
+        let receiver = match self.change_receiver.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                warn!("Config watcher mutex was poisoned, recovering");
+                poisoned.into_inner()
+            }
+        };
 
         // Wait for change notification
         receiver.recv().map_err(|e| {
