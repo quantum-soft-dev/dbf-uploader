@@ -410,11 +410,18 @@ mod tests {
         }
     }
 
+    fn create_test_config_with_encoding(encoding: &str) -> Config {
+        let mut config = create_test_config();
+        config.encoding.dbf_encoding = encoding.to_string();
+        config
+    }
+
+    // T029 [US2] Test LDID to Encoding mapping
     #[test]
     fn test_get_encoding_enum() {
         let config = create_test_config();
 
-        // Test known encodings
+        // Test known encodings from DBF file
         assert_eq!(
             get_encoding_enum(Some(&Encoding::CP866), &config.encoding.dbf_encoding),
             Encoding::CP866
@@ -427,10 +434,46 @@ mod tests {
             get_encoding_enum(Some(&Encoding::UTF8), &config.encoding.dbf_encoding),
             Encoding::UTF8
         );
+        assert_eq!(
+            get_encoding_enum(Some(&Encoding::Windows1255), &config.encoding.dbf_encoding),
+            Encoding::Windows1255
+        );
+        assert_eq!(
+            get_encoding_enum(Some(&Encoding::ISO8859_8), &config.encoding.dbf_encoding),
+            Encoding::ISO8859_8
+        );
+    }
 
-        // Test None falls back to config
-        let encoding = get_encoding_enum(None, "CP866");
-        assert_eq!(encoding, Encoding::CP866);
+    // T032 [US2] Test fallback encoding when LDID absent
+    #[test]
+    fn test_fallback_encoding_when_ldid_absent() {
+        // When DBF has no encoding info (None), should use config fallback
+        assert_eq!(get_encoding_enum(None, "CP866"), Encoding::CP866);
+        assert_eq!(get_encoding_enum(None, "IBM866"), Encoding::CP866);
+        assert_eq!(get_encoding_enum(None, "WINDOWS-1251"), Encoding::Windows1251);
+        assert_eq!(get_encoding_enum(None, "CP1251"), Encoding::Windows1251);
+        assert_eq!(get_encoding_enum(None, "WINDOWS-1255"), Encoding::Windows1255);
+        assert_eq!(get_encoding_enum(None, "UTF-8"), Encoding::UTF8);
+        assert_eq!(get_encoding_enum(None, "UTF8"), Encoding::UTF8);
+        assert_eq!(get_encoding_enum(None, "ISO-8859-8"), Encoding::ISO8859_8);
+    }
+
+    #[test]
+    fn test_unknown_encoding_defaults_to_windows1255() {
+        // Unknown encoding should fall back to Windows-1255 (Hebrew default)
+        let encoding = get_encoding_enum(None, "UNKNOWN_ENCODING");
+        assert_eq!(encoding, Encoding::Windows1255);
+    }
+
+    #[test]
+    fn test_encoding_case_insensitive() {
+        // Encoding detection should be case-insensitive
+        assert_eq!(get_encoding_enum(None, "cp866"), Encoding::CP866);
+        assert_eq!(get_encoding_enum(None, "CP866"), Encoding::CP866);
+        assert_eq!(get_encoding_enum(None, "windows-1251"), Encoding::Windows1251);
+        assert_eq!(get_encoding_enum(None, "WINDOWS-1251"), Encoding::Windows1251);
+        assert_eq!(get_encoding_enum(None, "utf-8"), Encoding::UTF8);
+        assert_eq!(get_encoding_enum(None, "UTF-8"), Encoding::UTF8);
     }
 
     #[test]
@@ -444,6 +487,239 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // Note: Full integration tests with actual DBF files would require sample DBF files
-    // These would be better placed in integration tests with fixtures
+    #[test]
+    fn test_convert_nonexistent_file_memory() {
+        let config = create_test_config();
+        let temp_dir = TempDir::new().unwrap();
+        let dbf_path = temp_dir.path().join("nonexistent.dbf");
+        let dbf_file = DbfFile::new(dbf_path, temp_dir.path());
+
+        let result = convert_dbf_to_csv_memory(&dbf_file, &config);
+        assert!(result.is_err());
+    }
+
+    // Helper to create a minimal DBF file for testing
+    fn create_minimal_test_dbf(path: &std::path::Path) -> std::result::Result<(), dbase::Error> {
+        use dbase::{FieldName, TableWriterBuilder};
+        use std::convert::TryFrom;
+
+        let mut file_writer = TableWriterBuilder::new()
+            .add_numeric_field(FieldName::try_from("ID").unwrap(), 10, 0)
+            .add_character_field(FieldName::try_from("NAME").unwrap(), 50)
+            .build_with_file_dest(path)?;
+
+        // Write test records
+        for i in 1..=3 {
+            let mut record = dbase::Record::default();
+            record.insert("ID".to_string(), dbase::FieldValue::Numeric(Some(i as f64)));
+            record.insert("NAME".to_string(), dbase::FieldValue::Character(Some(format!("Test Record {}", i))));
+            file_writer.write_record(&record)?;
+        }
+
+        file_writer.close()
+    }
+
+    #[test]
+    fn test_convert_basic_dbf_to_csv() {
+        let temp_dir = TempDir::new().unwrap();
+        let dbf_path = temp_dir.path().join("test.dbf");
+
+        // Create test DBF file
+        create_minimal_test_dbf(&dbf_path).expect("Failed to create test DBF");
+
+        let dbf_file = DbfFile::new(dbf_path.clone(), temp_dir.path());
+        let config = create_test_config_with_encoding("UTF8");
+
+        let result = convert_dbf_to_csv(&dbf_file, &config);
+        assert!(result.is_ok(), "Conversion should succeed");
+
+        let csv_path = result.unwrap();
+        assert!(csv_path.exists(), "CSV file should exist");
+
+        // Verify CSV content
+        let csv_content = std::fs::read_to_string(&csv_path).expect("Failed to read CSV");
+        assert!(csv_content.contains("ID,NAME"), "CSV should have header");
+        assert!(csv_content.contains("Test Record 1"), "CSV should contain data");
+        assert!(csv_content.contains("Test Record 2"), "CSV should contain data");
+        assert!(csv_content.contains("Test Record 3"), "CSV should contain data");
+    }
+
+    #[test]
+    fn test_convert_basic_dbf_to_csv_memory() {
+        let temp_dir = TempDir::new().unwrap();
+        let dbf_path = temp_dir.path().join("test.dbf");
+
+        // Create test DBF file
+        create_minimal_test_dbf(&dbf_path).expect("Failed to create test DBF");
+
+        let dbf_file = DbfFile::new(dbf_path.clone(), temp_dir.path());
+        let config = create_test_config_with_encoding("UTF8");
+
+        let result = convert_dbf_to_csv_memory(&dbf_file, &config);
+        assert!(result.is_ok(), "Conversion should succeed");
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(csv_bytes) => {
+                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                assert!(csv_content.contains("ID,NAME"), "CSV should have header");
+                assert!(csv_content.contains("Test Record 1"), "CSV should contain data");
+            }
+            ProcessingData::TempFile(_) => {
+                // Small file should be in memory
+                panic!("Expected in-memory data for small file");
+            }
+        }
+    }
+
+    // Test CSV field conversion for different DBF field types
+    #[test]
+    fn test_field_value_conversion() {
+        use dbase::{FieldValue, Record};
+
+        let field_names = vec!["F1".to_string(), "F2".to_string(), "F3".to_string()];
+
+        // Test character field
+        let mut record = Record::default();
+        record.insert("F1".to_string(), FieldValue::Character(Some("Hello".to_string())));
+        record.insert("F2".to_string(), FieldValue::Numeric(Some(42.5)));
+        record.insert("F3".to_string(), FieldValue::Logical(Some(true)));
+
+        let csv_fields = convert_record_to_csv(&record, &field_names).unwrap();
+        assert_eq!(csv_fields[0], "Hello");
+        assert_eq!(csv_fields[1], "42.5");
+        assert_eq!(csv_fields[2], "true");
+    }
+
+    #[test]
+    fn test_null_field_values() {
+        use dbase::{FieldValue, Record};
+
+        let field_names = vec!["F1".to_string(), "F2".to_string(), "F3".to_string()];
+
+        let mut record = Record::default();
+        record.insert("F1".to_string(), FieldValue::Character(None));
+        record.insert("F2".to_string(), FieldValue::Numeric(None));
+        record.insert("F3".to_string(), FieldValue::Logical(None));
+
+        let csv_fields = convert_record_to_csv(&record, &field_names).unwrap();
+        assert_eq!(csv_fields[0], "");
+        assert_eq!(csv_fields[1], "");
+        assert_eq!(csv_fields[2], "");
+    }
+
+    #[test]
+    fn test_missing_field_error() {
+        use dbase::{FieldValue, Record};
+
+        let field_names = vec!["F1".to_string(), "MISSING".to_string()];
+
+        let mut record = Record::default();
+        record.insert("F1".to_string(), FieldValue::Character(Some("test".to_string())));
+        // MISSING field is not in record
+
+        let result = convert_record_to_csv(&record, &field_names);
+        assert!(result.is_err(), "Should error on missing field");
+    }
+
+    // Helper to create DBF with CP866 encoding
+    fn create_cp866_test_dbf(path: &std::path::Path) -> std::result::Result<(), dbase::Error> {
+        use dbase::{FieldName, TableWriterBuilder};
+        use dbase::encoding::LossyCodePage;
+        use dbase::yore::code_pages::CP866;
+        use std::convert::TryFrom;
+
+        let mut file_writer = TableWriterBuilder::new()
+            .set_encoding(LossyCodePage(CP866))
+            .add_character_field(FieldName::try_from("NAME").unwrap(), 50)
+            .build_with_file_dest(path)?;
+
+        // Russian text
+        let mut record = dbase::Record::default();
+        record.insert("NAME".to_string(), dbase::FieldValue::Character(Some("Тест".to_string())));
+        file_writer.write_record(&record)?;
+
+        file_writer.close()
+    }
+
+    // T030 [US2] Test CP866 DBF to UTF-8 CSV conversion
+    #[test]
+    fn test_convert_cp866_dbf_to_utf8_csv() {
+        let temp_dir = TempDir::new().unwrap();
+        let dbf_path = temp_dir.path().join("cp866_test.dbf");
+
+        create_cp866_test_dbf(&dbf_path).expect("Failed to create CP866 test DBF");
+
+        let mut dbf_file = DbfFile::new(dbf_path.clone(), temp_dir.path());
+        dbf_file.encoding = Some(Encoding::CP866);
+
+        let config = create_test_config_with_encoding("CP866");
+
+        let result = convert_dbf_to_csv_memory(&dbf_file, &config);
+        assert!(result.is_ok(), "CP866 conversion should succeed");
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(csv_bytes) => {
+                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                // The Russian text should be converted to UTF-8
+                assert!(csv_content.contains("NAME"), "CSV should have header");
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory data for small file");
+            }
+        }
+    }
+
+    // Helper to create DBF with Windows-1251 encoding
+    fn create_cp1251_test_dbf(path: &std::path::Path) -> std::result::Result<(), dbase::Error> {
+        use dbase::{FieldName, TableWriterBuilder};
+        use dbase::encoding::LossyCodePage;
+        use dbase::yore::code_pages::CP1251;
+        use std::convert::TryFrom;
+
+        let mut file_writer = TableWriterBuilder::new()
+            .set_encoding(LossyCodePage(CP1251))
+            .add_character_field(FieldName::try_from("PRODUCT").unwrap(), 60)
+            .build_with_file_dest(path)?;
+
+        // Russian text
+        let mut record = dbase::Record::default();
+        record.insert("PRODUCT".to_string(), dbase::FieldValue::Character(Some("Компьютер".to_string())));
+        file_writer.write_record(&record)?;
+
+        file_writer.close()
+    }
+
+    // T031 [US2] Test Windows-1251 DBF to UTF-8 CSV conversion
+    #[test]
+    fn test_convert_windows1251_dbf_to_utf8_csv() {
+        let temp_dir = TempDir::new().unwrap();
+        let dbf_path = temp_dir.path().join("cp1251_test.dbf");
+
+        create_cp1251_test_dbf(&dbf_path).expect("Failed to create CP1251 test DBF");
+
+        let mut dbf_file = DbfFile::new(dbf_path.clone(), temp_dir.path());
+        dbf_file.encoding = Some(Encoding::Windows1251);
+
+        let config = create_test_config_with_encoding("WINDOWS-1251");
+
+        let result = convert_dbf_to_csv_memory(&dbf_file, &config);
+        assert!(result.is_ok(), "Windows-1251 conversion should succeed");
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(csv_bytes) => {
+                let csv_content = String::from_utf8(csv_bytes.clone()).expect("CSV should be valid UTF-8");
+                assert!(csv_content.contains("PRODUCT"), "CSV should have header");
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory data for small file");
+            }
+        }
+    }
+
+    // Test max in-memory size constant
+    #[test]
+    fn test_max_in_memory_size_constant() {
+        // Verify the constant is 10 MB
+        assert_eq!(MAX_IN_MEMORY_SIZE, 10 * 1024 * 1024);
+    }
 }

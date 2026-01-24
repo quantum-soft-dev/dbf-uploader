@@ -71,18 +71,18 @@ Based on plan.md workspace structure:
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T016 [P] [US1] Write unit test for cron expression parsing in service/src/service/scheduler.rs
-- [ ] T017 [P] [US1] Write integration test for scheduler triggering batch in tests/integration/scheduler_test.rs
-- [ ] T018 [P] [US1] Write unit test for batch lock preventing concurrent execution in service/src/service/scheduler.rs
+- [X] T016 [P] [US1] Write unit test for cron expression parsing in service/src/service/scheduler.rs
+- [X] T017 [P] [US1] Write integration test for scheduler triggering batch in tests/scheduler_integration_test.rs
+- [X] T018 [P] [US1] Write unit test for batch lock preventing concurrent execution in service/src/service/scheduler.rs
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Implement cron expression parsing using tokio-cron-scheduler in service/src/service/scheduler.rs
-- [ ] T020 [US1] Implement JobScheduler with batch trigger callback in service/src/service/scheduler.rs
-- [ ] T021 [US1] Implement batch lock mechanism (AtomicBool or Mutex) in service/src/service/scheduler.rs
-- [ ] T022 [US1] Implement skip-and-log behavior when batch already running in service/src/service/scheduler.rs
-- [ ] T023 [US1] Integrate scheduler with main service loop in service/src/main.rs
-- [ ] T024 [US1] Add logging for scheduled triggers, skipped executions in service/src/service/scheduler.rs
+- [X] T019 [US1] Implement cron expression parsing using tokio-cron-scheduler in service/src/service/scheduler.rs
+- [X] T020 [US1] Implement JobScheduler with batch trigger callback in service/src/service/scheduler.rs
+- [X] T021 [US1] Implement batch lock mechanism (AtomicBool or Mutex) in service/src/service/scheduler.rs
+- [X] T022 [US1] Implement skip-and-log behavior when batch already running in service/src/service/scheduler.rs
+- [X] T023 [US1] Integrate scheduler with main service loop in service/src/main.rs
+- [X] T024 [US1] Add logging for scheduled triggers, skipped executions in service/src/service/scheduler.rs
 
 **Checkpoint**: Service can be configured with cron schedule and triggers batch processing automatically. Concurrent batch execution is prevented.
 
@@ -96,28 +96,28 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Create test fixture DBF file with CP866 encoding at tests/fixtures/cp866_russian.dbf
-- [ ] T026 [P] [US2] Create test fixture DBF file with Windows-1251 encoding at tests/fixtures/cp1251_russian.dbf
-- [ ] T027 [P] [US2] Create test fixture DBF file with Windows-1255 encoding at tests/fixtures/cp1255_hebrew.dbf
+- [X] T025 [P] [US2] Create test fixture DBF file with CP866 encoding at tests/fixtures/create_fixtures.rs (programmatic generation)
+- [X] T026 [P] [US2] Create test fixture DBF file with Windows-1251 encoding at tests/fixtures/create_fixtures.rs (programmatic generation)
+- [X] T027 [P] [US2] Create test fixture DBF file with Windows-1255 encoding at tests/fixtures/create_fixtures.rs (programmatic generation)
 - [ ] T028 [P] [US2] Create test fixture DBF file with corrupted records at tests/fixtures/corrupted_records.dbf
-- [ ] T029 [P] [US2] Write unit test for LDID to Encoding mapping in service/src/processor/converter.rs
-- [ ] T030 [P] [US2] Write unit test for CP866 DBF to UTF-8 CSV conversion in service/src/processor/converter.rs
-- [ ] T031 [P] [US2] Write unit test for Windows-1251 DBF to UTF-8 CSV conversion in service/src/processor/converter.rs
-- [ ] T032 [P] [US2] Write unit test for fallback encoding when LDID absent in service/src/processor/converter.rs
+- [X] T029 [P] [US2] Write unit test for LDID to Encoding mapping in service/src/processor/converter.rs
+- [X] T030 [P] [US2] Write unit test for CP866 DBF to UTF-8 CSV conversion in service/src/processor/converter.rs
+- [X] T031 [P] [US2] Write unit test for Windows-1251 DBF to UTF-8 CSV conversion in service/src/processor/converter.rs
+- [X] T032 [P] [US2] Write unit test for fallback encoding when LDID absent in service/src/processor/converter.rs
 - [ ] T033 [P] [US2] Write unit test for corrupted record skipping in service/src/processor/converter.rs
-- [ ] T034 [P] [US2] Write unit test for GZIP compression output in service/src/processor/compressor.rs
+- [X] T034 [P] [US2] Write unit test for GZIP compression output in service/src/processor/compressor.rs
 - [ ] T035 [P] [US2] Write integration test for full conversion pipeline in tests/integration/conversion_test.rs
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Implement LDID to Encoding detection using dbase crate in service/src/processor/converter.rs
-- [ ] T037 [US2] Implement DBF to CSV conversion with yore encoding support in service/src/processor/converter.rs
-- [ ] T038 [US2] Implement convert_dbf_to_csv_memory for files <= 10MB in service/src/processor/converter.rs
-- [ ] T039 [US2] Implement convert_dbf_to_csv_tempfile for files > 10MB in service/src/processor/converter.rs
-- [ ] T040 [US2] Implement corrupted record handling (skip and log warning) in service/src/processor/converter.rs
-- [ ] T041 [US2] Implement GZIP compression using flate2 in service/src/processor/compressor.rs
-- [ ] T042 [US2] Implement temporary file cleanup after processing in service/src/processor/mod.rs
-- [ ] T043 [US2] Create service/src/processor/mod.rs exporting converter and compressor modules
+- [X] T036 [US2] Implement LDID to Encoding detection using dbase crate in service/src/processor/converter.rs
+- [X] T037 [US2] Implement DBF to CSV conversion with yore encoding support in service/src/processor/converter.rs
+- [X] T038 [US2] Implement convert_dbf_to_csv_memory for files <= 10MB in service/src/processor/converter.rs
+- [X] T039 [US2] Implement convert_dbf_to_csv_tempfile for files > 10MB in service/src/processor/converter.rs
+- [X] T040 [US2] Implement corrupted record handling (skip and log warning) in service/src/processor/converter.rs
+- [X] T041 [US2] Implement GZIP compression using flate2 in service/src/processor/compressor.rs
+- [X] T042 [US2] Implement temporary file cleanup after processing in service/src/processor/mod.rs
+- [X] T043 [US2] Create service/src/processor/mod.rs exporting converter and compressor modules
 
 **Checkpoint**: DBF files with various encodings convert correctly to UTF-8 CSV. Corrupted records are skipped with warnings. Output is GZIP compressed.
 

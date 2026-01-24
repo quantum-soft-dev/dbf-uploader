@@ -291,4 +291,137 @@ mod tests {
 
         assert_eq!(decompressed, "");
     }
+
+    // T034 [US2] Test GZIP compression output - in-memory mode
+    #[test]
+    fn test_compress_csv_memory_basic() {
+        let csv_content = "name,age,city\nAlice,30,NYC\nBob,25,LA\n";
+        let csv_data = ProcessingData::InMemory(csv_content.as_bytes().to_vec());
+
+        let result = compress_csv_memory(csv_data);
+        assert!(result.is_ok());
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(gzip_bytes) => {
+                // Verify it's valid gzip data by decompressing
+                let cursor = std::io::Cursor::new(gzip_bytes.clone());
+                let mut decoder = GzDecoder::new(cursor);
+                let mut decompressed = String::new();
+                decoder.read_to_string(&mut decompressed).unwrap();
+
+                assert_eq!(decompressed, csv_content);
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory result for small data");
+            }
+        }
+    }
+
+    #[test]
+    fn test_compress_csv_memory_from_temp_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let csv_path = temp_dir.path().join("test.csv");
+
+        let csv_content = "id,value\n1,100\n2,200\n3,300\n";
+        fs::write(&csv_path, csv_content).unwrap();
+
+        let csv_data = ProcessingData::TempFile(csv_path);
+
+        let result = compress_csv_memory(csv_data);
+        assert!(result.is_ok());
+
+        match &result.unwrap() {
+            ProcessingData::TempFile(gzip_path) => {
+                assert!(gzip_path.exists());
+
+                // Verify it's valid gzip data
+                let gzip_file = File::open(gzip_path).unwrap();
+                let mut decoder = GzDecoder::new(gzip_file);
+                let mut decompressed = String::new();
+                decoder.read_to_string(&mut decompressed).unwrap();
+
+                assert_eq!(decompressed, csv_content);
+            }
+            ProcessingData::InMemory(_) => {
+                panic!("Expected temp file result for temp file input");
+            }
+        }
+    }
+
+    #[test]
+    fn test_compress_csv_memory_empty() {
+        let csv_data = ProcessingData::InMemory(Vec::new());
+
+        let result = compress_csv_memory(csv_data);
+        assert!(result.is_ok());
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(gzip_bytes) => {
+                // Verify it's valid (empty) gzip data
+                let cursor = std::io::Cursor::new(gzip_bytes.clone());
+                let mut decoder = GzDecoder::new(cursor);
+                let mut decompressed = String::new();
+                decoder.read_to_string(&mut decompressed).unwrap();
+
+                assert_eq!(decompressed, "");
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory result for empty data");
+            }
+        }
+    }
+
+    #[test]
+    fn test_compress_csv_memory_large_data() {
+        // Create a larger CSV in memory (>8KB)
+        let mut csv_content = String::from("id,data,value\n");
+        for i in 0..500 {
+            csv_content.push_str(&format!("{},sample_data_item_{},12345.67\n", i, i));
+        }
+
+        let csv_data = ProcessingData::InMemory(csv_content.as_bytes().to_vec());
+
+        let result = compress_csv_memory(csv_data);
+        assert!(result.is_ok());
+
+        match &result.unwrap() {
+            ProcessingData::InMemory(gzip_bytes) => {
+                // Compression should reduce size significantly for text data
+                assert!(gzip_bytes.len() < csv_content.len(), "Gzip should compress text data");
+
+                // Verify decompression
+                let cursor = std::io::Cursor::new(gzip_bytes.clone());
+                let mut decoder = GzDecoder::new(cursor);
+                let mut decompressed = String::new();
+                decoder.read_to_string(&mut decompressed).unwrap();
+
+                assert_eq!(decompressed, csv_content);
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory result");
+            }
+        }
+    }
+
+    #[test]
+    fn test_gzip_compression_ratio() {
+        // Test that compression actually reduces size for typical CSV data
+        let csv_content = "name,age,city,country,occupation,salary\n".repeat(100);
+        let original_size = csv_content.len();
+
+        let csv_data = ProcessingData::InMemory(csv_content.as_bytes().to_vec());
+        let result = compress_csv_memory(csv_data).unwrap();
+
+        match &result {
+            ProcessingData::InMemory(gzip_bytes) => {
+                let compressed_size = gzip_bytes.len();
+                // Repetitive text should compress well (at least 50% reduction)
+                let ratio = (compressed_size as f64 / original_size as f64) * 100.0;
+                assert!(ratio < 50.0, "Expected >50% compression ratio, got {:.1}%", ratio);
+            }
+            ProcessingData::TempFile(_) => {
+                panic!("Expected in-memory result");
+            }
+        }
+    }
 }

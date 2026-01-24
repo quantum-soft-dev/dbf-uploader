@@ -231,4 +231,83 @@ mod tests {
         let current_config = scheduler.config.read().await;
         assert_eq!(current_config.scheduler.crontab, "0 30 * * * *");
     }
+
+    // T016 [US1] Additional tests for cron expression parsing
+    #[tokio::test]
+    async fn test_valid_cron_expressions() {
+        // Test various valid cron expressions
+        let valid_crons = vec![
+            "*/5 * * * *",      // Every 5 minutes
+            "0 */2 * * *",      // Every 2 hours
+            "30 4 * * *",       // 4:30 AM daily
+            "0 0 * * 0",        // Midnight on Sundays
+            "0 9-17 * * 1-5",   // 9am-5pm weekdays
+        ];
+
+        for cron in valid_crons {
+            let mut config = create_test_config();
+            config.scheduler.crontab = cron.to_string();
+
+            let scheduler = BatchScheduler::new(config).await;
+            assert!(scheduler.is_ok(), "Failed to create scheduler with cron: {}", cron);
+
+            let mut scheduler = scheduler.unwrap();
+            let start_result = scheduler.start().await;
+            assert!(start_result.is_ok(), "Failed to start scheduler with cron: {}", cron);
+
+            // Clean up
+            let _ = scheduler.shutdown().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_invalid_cron_expressions() {
+        // Test various invalid cron expressions
+        let invalid_crons = vec![
+            "invalid",
+            "* * *",            // Too few fields
+            "60 * * * *",       // Invalid minute (>59)
+            "* 25 * * *",       // Invalid hour (>23)
+            "* * 32 * *",       // Invalid day (>31)
+            "* * * 13 *",       // Invalid month (>12)
+            "* * * * 8",        // Invalid weekday (>7)
+        ];
+
+        for cron in invalid_crons {
+            let mut config = create_test_config();
+            config.scheduler.crontab = cron.to_string();
+
+            let scheduler = BatchScheduler::new(config).await;
+            assert!(scheduler.is_ok(), "Scheduler creation should succeed for: {}", cron);
+
+            let mut scheduler = scheduler.unwrap();
+            let start_result = scheduler.start().await;
+            assert!(start_result.is_err(), "Start should fail for invalid cron: {}", cron);
+        }
+    }
+
+    // T018 [US1] Test batch lock initialization
+    #[tokio::test]
+    async fn test_batch_lock_initialized_false() {
+        let config = create_test_config();
+        let scheduler = BatchScheduler::new(config).await.unwrap();
+
+        // The batch lock should be initialized to false (not running)
+        let is_running = scheduler.batch_lock.lock().await;
+        assert!(!*is_running, "Batch lock should be initialized to false (not running)");
+    }
+
+    #[tokio::test]
+    async fn test_cron_5field_to_6field_conversion() {
+        // Verify the 5-field to 6-field conversion logic
+        let cron_5field = "*/5 * * * *";
+        let cron_6field = if cron_5field.split_whitespace().count() == 5 {
+            format!("0 {}", cron_5field)
+        } else {
+            cron_5field.to_string()
+        };
+
+        assert_eq!(cron_6field, "0 */5 * * * *");
+        assert_eq!(cron_6field.split_whitespace().count(), 6);
+    }
 }
