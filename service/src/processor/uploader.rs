@@ -48,7 +48,16 @@ pub async fn upload_data(
             );
 
             // Upload directly from memory (take ownership to avoid copy)
-            upload_with_retry(&client, gzip_bytes.clone(), &filename, batch_id, token, config, 3).await
+            upload_with_retry(
+                &client,
+                gzip_bytes.clone(),
+                &filename,
+                batch_id,
+                token,
+                config,
+                3,
+            )
+            .await
         }
         ProcessingData::TempFile(gzip_path) => {
             debug!(
@@ -135,11 +144,7 @@ async fn upload_file_streaming(
             .await
             .map_err(ProcessingError::FileReadError)?;
 
-        let file_size = file
-            .metadata()
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let file_size = file.metadata().await.map(|m| m.len()).unwrap_or(0);
 
         // Create streaming body from file
         let stream = ReaderStream::new(file);
@@ -148,7 +153,9 @@ async fn upload_file_streaming(
         let part = multipart::Part::stream_with_length(body, file_size)
             .file_name(filename.to_string())
             .mime_str("application/gzip")
-            .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
+            .map_err(|e| {
+                ProcessingError::UploadError(format!("Failed to create multipart: {}", e))
+            })?;
 
         let form = multipart::Form::new().part("files", part);
 
@@ -191,7 +198,9 @@ async fn upload_with_retry(
         let part = multipart::Part::bytes(file_data.clone())
             .file_name(filename.to_string())
             .mime_str("application/gzip")
-            .map_err(|e| ProcessingError::UploadError(format!("Failed to create multipart: {}", e)))?;
+            .map_err(|e| {
+                ProcessingError::UploadError(format!("Failed to create multipart: {}", e))
+            })?;
 
         let form = multipart::Form::new().part("files", part);
 
@@ -272,7 +281,6 @@ async fn try_upload_form(
     token: &JwtToken,
     url: &str,
 ) -> Result<()> {
-
     // Send request
     let response = client
         .post(url)

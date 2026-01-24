@@ -206,7 +206,9 @@ impl DeviceFlowClient {
                     "slow_down" => {
                         tracing::warn!("Polling too fast, should slow down");
                         // Return as error so run_device_flow can increase polling interval
-                        Err(ProcessingError::AuthenticationError("slow_down".to_string()))
+                        Err(ProcessingError::AuthenticationError(
+                            "slow_down".to_string(),
+                        ))
                     }
                     "expired_token" => Err(ProcessingError::AuthenticationError(
                         "Device code expired (15 minute TTL exceeded)".to_string(),
