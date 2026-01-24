@@ -61,6 +61,10 @@ chrono = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 
+[features]
+# Feature flag for VSS tests that require administrator privileges
+vss-tests = []
+
 [dev-dependencies]
 wiremock = { workspace = true }
 tempfile = { workspace = true }

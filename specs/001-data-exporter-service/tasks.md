@@ -131,28 +131,28 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 3
 
-- [ ] T044 [P] [US3] Write contract test for /api/auth/login endpoint in tests/contract/auth_test.rs
-- [ ] T045 [P] [US3] Write contract test for /api/files/upload endpoint in tests/contract/upload_test.rs
-- [ ] T046 [P] [US3] Write contract test for /api/batches/start endpoint in tests/contract/batch_api_test.rs
-- [ ] T047 [P] [US3] Write contract test for /api/batches/{id}/complete endpoint in tests/contract/batch_api_test.rs
-- [ ] T048 [P] [US3] Write unit test for multipart form construction in service/src/processor/uploader.rs
-- [ ] T049 [P] [US3] Write unit test for retry logic (1s, 2s, 4s backoff) on 5xx errors in service/src/processor/uploader.rs
-- [ ] T050 [P] [US3] Write unit test for no retry on 4xx client errors (except 401) in service/src/processor/uploader.rs
-- [ ] T051 [P] [US3] Write unit test for 401 token refresh and retry in service/src/processor/uploader.rs
-- [ ] T052 [P] [US3] Write unit test for 5-minute upload timeout in service/src/processor/uploader.rs
-- [ ] T053 [P] [US3] Write integration test for batch start/complete API flow in tests/integration/batch_api_test.rs
+- [X] T044 [P] [US3] Write contract test for /api/auth/login endpoint in tests/contract/auth_test.rs
+- [X] T045 [P] [US3] Write contract test for /api/files/upload endpoint in tests/contract/upload_test.rs
+- [X] T046 [P] [US3] Write contract test for /api/batches/start endpoint in tests/contract/batch_api_test.rs
+- [X] T047 [P] [US3] Write contract test for /api/batches/{id}/complete endpoint in tests/contract/batch_api_test.rs
+- [X] T048 [P] [US3] Write unit test for multipart form construction in service/src/processor/uploader.rs
+- [X] T049 [P] [US3] Write unit test for retry logic (1s, 2s, 4s backoff) on 5xx errors in service/src/processor/uploader.rs
+- [X] T050 [P] [US3] Write unit test for no retry on 4xx client errors (except 401) in service/src/processor/uploader.rs
+- [X] T051 [P] [US3] Write unit test for 401 token refresh and retry in service/src/processor/uploader.rs
+- [X] T052 [P] [US3] Write unit test for 5-minute upload timeout in service/src/processor/uploader.rs
+- [X] T053 [P] [US3] Write integration test for batch start/complete API flow in tests/integration/batch_api_test.rs
 
 ### Implementation for User Story 3
 
-- [ ] T054 [US3] Implement authentication client (login, token storage) in common/src/auth/client.rs
-- [ ] T055 [US3] Implement token refresh on 401 response in common/src/auth/client.rs
-- [ ] T056 [US3] Implement multipart file upload with reqwest in service/src/processor/uploader.rs
-- [ ] T057 [US3] Implement retry logic with exponential backoff (1s, 2s, 4s) in service/src/processor/uploader.rs
-- [ ] T058 [US3] Implement 5-minute timeout for large file uploads in service/src/processor/uploader.rs
-- [ ] T059 [US3] Implement batch start API client in service/src/processor/batch_client.rs
-- [ ] T060 [US3] Implement batch complete API client in service/src/processor/batch_client.rs
-- [ ] T061 [US3] Implement continue-on-failure behavior for individual file uploads in service/src/processor/uploader.rs
-- [ ] T062 [US3] Add logging for upload success, retry, and final failure in service/src/processor/uploader.rs
+- [X] T054 [US3] Implement authentication client (login, token storage) in common/src/auth/client.rs
+- [X] T055 [US3] Implement token refresh on 401 response in common/src/auth/client.rs
+- [X] T056 [US3] Implement multipart file upload with reqwest in service/src/processor/uploader.rs
+- [X] T057 [US3] Implement retry logic with exponential backoff (1s, 2s, 4s) in service/src/processor/uploader.rs
+- [X] T058 [US3] Implement 5-minute timeout for large file uploads in service/src/processor/uploader.rs
+- [X] T059 [US3] Implement batch start API client in service/src/processor/batch_client.rs
+- [X] T060 [US3] Implement batch complete API client in service/src/processor/batch_client.rs
+- [X] T061 [US3] Implement continue-on-failure behavior for individual file uploads in service/src/processor/uploader.rs
+- [X] T062 [US3] Add logging for upload success, retry, and final failure in service/src/processor/uploader.rs
 
 **Checkpoint**: Files upload successfully with bearer token auth. Transient failures retry automatically. Batch lifecycle (start/complete) is reported to server.
 
@@ -166,19 +166,19 @@ Based on plan.md workspace structure:
 
 ### Tests for User Story 4
 
-- [ ] T063 [P] [US4] Write unit test for locked file detection (OS errors 32, 33) in service/src/vss/mod.rs
-- [ ] T064 [P] [US4] Write unit test for deferred file queue management in service/src/processor/scanner.rs
-- [ ] T065 [P] [US4] Write integration test for VSS copy with feature flag in tests/integration/vss_copy_test.rs
+- [X] T063 [P] [US4] Write unit test for locked file detection (OS errors 32, 33) in service/src/vss/mod.rs
+- [X] T064 [P] [US4] Write unit test for deferred file queue management in service/src/processor/scanner.rs
+- [X] T065 [P] [US4] Write integration test for VSS copy with feature flag in tests/integration/vss_copy_test.rs
 
 ### Implementation for User Story 4
 
-- [ ] T066 [US4] Implement locked file detection by OS error codes 32, 33 in service/src/vss/mod.rs
-- [ ] T067 [US4] Implement deferred file queue (move locked files to end of batch) in service/src/processor/scanner.rs
-- [ ] T068 [US4] Implement VSS shadow copy using rawcopy-rs in service/src/vss/mod.rs
-- [ ] T069 [US4] Implement VSS error handling in service/src/vss/error.rs
-- [ ] T070 [US4] Implement VSS temp file cleanup after processing in service/src/vss/mod.rs
-- [ ] T071 [US4] Add feature flag for VSS tests (#[cfg(feature = "vss-tests")]) in tests/integration/vss_copy_test.rs
-- [ ] T072 [US4] Add logging for locked file detection, VSS copy success/failure in service/src/vss/mod.rs
+- [X] T066 [US4] Implement locked file detection by OS error codes 32, 33 in service/src/vss/mod.rs
+- [X] T067 [US4] Implement deferred file queue (move locked files to end of batch) in service/src/processor/scanner.rs
+- [X] T068 [US4] Implement VSS shadow copy using rawcopy-rs in service/src/vss/mod.rs
+- [X] T069 [US4] Implement VSS error handling in service/src/vss/error.rs
+- [X] T070 [US4] Implement VSS temp file cleanup after processing in service/src/vss/mod.rs
+- [X] T071 [US4] Add feature flag for VSS tests (#[cfg(feature = "vss-tests")]) in tests/integration/vss_copy_test.rs
+- [X] T072 [US4] Add logging for locked file detection, VSS copy success/failure in service/src/vss/mod.rs
 
 **Checkpoint**: Locked files are detected and deferred. VSS shadow copy creates accessible copies. Cleanup removes VSS temp files.
 
