@@ -1,0 +1,68 @@
+name: Gemini PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # Нужно для публикации комментариев
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Google Gemini PR Review
+        uses: google-gemini/gemini-review-action@v1 # Используйте актуальную версию
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Кастомный промпт для Rust Windows Service проекта
+          custom_prompt: |
+            Ты эксперт по Rust и Windows-разработке. Это проект data-exporter — Windows-сервис для:
+            - Конвертации DBF файлов в CSV
+            - Сжатия gzip и загрузки на облачный сервер
+            - Работы как Windows Service с cron-расписанием
+            - GUI конфигуратора на native-windows-gui
+
+            Технологии: Rust 1.82.0, windows-service, reqwest, serde (TOML), native-windows-gui.
+
+            Проверь код на:
+
+            ## Rust Best Practices
+            1. Memory safety и ownership — нет ли утечек, dangling references
+            2. Идиоматичный Rust (clippy-подобные рекомендации)
+            3. Правильное использование Result/Option, ? operator
+            4. Избегание .unwrap() в production коде
+
+            ## Windows-специфика
+            5. Корректная работа с Windows путями (PathBuf, OsString)
+            6. Жизненный цикл Windows Service (start, stop, pause)
+            7. Права доступа и UAC considerations
+            8. Кодировки (UTF-8, Windows-1251 для DBF)
+
+            ## Безопасность
+            9. Валидация входных данных (пути, URL, cron expressions)
+            10. Безопасное хранение credentials (не в логах, не в plain text)
+            11. SQL/Command injection prevention
+            12. Proper TLS/certificate handling
+
+            ## Производительность
+            13. Эффективная работа с большими файлами (streaming, не загружать в память)
+            14. Async/await корректность, избегание блокировок
+            15. Оптимальное использование буферов
+
+            ## Качество кода
+            16. Консистентность с существующим стилем кода
+            17. Достаточное логирование для отладки
+            18. Понятные error messages для пользователя
+
+            Формат ответа:
+            - 🔴 **Критично**: проблемы безопасности или баги
+            - 🟡 **Рекомендация**: улучшения качества кода
+            - 🟢 **Хорошо**: отметь удачные решения
+
+            Отвечай на русском языке. Будь конкретен — указывай номера строк и предлагай исправления.
