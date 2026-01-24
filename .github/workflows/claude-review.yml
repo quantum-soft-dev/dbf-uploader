@@ -1,0 +1,66 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-review:
+    # Run on PR events or when someone comments "@claude" on a PR
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude'))
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude PR Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Trigger settings
+          trigger_phrase: "@claude"
+
+          prompt: |
+            Review this pull request for the data-exporter project.
+
+            This is a Rust Windows service application that:
+            - Converts DBF files to CSV format
+            - Compresses output with gzip
+            - Uploads to a cloud server
+            - Runs as a Windows service with cron-based scheduling
+            - Has a native Windows GUI configurator
+
+            Please focus your review on:
+            1. Rust best practices and idiomatic code
+            2. Windows-specific concerns (service lifecycle, paths, permissions)
+            3. Error handling and proper Result propagation
+            4. Security considerations (authentication, file access, input validation)
+            5. Performance for large file processing
+            6. Thread safety and async patterns
+            7. Code style consistency with existing codebase
+
+            Tech stack:
+            - Rust 1.82.0 (stable)
+            - native-windows-gui for configurator UI
+            - windows-service crate for Windows service management
+            - reqwest for HTTP client
+            - serde for TOML configuration
+
+            Be constructive, specific, and actionable in your feedback.
+            Highlight both issues and good practices you observe.
