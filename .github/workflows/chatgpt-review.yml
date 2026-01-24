@@ -3,21 +3,21 @@ name: ChatGPT PR Review
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'PR number to review'
-        required: true
-        type: number
+  pull_request_review_comment:
+    types: [created]
 
 permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: ${{ github.repository }}-${{ github.event.number || github.head_ref || github.sha }}-${{ github.workflow }}-${{ github.event_name == 'pull_request_review_comment' && 'pr_comment' || 'pr' }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review_comment' }}
+
 jobs:
   review:
     runs-on: ubuntu-latest
-    name: GPT-4o Code Review
+    name: GPT-4.1 Code Review
 
     steps:
       - name: Checkout code
@@ -25,24 +25,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: GPT-4o Code Review
-        uses: anc95/ChatGPT-CodeReview@main
+      - name: GPT-4.1 Code Review
+        uses: fluxninja/openai-pr-reviewer@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_ENDPOINT: https://api.openai.com/v1
-          MODEL: gpt-4-turbo
-          LANGUAGE: Russian
-          temperature: 0.2
-          max_tokens: 4096
-          MAX_PATCH_LENGTH: 50000
-          PROMPT: |
-            Ты старший Rust-разработчик с опытом Windows-разработки. Проводи ТЩАТЕЛЬНОЕ и ДЕТАЛЬНОЕ code review.
+        with:
+          debug: false
+          max_files: 0
+          review_simple_changes: true
+          review_comment_lgtm: false
+          openai_light_model: gpt-4.1-mini
+          openai_heavy_model: gpt-4.1
+          openai_model_temperature: 0.1
+          language: ru-RU
+          system_message: |
+            Ты старший Rust-разработчик с опытом Windows-разработки.
 
             ## Контекст проекта
-            data-exporter — Windows-сервис на Rust для:
-            - Конвертации DBF → CSV
-            - Сжатия gzip и загрузки на сервер
+            data-exporter — Windows-сервис на Rust:
+            - Конвертация DBF → CSV
+            - Сжатие gzip и загрузка на сервер
             - Windows Service с cron-расписанием
             - GUI конфигуратор на native-windows-gui
 
@@ -54,49 +57,31 @@ jobs:
             - Memory safety, ownership, lifetimes
             - Идиоматичный Rust (clippy-рекомендации)
             - Result/Option, ? operator
-            - Никаких .unwrap() в production коде
-            - Правильное использование Arc, Mutex, RwLock
+            - Никаких .unwrap() в production
+            - Arc, Mutex, RwLock
 
             ### Windows-специфика
-            - Корректные Windows пути (PathBuf, OsString)
-            - Жизненный цикл Windows Service
+            - Windows пути (PathBuf, OsString)
+            - Windows Service lifecycle
             - UAC и права доступа
-            - Кодировки (UTF-8, Windows-1251 для DBF)
+            - Кодировки (UTF-8, Windows-1251)
 
             ### Безопасность
             - Валидация входных данных
-            - Credentials не в логах и не в plain text
+            - Credentials не в логах
             - Injection prevention
-            - TLS/certificate handling
+            - TLS handling
 
             ### Производительность
             - Streaming для больших файлов
             - Async/await корректность
-            - Избегание блокировок в async коде
+            - Избегание блокировок
 
-            ### Качество кода
-            - Консистентность стиля
-            - Логирование для отладки
-            - Понятные error messages
+            ## Формат ответа
+            🔴 **КРИТИЧНО** — баги, уязвимости
+            🟡 **ВАЖНО** — плохие практики
+            🟢 **РЕКОМЕНДАЦИЯ** — улучшения
+            ✅ **ХОРОШО** — удачные решения
 
-            ## ВАЖНО: Формат ответа
-
-            Проанализируй КАЖДЫЙ изменённый файл и дай комментарии:
-
-            🔴 **КРИТИЧНО** — баги, уязвимости, падения (ОБЯЗАТЕЛЬНО комментируй)
-            🟡 **ВАЖНО** — плохие практики, потенциальные проблемы
-            🟢 **РЕКОМЕНДАЦИЯ** — улучшения, оптимизации
-            ✅ **ХОРОШО** — отметь удачные решения
-
-            Указывай номера строк и давай конкретные примеры исправлений.
-            Не пропускай файлы — комментируй ВСЕ изменения.
-
-            ## Вердикт
-
-            В конце ОБЯЗАТЕЛЬНО дай общий вердикт:
-
-            ✅ **APPROVE** — можно мержить
-            ⚠️ **APPROVE С ЗАМЕЧАНИЯМИ** — можно мержить, но есть что улучшить
-            ❌ **REQUEST CHANGES** — нельзя мержить, критичные проблемы
-
-            Кратко обоснуй решение.
+            В конце дай вердикт:
+            ✅ **APPROVE** / ⚠️ **APPROVE С ЗАМЕЧАНИЯМИ** / ❌ **REQUEST CHANGES**
