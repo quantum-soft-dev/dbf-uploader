@@ -83,8 +83,12 @@ impl ConfigWatcher {
 
     /// Check if the config file has changed
     /// Returns true if a change was detected, false otherwise
+    ///
+    /// # Thread Safety
+    /// This method is thread-safe and handles mutex poisoning gracefully.
     pub fn has_changed(&self) -> bool {
         // Handle poisoned mutex gracefully - if poisoned, assume no change
+        // TODO: Consider using RwLock instead of Mutex for better read performance
         let receiver = match self.change_receiver.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
@@ -92,6 +96,8 @@ impl ConfigWatcher {
                 poisoned.into_inner()
             }
         };
+
+        // Check for pending change notifications
         receiver.try_recv().is_ok()
     }
 
