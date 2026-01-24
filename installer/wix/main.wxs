@@ -32,6 +32,7 @@
     <Package InstallerVersion="500"
              Compressed="yes"
              InstallScope="perMachine"
+             Platform="x64"
              Description="$(var.ProductName) $(var.Version)"
              Comments="Installs $(var.ProductName) service and configurator" />
 
