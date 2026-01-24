@@ -31,10 +31,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_API_ENDPOINT: https://api.openai.com/v1
-          MODEL: gpt-4o
+          MODEL: o1-mini
           LANGUAGE: Russian
-          top_p: 1
-          temperature: 0.3
           max_tokens: 16384
           MAX_PATCH_LENGTH: 50000
           PROMPT: |
