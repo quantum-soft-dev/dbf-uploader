@@ -2,7 +2,7 @@ name: ChatGPT PR Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
@@ -20,18 +20,19 @@ jobs:
           fetch-depth: 0
 
       - name: GPT-4o Code Review
-        uses: cirolini/genai-code-review@v2
-        with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          github_pr_id: ${{ github.event.number }}
-          openai_model: "gpt-4o"
-          openai_temperature: 0.3
-          openai_max_tokens: 16384
-          mode: patch
-          language: ru
-          custom_prompt: |
-            Ты старший Rust-разработчик с опытом Windows-разработки. Проводи тщательное code review.
+        uses: anc95/ChatGPT-CodeReview@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_ENDPOINT: https://api.openai.com/v1
+          MODEL: gpt-4o
+          LANGUAGE: Russian
+          top_p: 1
+          temperature: 0.3
+          max_tokens: 16384
+          MAX_PATCH_LENGTH: 50000
+          PROMPT: |
+            Ты старший Rust-разработчик с опытом Windows-разработки. Проводи ТЩАТЕЛЬНОЕ и ДЕТАЛЬНОЕ code review.
 
             ## Контекст проекта
             data-exporter — Windows-сервис на Rust для:
@@ -73,23 +74,24 @@ jobs:
             - Логирование для отладки
             - Понятные error messages
 
-            ## Формат ответа
+            ## ВАЖНО: Формат ответа
 
-            Для КАЖДОГО файла дай детальный анализ:
+            Проанализируй КАЖДЫЙ изменённый файл и дай комментарии:
 
-            🔴 **КРИТИЧНО** — баги, уязвимости, падения
+            🔴 **КРИТИЧНО** — баги, уязвимости, падения (ОБЯЗАТЕЛЬНО комментируй)
             🟡 **ВАЖНО** — плохие практики, потенциальные проблемы
             🟢 **РЕКОМЕНДАЦИЯ** — улучшения, оптимизации
             ✅ **ХОРОШО** — отметь удачные решения
 
             Указывай номера строк и давай конкретные примеры исправлений.
+            Не пропускай файлы — комментируй ВСЕ изменения.
 
             ## Вердикт
 
             В конце ОБЯЗАТЕЛЬНО дай общий вердикт:
 
-            ✅ **APPROVE** — можно мержить, критичных проблем нет
+            ✅ **APPROVE** — можно мержить
             ⚠️ **APPROVE С ЗАМЕЧАНИЯМИ** — можно мержить, но есть что улучшить
-            ❌ **REQUEST CHANGES** — нельзя мержить, есть критичные проблемы
+            ❌ **REQUEST CHANGES** — нельзя мержить, критичные проблемы
 
-            Обоснуй решение кратко.
+            Кратко обоснуй решение.
