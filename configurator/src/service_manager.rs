@@ -28,6 +28,16 @@ impl std::fmt::Display for ServiceStatus {
 pub struct ServiceManager;
 
 impl ServiceManager {
+    /// Check if error indicates access denied (need admin rights)
+    fn format_error(stdout: &str, stderr: &str) -> String {
+        let combined = format!("{}\n{}", stdout, stderr);
+        if combined.contains("Access is denied") || combined.contains("FAILED 5") {
+            "Access is denied.\n\nPlease run the Configurator as Administrator\n(Right-click → Run as administrator)".to_string()
+        } else {
+            combined
+        }
+    }
+
     /// Get current service status
     pub fn get_status() -> ServiceStatus {
         let output = match Command::new("sc.exe")
@@ -100,9 +110,8 @@ impl ServiceManager {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             return Err(anyhow::anyhow!(
-                "Failed to create service:\n{}\n{}",
-                stdout,
-                stderr
+                "Failed to create service:\n{}",
+                Self::format_error(&stdout, &stderr)
             ));
         }
 
@@ -135,9 +144,8 @@ impl ServiceManager {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             return Err(anyhow::anyhow!(
-                "Failed to start service:\n{}\n{}",
-                stdout,
-                stderr
+                "Failed to start service:\n{}",
+                Self::format_error(&stdout, &stderr)
             ));
         }
 
@@ -165,13 +173,92 @@ impl ServiceManager {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             return Err(anyhow::anyhow!(
-                "Failed to stop service:\n{}\n{}",
-                stdout,
-                stderr
+                "Failed to stop service:\n{}",
+                Self::format_error(&stdout, &stderr)
             ));
         }
 
         Ok("Service stopped successfully".to_string())
+    }
+
+    /// Get detailed service information for display
+    pub fn get_detailed_info() -> String {
+        let status = Self::get_status();
+        let mut info = String::new();
+
+        info.push_str(&format!("Service Name: {}\n", SERVICE_NAME));
+        info.push_str(&format!("Status: {}\n\n", status));
+
+        // Get detailed query from sc.exe
+        if let Ok(output) = Command::new("sc.exe")
+            .args(["query", SERVICE_NAME])
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                // Parse and format the output
+                for line in stdout.lines() {
+                    let line = line.trim();
+                    if line.starts_with("STATE") {
+                        info.push_str(&format!("{}\n", line));
+                    } else if line.starts_with("WIN32_EXIT_CODE") {
+                        info.push_str(&format!("{}\n", line));
+                    } else if line.starts_with("SERVICE_EXIT_CODE") {
+                        info.push_str(&format!("{}\n", line));
+                    }
+                }
+            }
+        }
+
+        // Check installation paths
+        let exe_path = PathBuf::from(INSTALL_DIR).join("data_exporter.exe");
+        let config_path = PathBuf::from(INSTALL_DIR).join("config.toml");
+        let log_dir = PathBuf::from(INSTALL_DIR).join("logs");
+
+        info.push_str("\n--- Installation ---\n");
+        info.push_str(&format!(
+            "Executable: {} {}\n",
+            exe_path.display(),
+            if exe_path.exists() { "(found)" } else { "(not found)" }
+        ));
+        info.push_str(&format!(
+            "Config: {} {}\n",
+            config_path.display(),
+            if config_path.exists() { "(found)" } else { "(not found)" }
+        ));
+        info.push_str(&format!(
+            "Logs: {} {}\n",
+            log_dir.display(),
+            if log_dir.exists() { "(exists)" } else { "(not created)" }
+        ));
+
+        // Check for recent log files
+        if log_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&log_dir) {
+                let log_files: Vec<_> = entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .map(|ext| ext == "log")
+                            .unwrap_or(false)
+                    })
+                    .collect();
+                if !log_files.is_empty() {
+                    info.push_str(&format!("\nLog files found: {}\n", log_files.len()));
+                    // Show most recent log file
+                    if let Some(recent) = log_files.iter().max_by_key(|e| {
+                        e.metadata()
+                            .and_then(|m| m.modified())
+                            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+                    }) {
+                        info.push_str(&format!("Most recent: {}\n", recent.file_name().to_string_lossy()));
+                    }
+                }
+            }
+        }
+
+        info
     }
 
     /// Uninstall the service
@@ -206,9 +293,8 @@ impl ServiceManager {
             }
 
             return Err(anyhow::anyhow!(
-                "Failed to delete service:\n{}\n{}",
-                stdout,
-                stderr
+                "Failed to delete service:\n{}",
+                Self::format_error(&stdout, &stderr)
             ));
         }
 

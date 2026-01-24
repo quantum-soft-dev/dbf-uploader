@@ -28,3 +28,6 @@ serde = { workspace = true }
 
 # Glob pattern validation
 globset = { workspace = true }
+
+[build-dependencies]
+embed-resource = "3"

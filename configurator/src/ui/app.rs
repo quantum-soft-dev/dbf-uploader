@@ -336,6 +336,9 @@ impl ConfiguratorApp {
             Section::Status => {
                 self.status_info_label.set_visible(true);
                 self.status_refresh_button.set_visible(true);
+                // Auto-refresh status info when entering this section
+                let info = ServiceManager::get_detailed_info();
+                self.status_info_label.set_text(&info);
             }
         }
     }
@@ -606,8 +609,11 @@ impl ConfiguratorApp {
     }
 
     fn on_status_refresh(&self) {
+        // Update service status in Service section
         self.refresh_service_status();
-        nwg::modal_info_message(&self.window, "Status", "Status refreshed");
+        // Update detailed info in Status section
+        let info = ServiceManager::get_detailed_info();
+        self.status_info_label.set_text(&info);
     }
 
     fn on_save(&self) {
