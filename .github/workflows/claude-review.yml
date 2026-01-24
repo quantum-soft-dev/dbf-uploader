@@ -37,6 +37,9 @@ jobs:
           # Trigger settings
           trigger_phrase: "@claude"
 
+          # Use sticky comment to consolidate feedback
+          use_sticky_comment: true
+
           prompt: |
             Review this pull request for the data-exporter project.
 
@@ -57,11 +60,19 @@ jobs:
             7. Code style consistency with existing codebase
 
             Tech stack:
-            - Rust 1.82.0 (stable)
+            - Rust stable (latest)
             - native-windows-gui for configurator UI
             - windows-service crate for Windows service management
             - reqwest for HTTP client
             - serde for TOML configuration
 
+            IMPORTANT: Post your feedback as GitHub comments!
+            - Use `gh pr comment` for top-level summary feedback
+            - Use `mcp__github_inline_comment__create_inline_comment` to highlight specific code issues inline
+            - Only post GitHub comments - don't submit review text as messages
+
             Be constructive, specific, and actionable in your feedback.
             Highlight both issues and good practices you observe.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
