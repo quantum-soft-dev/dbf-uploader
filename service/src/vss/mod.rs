@@ -26,7 +26,7 @@ type Result<T> = std::result::Result<T, VssError>;
 /// # Example
 /// ```no_run
 /// use std::path::Path;
-/// use data_exporter::vss::copy_locked_file;
+/// use data_exporter_service::vss::copy_locked_file;
 ///
 /// let source = Path::new("C:\\Data\\locked_file.dbf");
 /// let temp_dir = std::env::temp_dir();
