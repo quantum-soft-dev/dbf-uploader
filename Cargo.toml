@@ -3,13 +3,13 @@ members = [
     "common",
     "service",
     "configurator",
+    "installer",
 ]
 resolver = "2"
 
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.82.0"
 
 [workspace.dependencies]
 # Common library
@@ -84,6 +84,9 @@ windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Ole",
 ] }
+
+# Windows Registry
+winreg = "0.55"
 
 # Testing dependencies
 wiremock = "0.6"

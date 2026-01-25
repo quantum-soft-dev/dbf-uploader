@@ -84,6 +84,7 @@ impl DeviceFlowClient {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .https_only(https_only)
+            .user_agent("DataExporter/1.0")
             .build()
             .map_err(|e| {
                 ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))

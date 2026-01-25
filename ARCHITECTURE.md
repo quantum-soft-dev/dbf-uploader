@@ -8,10 +8,12 @@ Data Exporter is a Windows service application designed to automatically export 
 
 ```
 dbf-uploader/
-├── common/              # Shared library (models, auth, error handling)
+├── common/              # Shared library (models, auth, error handling, paths)
 ├── service/             # Windows service implementation
 ├── configurator/        # GUI configuration tool
-├── src/                 # Legacy monolithic code (being phased out)
+├── installer/           # WiX MSI installer
+│   ├── wix/            # WiX manifest files
+│   └── assets/         # Installer assets (icons, license)
 └── Cargo.toml          # Workspace configuration
 ```
 
@@ -28,6 +30,9 @@ Location: `common/`
   - `device_flow.rs` - OAuth 2.0 Device Authorization Grant (RFC 8628)
   - `auth_client.rs` - HTTP client with Basic Auth
 - `error/` - Error types and Result aliases
+- `paths.rs` - Centralized path resolution from Windows registry
+  - Reads install path from `HKLM\SOFTWARE\DataExporter\InstallPath`
+  - Falls back to `C:\Program Files\data-exporter` if not found
 
 **Dependencies**:
 - serde, serde_json, toml (serialization)
@@ -320,18 +325,40 @@ cargo build --release
 ### Manual Deployment
 
 1. Build release binaries
-2. Copy `data_exporter.exe` to `C:\Program Files\data-exporter\`
+2. Copy `data_exporter_service.exe` to `C:\Program Files\data-exporter\`
 3. Run `configurator.exe`
 4. Configure via GUI
 5. Install service via GUI
 
-### Future: WiX Toolset MSI
+### MSI Installer (WiX Toolset)
 
-Planned for future releases:
-- MSI installer using WiX Toolset
-- Automated file placement
-- Automatic service registration
+The project includes a WiX-based MSI installer:
+
+**Features**:
+- Custom installation directory selection
+- Registry key for install path (`HKLM\SOFTWARE\DataExporter\InstallPath`)
+- Automatic Windows service registration
 - Start Menu shortcuts
+- Configuration file preserved on upgrade (NeverOverwrite)
+
+**Build Process** (GitHub Actions):
+```powershell
+# Download WiX Toolset binaries
+# Compile WiX source
+candle.exe -dVersion="1.0.0" -ext WixUtilExtension -ext WixUIExtension installer\wix\main.wxs
+
+# Link to create MSI
+light.exe -ext WixUtilExtension -ext WixUIExtension -out data-exporter-1.0.0-x86_64.msi main.wixobj
+```
+
+**Registry-Based Path Resolution**:
+Both service and configurator read the install path from the registry, allowing custom install locations:
+```rust
+use common::paths::{get_install_dir, get_config_path, get_log_dir};
+
+let config = get_config_path();  // {install_dir}\config.toml
+let logs = get_log_dir();        // {install_dir}\logs
+```
 
 ## Logging
 
@@ -341,7 +368,7 @@ Planned for future releases:
 
 ## Future Improvements
 
-1. **Installer**: Implement WiX-based MSI installer
+1. ~~**Installer**: Implement WiX-based MSI installer~~ (Done)
 2. **GUI**: Add log viewer to configurator
 3. **Monitoring**: Add metrics and health checks
 4. **Updates**: Auto-update mechanism

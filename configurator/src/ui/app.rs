@@ -1,13 +1,28 @@
 // Main Configurator Application Window
 use crate::config_manager::ConfigManager;
-use crate::service_manager::ServiceManager;
+use crate::service_manager::{ServiceManager, ServiceStatus};
 use common::auth::device_flow::{DeviceFlowClient, SiteInfo};
 use common::models::{Config, DeviceCredentials};
+use configurator_lib::validation;
 use native_windows_gui as nwg;
 use nwg::NativeUi;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
+
+/// Process pending Windows messages to update UI
+fn process_pending_messages() {
+    unsafe {
+        use winapi::um::winuser::{
+            DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+        };
+        let mut msg: MSG = std::mem::zeroed();
+        while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 enum Section {
@@ -16,16 +31,19 @@ enum Section {
     Settings,
     Schedule,
     Service,
-    Status,
 }
 
 pub struct ConfiguratorApp {
     window: nwg::Window,
 
+    // Icon
+    app_icon: nwg::Icon,
+
     // Fonts
     title_font: nwg::Font,
     heading_font: nwg::Font,
     normal_font: nwg::Font,
+    error_font: nwg::Font,
 
     // Navigation panel
     nav_frame: nwg::Frame,
@@ -34,7 +52,6 @@ pub struct ConfiguratorApp {
     nav_settings_button: nwg::Button,
     nav_schedule_button: nwg::Button,
     nav_service_button: nwg::Button,
-    nav_status_button: nwg::Button,
 
     // Content area
     section_title: nwg::Label,
@@ -48,6 +65,7 @@ pub struct ConfiguratorApp {
     auth_status_label: nwg::Label,
     auth_button: nwg::Button,
     auth_code_label: nwg::Label,
+    auth_code_input: nwg::TextInput, // TextInput for display (auto-copied to clipboard)
     auth_url_label: nwg::Label,
 
     // Section: Settings
@@ -56,10 +74,16 @@ pub struct ConfiguratorApp {
     settings_source_label: nwg::Label,
     settings_source_input: nwg::TextInput,
     settings_source_browse: nwg::Button,
+    settings_include_label: nwg::Label,
+    settings_include_input: nwg::TextInput,
+    settings_exclude_label: nwg::Label,
+    settings_exclude_input: nwg::TextInput,
+    settings_pattern_help_label: nwg::Label,
 
     // Section: Schedule
     schedule_cron_label: nwg::Label,
     schedule_cron_input: nwg::TextInput,
+    schedule_cron_error: nwg::RichLabel, // RichLabel for proper background color support
     schedule_help_label: nwg::Label,
 
     // Section: Service
@@ -70,9 +94,8 @@ pub struct ConfiguratorApp {
     service_stop_button: nwg::Button,
     service_uninstall_button: nwg::Button,
 
-    // Section: Status
-    status_info_label: nwg::Label,
-    status_refresh_button: nwg::Button,
+    // Section: Service - detailed info (merged from Status section)
+    service_info_label: nwg::Label,
 
     // Bottom buttons
     save_button: nwg::Button,
@@ -88,16 +111,17 @@ impl Default for ConfiguratorApp {
     fn default() -> Self {
         Self {
             window: Default::default(),
+            app_icon: Default::default(),
             title_font: Default::default(),
             heading_font: Default::default(),
             normal_font: Default::default(),
+            error_font: Default::default(),
             nav_frame: Default::default(),
             nav_title: Default::default(),
             nav_auth_button: Default::default(),
             nav_settings_button: Default::default(),
             nav_schedule_button: Default::default(),
             nav_service_button: Default::default(),
-            nav_status_button: Default::default(),
             section_title: Default::default(),
             auth_desc_label: Default::default(),
             auth_site_name_label: Default::default(),
@@ -107,14 +131,21 @@ impl Default for ConfiguratorApp {
             auth_status_label: Default::default(),
             auth_button: Default::default(),
             auth_code_label: Default::default(),
+            auth_code_input: Default::default(),
             auth_url_label: Default::default(),
             settings_server_label: Default::default(),
             settings_server_input: Default::default(),
             settings_source_label: Default::default(),
             settings_source_input: Default::default(),
             settings_source_browse: Default::default(),
+            settings_include_label: Default::default(),
+            settings_include_input: Default::default(),
+            settings_exclude_label: Default::default(),
+            settings_exclude_input: Default::default(),
+            settings_pattern_help_label: Default::default(),
             schedule_cron_label: Default::default(),
             schedule_cron_input: Default::default(),
+            schedule_cron_error: Default::default(),
             schedule_help_label: Default::default(),
             service_status_label: Default::default(),
             service_refresh_button: Default::default(),
@@ -122,8 +153,7 @@ impl Default for ConfiguratorApp {
             service_start_button: Default::default(),
             service_stop_button: Default::default(),
             service_uninstall_button: Default::default(),
-            status_info_label: Default::default(),
-            status_refresh_button: Default::default(),
+            service_info_label: Default::default(),
             save_button: Default::default(),
             cancel_button: Default::default(),
             current_section: RefCell::new(Section::Auth),
@@ -160,6 +190,19 @@ impl ConfiguratorApp {
             .set_text(&config.src.source_dir.to_string_lossy());
         self.schedule_cron_input.set_text(&config.scheduler.crontab);
 
+        // Update include/exclude patterns
+        // Empty string in UI corresponds to None in config (no filtering)
+        if let Some(ref patterns) = config.src.include_patterns {
+            self.settings_include_input.set_text(&patterns.join(", "));
+        } else {
+            self.settings_include_input.set_text(""); // None = no include filter
+        }
+        if let Some(ref patterns) = config.src.exclude_patterns {
+            self.settings_exclude_input.set_text(&patterns.join(", "));
+        } else {
+            self.settings_exclude_input.set_text(""); // None = no exclude filter
+        }
+
         // Update auth status
         if config.credential.is_device_flow() {
             self.auth_status_label
@@ -169,6 +212,59 @@ impl ConfiguratorApp {
         }
     }
 
+    /// Parse comma-separated pattern string into Option<Vec<String>>
+    fn parse_patterns(input: &str) -> Option<Vec<String>> {
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(
+                trimmed
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            )
+        }
+    }
+
+    /// Validate cron expression and update error label
+    fn validate_cron_expression(&self) {
+        let cron_text = self.schedule_cron_input.text();
+
+        match validation::validate_cron(&cron_text) {
+            Ok(_) => {
+                // Valid cron expression - hide error
+                self.schedule_cron_error.set_visible(false);
+            }
+            Err(e) => {
+                // Invalid cron expression - show error
+                let message = if e.contains("required") {
+                    "Cron expression is required"
+                } else {
+                    "Invalid cron expression"
+                };
+                self.show_cron_error(message);
+            }
+        }
+    }
+
+    /// Show error message in the cron error RichLabel with red background and white text
+    fn show_cron_error(&self, message: &str) {
+        self.schedule_cron_error.set_text(message);
+        // Set bright red background
+        self.schedule_cron_error.set_background_color([220, 53, 69]);
+        // Set white text color for contrast
+        let text_len = message.len() as u32;
+        let fmt = nwg::CharFormat {
+            text_color: Some([255, 255, 255]), // White text
+            effects: Some(nwg::CharEffects::BOLD),
+            ..Default::default()
+        };
+        self.schedule_cron_error.set_char_format(0..text_len, &fmt);
+        self.schedule_cron_error.set_visible(true);
+    }
+
     fn save_config_from_ui(&self) -> Config {
         let mut config = self.config.borrow().clone();
 
@@ -176,6 +272,10 @@ impl ConfiguratorApp {
         config.api.base_url = self.settings_server_input.text();
         config.src.source_dir = std::path::PathBuf::from(self.settings_source_input.text());
         config.scheduler.crontab = self.schedule_cron_input.text();
+
+        // Update include/exclude patterns
+        config.src.include_patterns = Self::parse_patterns(&self.settings_include_input.text());
+        config.src.exclude_patterns = Self::parse_patterns(&self.settings_exclude_input.text());
 
         config
     }
@@ -188,8 +288,7 @@ impl ConfiguratorApp {
             Section::Auth => "Authentication",
             Section::Settings => "Settings",
             Section::Schedule => "Schedule",
-            Section::Service => "Service Management",
-            Section::Status => "Status",
+            Section::Service => "Service",
         };
         self.section_title.set_text(title);
 
@@ -202,6 +301,7 @@ impl ConfiguratorApp {
         self.auth_status_label.set_visible(false);
         self.auth_button.set_visible(false);
         self.auth_code_label.set_visible(false);
+        self.auth_code_input.set_visible(false);
         self.auth_url_label.set_visible(false);
 
         self.settings_server_label.set_visible(false);
@@ -209,9 +309,15 @@ impl ConfiguratorApp {
         self.settings_source_label.set_visible(false);
         self.settings_source_input.set_visible(false);
         self.settings_source_browse.set_visible(false);
+        self.settings_include_label.set_visible(false);
+        self.settings_include_input.set_visible(false);
+        self.settings_exclude_label.set_visible(false);
+        self.settings_exclude_input.set_visible(false);
+        self.settings_pattern_help_label.set_visible(false);
 
         self.schedule_cron_label.set_visible(false);
         self.schedule_cron_input.set_visible(false);
+        self.schedule_cron_error.set_visible(false);
         self.schedule_help_label.set_visible(false);
 
         self.service_status_label.set_visible(false);
@@ -220,9 +326,7 @@ impl ConfiguratorApp {
         self.service_start_button.set_visible(false);
         self.service_stop_button.set_visible(false);
         self.service_uninstall_button.set_visible(false);
-
-        self.status_info_label.set_visible(false);
-        self.status_refresh_button.set_visible(false);
+        self.service_info_label.set_visible(false);
 
         // Show current section
         match section {
@@ -235,6 +339,7 @@ impl ConfiguratorApp {
                 self.auth_status_label.set_visible(true);
                 self.auth_button.set_visible(true);
                 self.auth_code_label.set_visible(true);
+                self.auth_code_input.set_visible(true);
                 self.auth_url_label.set_visible(true);
                 // Set focus to first input field
                 self.auth_site_name_input.set_focus();
@@ -245,6 +350,11 @@ impl ConfiguratorApp {
                 self.settings_source_label.set_visible(true);
                 self.settings_source_input.set_visible(true);
                 self.settings_source_browse.set_visible(true);
+                self.settings_include_label.set_visible(true);
+                self.settings_include_input.set_visible(true);
+                self.settings_exclude_label.set_visible(true);
+                self.settings_exclude_input.set_visible(true);
+                self.settings_pattern_help_label.set_visible(true);
                 // Set focus to first input field
                 self.settings_server_input.set_focus();
             }
@@ -252,6 +362,8 @@ impl ConfiguratorApp {
                 self.schedule_cron_label.set_visible(true);
                 self.schedule_cron_input.set_visible(true);
                 self.schedule_help_label.set_visible(true);
+                // Validate current cron expression (will show/hide error label)
+                self.validate_cron_expression();
                 // Set focus to input field
                 self.schedule_cron_input.set_focus();
             }
@@ -262,12 +374,9 @@ impl ConfiguratorApp {
                 self.service_start_button.set_visible(true);
                 self.service_stop_button.set_visible(true);
                 self.service_uninstall_button.set_visible(true);
-                // Don't refresh automatically to avoid UI freeze
-                // User can click Refresh button to check status
-            }
-            Section::Status => {
-                self.status_info_label.set_visible(true);
-                self.status_refresh_button.set_visible(true);
+                self.service_info_label.set_visible(true);
+                // Refresh status, button states, and detailed info
+                self.refresh_service_status();
             }
         }
     }
@@ -319,24 +428,54 @@ impl ConfiguratorApp {
             site_description,
         };
 
-        // Use tokio runtime
-        let rt = tokio::runtime::Runtime::new()
-            .expect("Failed to create tokio runtime for device authorization");
+        // Create tokio runtime for async operations
+        // Note: block_on() will block UI thread during authorization.
+        // For a production app, consider using background threads with message passing.
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(r) => r,
+            Err(e) => {
+                nwg::modal_error_message(
+                    &self.window,
+                    "Error",
+                    &format!("Failed to create async runtime: {}", e),
+                );
+                self.auth_button.set_enabled(true);
+                self.auth_status_label.set_text("Status: Not authenticated");
+                return;
+            }
+        };
         let auth_result = rt.block_on(async { client.authorize(site_info).await });
 
         match auth_result {
             Ok(auth_response) => {
-                // Display authorization instructions
+                // Open browser with verification URL
+                if let Err(e) = open::that(&auth_response.verification_uri) {
+                    nwg::modal_error_message(
+                        &self.window,
+                        "Error",
+                        &format!(
+                            "Failed to open browser: {}\n\nPlease open manually:\n{}",
+                            e, auth_response.verification_uri
+                        ),
+                    );
+                }
+
+                // Display authorization code
                 self.auth_status_label
-                    .set_text("Waiting for authorization...");
-                self.auth_code_label.set_text(&format!(
-                    "1. Open: {}\n2. Enter code: {}",
-                    auth_response.verification_uri, auth_response.user_code
-                ));
+                    .set_text("Browser opened. Enter the code below:");
+                self.auth_code_label.set_text("Authorization Code:");
+                self.auth_code_input.set_text(&auth_response.user_code);
+                self.auth_code_input.set_readonly(true);
+
+                // Auto-copy code to clipboard (UI will be blocked during polling)
+                nwg::Clipboard::set_data_text(&self.window, &auth_response.user_code);
                 self.auth_url_label.set_text(&format!(
-                    "Code expires in {} minutes",
+                    "Code copied to clipboard! Expires in {} minutes",
                     auth_response.expires_in / 60
                 ));
+
+                // Force UI update to show the code before blocking
+                process_pending_messages();
 
                 // Poll for credentials
                 let device_code = auth_response.device_code.clone();
@@ -392,6 +531,7 @@ impl ConfiguratorApp {
                         self.auth_status_label
                             .set_text("Status: Authenticated (Device Flow)");
                         self.auth_code_label.set_text("");
+                        self.auth_code_input.set_text("");
                         self.auth_url_label.set_text("");
                         nwg::modal_info_message(
                             &self.window,
@@ -403,6 +543,7 @@ impl ConfiguratorApp {
                         self.auth_status_label
                             .set_text("Status: Authorization failed");
                         self.auth_code_label.set_text("");
+                        self.auth_code_input.set_text("");
                         self.auth_url_label.set_text("");
                         nwg::modal_error_message(
                             &self.window,
@@ -522,16 +663,95 @@ impl ConfiguratorApp {
         let status = ServiceManager::get_status();
         self.service_status_label
             .set_text(&format!("Service Status: {}", status));
-    }
 
-    fn on_status_refresh(&self) {
-        self.refresh_service_status();
-        nwg::modal_info_message(&self.window, "Status", "Status refreshed");
+        // Check if authentication is configured
+        let is_authenticated = self.config.borrow().credential.is_device_flow();
+
+        // Update button states based on service status
+        match status {
+            ServiceStatus::NotInstalled => {
+                // Install only enabled if authenticated
+                self.service_install_button.set_enabled(is_authenticated);
+                self.service_start_button.set_enabled(false);
+                self.service_stop_button.set_enabled(false);
+                self.service_uninstall_button.set_enabled(false);
+            }
+            ServiceStatus::Stopped => {
+                self.service_install_button.set_enabled(false);
+                self.service_start_button.set_enabled(true);
+                self.service_stop_button.set_enabled(false);
+                self.service_uninstall_button.set_enabled(true);
+            }
+            ServiceStatus::Running => {
+                self.service_install_button.set_enabled(false);
+                self.service_start_button.set_enabled(false);
+                self.service_stop_button.set_enabled(true);
+                self.service_uninstall_button.set_enabled(true);
+            }
+            ServiceStatus::Unknown => {
+                // Install only enabled if authenticated
+                self.service_install_button.set_enabled(is_authenticated);
+                self.service_start_button.set_enabled(true);
+                self.service_stop_button.set_enabled(true);
+                self.service_uninstall_button.set_enabled(true);
+            }
+        }
+
+        // Update detailed installation info
+        let info = ServiceManager::get_detailed_info();
+        self.service_info_label.set_text(&info);
     }
 
     fn on_save(&self) {
         // Save config from UI
         let config = self.save_config_from_ui();
+
+        // Validate HTTPS URL requirement
+        if let Err(e) = validation::validate_https_url(&config.api.base_url, config.api.https_only)
+        {
+            nwg::modal_error_message(
+                &self.window,
+                "Validation Error",
+                &format!("{}\n\nEither:\n- Change URL to start with https://\n- Or disable https_only in config (not recommended)", e),
+            );
+            return;
+        }
+
+        // Validate source directory exists
+        if !validation::validate_source_directory(&config.src.source_dir) {
+            let result = nwg::modal_message(
+                &self.window,
+                &nwg::MessageParams {
+                    title: "Warning",
+                    content: &format!(
+                        "Source directory does not exist:\n{}\n\nSave anyway?",
+                        config.src.source_dir.display()
+                    ),
+                    buttons: nwg::MessageButtons::YesNo,
+                    icons: nwg::MessageIcons::Warning,
+                },
+            );
+            if result == nwg::MessageChoice::No {
+                return;
+            }
+        }
+
+        // Validate cron expression before saving
+        if let Err(e) = validation::validate_cron(&config.scheduler.crontab) {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+
+        // Validate patterns before saving
+        if let Err(e) = validation::validate_patterns(&config.src.include_patterns, "include") {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+        if let Err(e) = validation::validate_patterns(&config.src.exclude_patterns, "exclude") {
+            nwg::modal_error_message(&self.window, "Validation Error", &e);
+            return;
+        }
+
         let config_path = self.config_path.borrow().clone();
         let config_manager = ConfigManager::new(&config_path);
 
@@ -570,31 +790,43 @@ pub struct ConfiguratorUi {
 
 impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
     fn build_ui(mut data: ConfiguratorApp) -> Result<ConfiguratorUi, nwg::NwgError> {
-        // Main window
+        // Create application icon (using system icon as placeholder)
+        nwg::Icon::builder()
+            .source_system(Some(nwg::OemIcon::Information))
+            .build(&mut data.app_icon)?;
+
+        // Main window with icon
         nwg::Window::builder()
             .size((900, 600))
             .position((200, 100))
             .title("Data Exporter Configurator")
+            .icon(Some(&data.app_icon))
             .flags(nwg::WindowFlags::WINDOW | nwg::WindowFlags::VISIBLE)
             .build(&mut data.window)?;
 
-        // Create fonts
+        // Create fonts (increased sizes for better readability)
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(20)
+            .size(22)
             .weight(700)
             .build(&mut data.title_font)?;
 
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(14)
+            .size(18)
             .weight(600)
             .build(&mut data.heading_font)?;
 
         nwg::Font::builder()
             .family("Segoe UI")
-            .size(11)
+            .size(16)
             .build(&mut data.normal_font)?;
+
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(16)
+            .weight(700) // Bold
+            .build(&mut data.error_font)?;
 
         // === Navigation panel (left side) ===
         nwg::Frame::builder()
@@ -643,14 +875,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .parent(&data.nav_frame)
             .build(&mut data.nav_service_button)?;
 
-        nwg::Button::builder()
-            .text("Status")
-            .position((15, 280))
-            .size((150, 45))
-            .font(Some(&data.normal_font))
-            .parent(&data.nav_frame)
-            .build(&mut data.nav_status_button)?;
-
         nwg::Label::builder()
             .text("Authentication")
             .position((220, 20))
@@ -677,7 +901,8 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .text("")
             .position((390, 115))
-            .size((470, 30))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.auth_site_name_input)?;
 
@@ -691,7 +916,8 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .text("")
             .position((390, 160))
-            .size((470, 30))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.auth_site_desc_input)?;
 
@@ -712,13 +938,22 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::Label::builder()
             .text("")
             .position((220, 310))
-            .size((660, 70))
+            .size((160, 28))
             .parent(&data.window)
             .build(&mut data.auth_code_label)?;
 
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 310))
+            .size((470, 35))
+            .font(Some(&data.heading_font))
+            .readonly(true)
+            .parent(&data.window)
+            .build(&mut data.auth_code_input)?;
+
         nwg::Label::builder()
             .text("")
-            .position((220, 390))
+            .position((220, 360))
             .size((660, 35))
             .parent(&data.window)
             .build(&mut data.auth_url_label)?;
@@ -734,7 +969,8 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .text("https://")
             .position((390, 85))
-            .size((470, 30))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.settings_server_input)?;
 
@@ -747,16 +983,54 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
 
         nwg::TextInput::builder()
             .position((390, 135))
-            .size((370, 30))
+            .size((370, 28))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.settings_source_input)?;
 
         nwg::Button::builder()
             .text("Browse...")
             .position((770, 135))
-            .size((90, 30))
+            .size((90, 28))
             .parent(&data.window)
             .build(&mut data.settings_source_browse)?;
+
+        nwg::Label::builder()
+            .text("Include Patterns:")
+            .position((220, 185))
+            .size((160, 25))
+            .parent(&data.window)
+            .build(&mut data.settings_include_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 185))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
+            .parent(&data.window)
+            .build(&mut data.settings_include_input)?;
+
+        nwg::Label::builder()
+            .text("Exclude Patterns:")
+            .position((220, 235))
+            .size((160, 25))
+            .parent(&data.window)
+            .build(&mut data.settings_exclude_label)?;
+
+        nwg::TextInput::builder()
+            .text("")
+            .position((390, 235))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
+            .parent(&data.window)
+            .build(&mut data.settings_exclude_input)?;
+
+        nwg::Label::builder()
+            .text("Patterns: Comma-separated glob patterns (e.g., *.dbf, nsf*.DBF)")
+            .position((220, 280))
+            .size((640, 40))
+            .parent(&data.window)
+            .build(&mut data.settings_pattern_help_label)?;
 
         // === Section: Schedule ===
         nwg::Label::builder()
@@ -769,14 +1043,27 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .text("0 0 8,12,16,18 * * *")
             .position((390, 85))
-            .size((470, 30))
+            .size((470, 28))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.schedule_cron_input)?;
 
+        // Cron validation error - RichLabel with proper background color support
+        nwg::RichLabel::builder()
+            .text("")
+            .position((390, 125))
+            .size((470, 28))
+            .h_align(nwg::HTextAlign::Center)
+            .line_height(Some(36)) // Vertical centering via line height
+            .background_color(Some([220, 53, 69])) // Bright red background
+            .parent(&data.window)
+            .build(&mut data.schedule_cron_error)?;
+
         nwg::Label::builder()
             .text("Examples:\n\n  0 0 8,12,16,18 * * *    Run at 8am, 12pm, 4pm, 6pm daily\n\n  0 0 */4 * * *           Run every 4 hours\n\n  0 30 9 * * *            Run at 9:30am daily")
-            .position((220, 140))
+            .position((220, 175))
             .size((660, 220))
+            .font(Some(&data.normal_font))
             .parent(&data.window)
             .build(&mut data.schedule_help_label)?;
 
@@ -823,20 +1110,13 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .parent(&data.window)
             .build(&mut data.service_uninstall_button)?;
 
-        // === Section: Status ===
+        // Service detailed info (installation paths, log files)
         nwg::Label::builder()
             .text("Service information will appear here")
-            .position((220, 85))
-            .size((660, 280))
+            .position((220, 265))
+            .size((660, 220))
             .parent(&data.window)
-            .build(&mut data.status_info_label)?;
-
-        nwg::Button::builder()
-            .text("Refresh")
-            .position((220, 380))
-            .size((130, 45))
-            .parent(&data.window)
-            .build(&mut data.status_refresh_button)?;
+            .build(&mut data.service_info_label)?;
 
         // === Bottom buttons ===
         nwg::Button::builder()
@@ -881,8 +1161,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.show_section(Section::Schedule);
                         } else if handle == ui.nav_service_button {
                             ui.show_section(Section::Service);
-                        } else if handle == ui.nav_status_button {
-                            ui.show_section(Section::Status);
                         }
                         // Actions
                         else if handle == ui.auth_button {
@@ -899,12 +1177,16 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.on_service_stop();
                         } else if handle == ui.service_uninstall_button {
                             ui.on_service_uninstall();
-                        } else if handle == ui.status_refresh_button {
-                            ui.on_status_refresh();
                         } else if handle == ui.save_button {
                             ui.on_save();
                         } else if handle == ui.cancel_button {
                             ui.on_cancel();
+                        }
+                    }
+                    nwg::Event::OnTextInput => {
+                        // Real-time cron validation
+                        if handle == ui.schedule_cron_input {
+                            ui.validate_cron_expression();
                         }
                     }
                     _ => {}

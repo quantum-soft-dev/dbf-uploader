@@ -57,6 +57,7 @@ impl AuthClient {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
             .https_only(config.api.https_only) // Enforce HTTPS-only connections if configured
+            .user_agent("DataExporter/1.0")
             .build()
             .map_err(|e| {
                 ProcessingError::NetworkError(format!("Failed to create HTTP client: {}", e))

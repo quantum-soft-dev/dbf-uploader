@@ -29,16 +29,27 @@ Windows сервис для автоматического экспорта DBF 
 
 Скачайте последнюю версию из [Releases](https://github.com/quantum-soft-dev/dbf-uploader/releases).
 
-### Установить сервис
+### Вариант 1: MSI Установщик (Рекомендуется)
 
-#### Вариант 1: Traditional Authentication (username/password)
+Скачайте `data-exporter-X.X.X-x86_64.msi` и запустите установщик:
+
+- Выбор директории установки
+- Автоматическая регистрация Windows сервиса
+- Ярлыки в меню "Пуск"
+- Удаление через "Установка и удаление программ"
+
+После установки запустите **Data Exporter Configurator** из меню "Пуск" для настройки.
+
+### Вариант 2: Ручная установка
+
+#### Traditional Authentication (username/password)
 
 ```powershell
 # Распакуйте архив
 Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 # Установите сервис (требуются права администратора)
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --account "your-account-id" `
   --username "your_username" `
   --password "your_password" `
@@ -48,7 +59,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
   --encoding "Windows1255"
 
 # Для локального тестирования с HTTP (небезопасно!)
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --account "test-account" `
   --username "test_user" `
   --password "test_pass" `
@@ -65,7 +76,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 ```powershell
 # Установите сервис с Device Flow
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --use-device-flow `
   --site-name "warehouse-01" `
   --site-description "Main warehouse terminal" `
@@ -84,7 +95,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 ```powershell
 # Переавторизация устройства для работы с другим сайтом
-.\data_exporter.exe authorize-device `
+.\data_exporter_service.exe authorize-device `
   --site-name "warehouse-02" `
   --site-description "Secondary warehouse"
 
@@ -179,7 +190,7 @@ notepad "C:\Program Files\data-exporter\config.toml"
 ## 🗑️ Удаление
 
 ```powershell
-.\data_exporter.exe uninstall
+.\data_exporter_service.exe uninstall
 ```
 
 **Важно**: Сервис будет остановлен и удалён немедленно, но файлы установки будут удалены автоматически после завершения процесса (примерно через 2 секунды). Это нормальное поведение.
@@ -383,6 +394,8 @@ cargo clippy --all-targets --all-features
 - [x] Ротация логов с автоматической очисткой
 - [x] In-memory обработка для оптимизации производительности
 - [x] Мультиаккаунтность через параметр account
+- [x] MSI установщик с выбором директории
+- [x] GUI Конфигуратор с управлением сервисом
 - [ ] Поддержка дополнительных форматов (XLS, XLSX)
 - [ ] Web UI для мониторинга
 - [ ] Метрики Prometheus
@@ -390,6 +403,16 @@ cargo clippy --all-targets --all-features
 - [ ] Linux/macOS версии
 
 ## 📈 Последние изменения
+
+### v1.1.0 (2026-01)
+- ✨ **MSI Установщик**: WiX-based инсталлер с выбором директории установки
+- ✨ **Registry Path Resolution**: Путь установки хранится в реестре Windows
+- ✨ **GUI Конфигуратор**: Полноценный GUI для настройки и управления сервисом
+  - Device Authorization Flow
+  - Валидация cron-выражений в реальном времени
+  - Умное управление кнопками сервиса
+  - Иконка приложения
+- 🔧 Централизованное управление путями через `common::paths`
 
 ### v1.0.0 (2025-11-01)
 - ✨ Добавлен параметр `account` для мультиаккаунтности

@@ -5,6 +5,7 @@ pub mod auth;
 pub mod error;
 pub mod file_utils;
 pub mod models;
+pub mod paths;
 pub mod version;
 
 // Re-export commonly used types for convenience

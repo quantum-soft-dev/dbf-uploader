@@ -237,3 +237,5 @@ fn test_stop_signal_atomic_bool() {
     let result = handle.join().unwrap();
     assert!(result, "Stop signal should be visible from other threads");
 }
+
+// Note: SC-002 hot-reload timing test is in service/tests/config_reload_sc002_test.rs

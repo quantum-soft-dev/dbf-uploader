@@ -2,7 +2,11 @@
 name = "data-exporter-configurator"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+
+
+[lib]
+name = "configurator_lib"
+path = "src/lib.rs"
 
 [[bin]]
 name = "configurator"
@@ -25,3 +29,18 @@ anyhow = { workspace = true }
 # Configuration
 toml = { workspace = true }
 serde = { workspace = true }
+
+# Glob pattern validation
+globset = { workspace = true }
+
+# Cron expression parsing for validation
+cron = "0.15"
+
+# Open URLs in default browser
+open = "5"
+
+# Windows API for UI update
+winapi = { version = "0.3", features = ["winuser"] }
+
+[build-dependencies]
+embed-resource = "3"

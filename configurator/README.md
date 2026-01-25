@@ -6,16 +6,19 @@ GUI application for configuring and managing the Data Exporter Windows service.
 
 ### Authentication
 - **Device Authorization Flow**: Secure authentication using OAuth 2.0 Device Authorization Grant (RFC 8628)
+- **Improved UX**: Automatically opens browser for authorization, displays code and copies it to clipboard
 - Site name and description configuration
 - Automatic credential storage in `config.toml`
 
 ### Settings
-- **Server URL**: Configure the API endpoint
-- **Source Directory**: Select the directory containing DBF files to process
+- **Server URL**: Configure the API endpoint (validated for HTTPS when https_only enabled)
+- **Source Directory**: Select the directory containing DBF files to process (with existence warning)
+- **Include/Exclude Patterns**: Filter DBF files with glob patterns (validated on save)
 - Browse button for easy directory selection
 
 ### Schedule
 - **Cron Expression**: Configure when the service runs
+- **Real-time Validation**: Instant feedback on cron expression validity
 - Built-in examples and help text
 - Supports 6-field cron syntax (tokio-cron-scheduler format)
 
@@ -24,11 +27,14 @@ GUI application for configuring and managing the Data Exporter Windows service.
 - **Start**: Start the service
 - **Stop**: Stop the service
 - **Uninstall**: Remove the service (with confirmation)
-- Real-time service status display
+- **Smart Button States**: Buttons are enabled/disabled based on service status
+- Real-time service status display with auto-refresh
+- Detailed installation info (executable, config, logs paths)
 
-### Status
-- View current service status
-- Refresh button to update status
+### UI Features
+- Application icon in title bar
+- Consistent font styling across all inputs
+- Error messages with visual highlighting
 
 ## Usage
 
@@ -91,12 +97,27 @@ cargo build --release --bin configurator
 
 The compiled binary will be at: `target\release\configurator.exe`
 
+## Testing
+
+Run the validation unit tests:
+
+```bash
+cargo test -p data-exporter-configurator --lib
+```
+
+The tests cover:
+- Cron expression validation (5-field and 6-field formats)
+- HTTPS URL validation
+- Glob pattern validation
+- Source directory existence checks
+
 ## Architecture
 
 ### Modules
 
 - **config_manager.rs**: Handles loading and saving `config.toml`
 - **service_manager.rs**: Windows service control using `sc.exe`
+- **validation.rs**: Testable validation functions (cron, patterns, HTTPS URL, source directory)
 - **ui/app.rs**: Main GUI application window with native-windows-gui
 - **ui/mod.rs**: UI module exports
 
@@ -106,6 +127,9 @@ The compiled binary will be at: `target\release\configurator.exe`
 - `tokio`: Async runtime for device flow
 - `anyhow`: Error handling
 - `toml`: Configuration serialization
+- `globset`: Glob pattern validation
+- `cron`: Cron expression parsing and validation
+- `open`: Open URLs in default browser
 - `common`: Shared models and utilities
 
 ## Troubleshooting
@@ -113,7 +137,7 @@ The compiled binary will be at: `target\release\configurator.exe`
 ### Service Installation Fails
 
 **Error**: "Service executable not found"
-- Ensure `data_exporter.exe` is copied to `C:\Program Files\data-exporter\`
+- Ensure `data_exporter_service.exe` is copied to `C:\Program Files\data-exporter\`
 
 **Error**: "Configuration file not found"
 - Save the configuration first using the Save button

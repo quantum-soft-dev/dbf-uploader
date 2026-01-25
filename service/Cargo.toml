@@ -2,7 +2,7 @@
 name = "data-exporter-service"
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+
 
 [lib]
 name = "data_exporter_service"

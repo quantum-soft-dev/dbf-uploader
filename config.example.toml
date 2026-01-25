@@ -48,7 +48,7 @@ password = "your_password"
 
 [api]
 # Base URL for API server
-base_url = "https://api.example.com"
+base_url = "https://dev.dfm.bitbi.io"
 
 # Enforce HTTPS-only connections (default: true)
 # WARNING: Setting this to false is insecure and should only be used for local testing

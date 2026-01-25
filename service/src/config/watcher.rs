@@ -1,4 +1,4 @@
-// Config file watcher module
+//! Config file watcher module for hot-reload functionality
 use common::error::{ProcessingError, Result};
 use common::models::Config;
 use notify_debouncer_mini::{new_debouncer, notify, DebounceEventResult, Debouncer};
@@ -9,6 +9,10 @@ use std::sync::{
 };
 use std::time::Duration;
 use tracing::{debug, error, info, warn};
+
+/// Debounce duration for file change events (2 seconds)
+/// This prevents multiple rapid changes from triggering multiple reloads
+const DEBOUNCE_DURATION_SECS: u64 = 2;
 
 pub struct ConfigWatcher {
     _debouncer: Debouncer<notify::RecommendedWatcher>,
@@ -21,32 +25,41 @@ impl ConfigWatcher {
     /// Watches the config file for changes and signals when it's modified
     pub fn new<P: AsRef<Path>>(config_path: P) -> Result<Self> {
         let config_path = config_path.as_ref().to_path_buf();
+        let config_file_name = config_path
+            .file_name()
+            .map(|n| n.to_os_string())
+            .unwrap_or_default();
 
         // Create channels for change notifications
         let (tx, rx) = channel();
 
-        // Create debouncer with 2-second delay
-        let debouncer =
-            new_debouncer(
-                Duration::from_secs(2),
-                move |res: DebounceEventResult| match res {
-                    Ok(events) => {
-                        for event in events {
-                            debug!("Config file event: {:?}", event);
-                            // Signal that config has changed
+        // Create debouncer with configurable delay
+        // Filter events to only the config file (not other files in the directory)
+        let mut debouncer = new_debouncer(
+            Duration::from_secs(DEBOUNCE_DURATION_SECS),
+            move |res: DebounceEventResult| match res {
+                Ok(events) => {
+                    for event in events {
+                        // Only react to changes in the config file, not other files in directory
+                        let is_config_file = event.path.file_name() == Some(&config_file_name);
+                        if is_config_file {
+                            debug!("Config file changed: {:?}", event.path);
                             if tx.send(()).is_err() {
                                 error!("Failed to send config change notification");
                             }
+                        } else {
+                            debug!("Ignoring non-config file change: {:?}", event.path);
                         }
                     }
-                    Err(error) => {
-                        warn!("Config watch error: {:?}", error);
-                    }
-                },
-            )
-            .map_err(|e| {
-                ProcessingError::ConfigurationError(format!("Failed to create file watcher: {}", e))
-            })?;
+                }
+                Err(error) => {
+                    warn!("Config watch error: {:?}", error);
+                }
+            },
+        )
+        .map_err(|e| {
+            ProcessingError::ConfigurationError(format!("Failed to create file watcher: {}", e))
+        })?;
 
         // Watch the config file's parent directory
         // (watching individual files can be problematic with some editors)
@@ -58,6 +71,17 @@ impl ConfigWatcher {
                 )
             })?
             .to_path_buf();
+
+        // Start watching the directory for changes
+        debouncer
+            .watcher()
+            .watch(&watch_path, notify::RecursiveMode::NonRecursive)
+            .map_err(|e| {
+                ProcessingError::ConfigurationError(format!(
+                    "Failed to watch config directory: {}",
+                    e
+                ))
+            })?;
 
         info!(
             path = %watch_path.display(),
@@ -73,8 +97,12 @@ impl ConfigWatcher {
 
     /// Check if the config file has changed
     /// Returns true if a change was detected, false otherwise
+    ///
+    /// # Thread Safety
+    /// This method is thread-safe and handles mutex poisoning gracefully.
     pub fn has_changed(&self) -> bool {
         // Handle poisoned mutex gracefully - if poisoned, assume no change
+        // TODO: Consider using RwLock instead of Mutex for better read performance
         let receiver = match self.change_receiver.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
@@ -82,6 +110,8 @@ impl ConfigWatcher {
                 poisoned.into_inner()
             }
         };
+
+        // Check for pending change notifications
         receiver.try_recv().is_ok()
     }
 
