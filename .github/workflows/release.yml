@@ -40,7 +40,8 @@ jobs:
       run: cargo build --release --verbose
 
     - name: Run tests
-      run: cargo test --release --verbose
+      run: cargo test --release --verbose -- --test-threads=1
+      timeout-minutes: 10
 
     - name: Build MSI installer
       run: |
