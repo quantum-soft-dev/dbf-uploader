@@ -173,7 +173,7 @@ fn test_config_watcher_debounce_behavior() {
     // All 5 writes occur within 500ms (100ms intervals), well inside the 2-second debounce window.
     // We expect exactly 1 notification (or at most 2 with timing jitter).
     assert!(
-        change_count >= 1 && change_count <= 2,
+        (1..=2).contains(&change_count),
         "Expected 1-2 notifications for 5 rapid writes within debounce window, got {}",
         change_count
     );
