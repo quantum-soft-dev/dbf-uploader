@@ -65,8 +65,7 @@ pub struct ConfiguratorApp {
     auth_status_label: nwg::Label,
     auth_button: nwg::Button,
     auth_code_label: nwg::Label,
-    auth_code_input: nwg::TextInput, // TextInput for easy copy
-    auth_copy_button: nwg::Button,
+    auth_code_input: nwg::TextInput, // TextInput for display (auto-copied to clipboard)
     auth_url_label: nwg::Label,
 
     // Section: Settings
@@ -133,7 +132,6 @@ impl Default for ConfiguratorApp {
             auth_button: Default::default(),
             auth_code_label: Default::default(),
             auth_code_input: Default::default(),
-            auth_copy_button: Default::default(),
             auth_url_label: Default::default(),
             settings_server_label: Default::default(),
             settings_server_input: Default::default(),
@@ -304,7 +302,6 @@ impl ConfiguratorApp {
         self.auth_button.set_visible(false);
         self.auth_code_label.set_visible(false);
         self.auth_code_input.set_visible(false);
-        self.auth_copy_button.set_visible(false);
         self.auth_url_label.set_visible(false);
 
         self.settings_server_label.set_visible(false);
@@ -343,7 +340,6 @@ impl ConfiguratorApp {
                 self.auth_button.set_visible(true);
                 self.auth_code_label.set_visible(true);
                 self.auth_code_input.set_visible(true);
-                self.auth_copy_button.set_visible(true);
                 self.auth_url_label.set_visible(true);
                 // Set focus to first input field
                 self.auth_site_name_input.set_focus();
@@ -470,8 +466,11 @@ impl ConfiguratorApp {
                 self.auth_code_label.set_text("Authorization Code:");
                 self.auth_code_input.set_text(&auth_response.user_code);
                 self.auth_code_input.set_readonly(true);
+
+                // Auto-copy code to clipboard (UI will be blocked during polling)
+                nwg::Clipboard::set_data_text(&self.window, &auth_response.user_code);
                 self.auth_url_label.set_text(&format!(
-                    "Code expires in {} minutes",
+                    "Code copied to clipboard! Expires in {} minutes",
                     auth_response.expires_in / 60
                 ));
 
@@ -565,17 +564,6 @@ impl ConfiguratorApp {
         }
 
         self.auth_button.set_enabled(true);
-    }
-
-    fn on_copy_code(&self) {
-        let code = self.auth_code_input.text();
-        if !code.is_empty() {
-            // Select all text and copy to clipboard
-            self.auth_code_input.set_selection(0..code.len() as u32);
-            // Use Windows clipboard API through nwg
-            nwg::Clipboard::set_data_text(&self.window, &code);
-            self.auth_url_label.set_text("Code copied to clipboard!");
-        }
     }
 
     fn on_browse_source(&self) {
@@ -957,18 +945,11 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
         nwg::TextInput::builder()
             .text("")
             .position((390, 310))
-            .size((300, 35))
+            .size((470, 35))
             .font(Some(&data.heading_font))
             .readonly(true)
             .parent(&data.window)
             .build(&mut data.auth_code_input)?;
-
-        nwg::Button::builder()
-            .text("Copy Code")
-            .position((700, 310))
-            .size((100, 35))
-            .parent(&data.window)
-            .build(&mut data.auth_copy_button)?;
 
         nwg::Label::builder()
             .text("")
@@ -1184,8 +1165,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                         // Actions
                         else if handle == ui.auth_button {
                             ui.on_auth_button();
-                        } else if handle == ui.auth_copy_button {
-                            ui.on_copy_code();
                         } else if handle == ui.settings_source_browse {
                             ui.on_browse_source();
                         } else if handle == ui.service_refresh_button {

@@ -6,7 +6,7 @@ GUI application for configuring and managing the Data Exporter Windows service.
 
 ### Authentication
 - **Device Authorization Flow**: Secure authentication using OAuth 2.0 Device Authorization Grant (RFC 8628)
-- **Improved UX**: Automatically opens browser for authorization, displays code with copy button
+- **Improved UX**: Automatically opens browser for authorization, displays code and copies it to clipboard
 - Site name and description configuration
 - Automatic credential storage in `config.toml`
 
