@@ -170,13 +170,11 @@ fn test_config_watcher_debounce_behavior() {
         change_count
     );
 
-    // Due to debouncing, we should receive fewer notifications than the number of writes
-    // The exact number depends on timing, but it should definitely be less than 5
-    // and at least 1 change should be detected
-    assert!(change_count >= 1, "Should detect at least one change");
+    // All 5 writes occur within 500ms (100ms intervals), well inside the 2-second debounce window.
+    // We expect exactly 1 notification (or at most 2 with timing jitter).
     assert!(
-        change_count < 5,
-        "Should debounce multiple rapid changes into fewer notifications (got {} for 5 writes)",
+        change_count >= 1 && change_count <= 2,
+        "Expected 1-2 notifications for 5 rapid writes within debounce window, got {}",
         change_count
     );
 }
