@@ -29,10 +29,7 @@ GUI application for configuring and managing the Data Exporter Windows service.
 - **Uninstall**: Remove the service (with confirmation)
 - **Smart Button States**: Buttons are enabled/disabled based on service status
 - Real-time service status display with auto-refresh
-
-### Status
-- View current service status
-- Refresh button to update status
+- Detailed installation info (executable, config, logs paths)
 
 ### UI Features
 - Application icon in title bar
@@ -140,7 +137,7 @@ The tests cover:
 ### Service Installation Fails
 
 **Error**: "Service executable not found"
-- Ensure `data_exporter.exe` is copied to `C:\Program Files\data-exporter\`
+- Ensure `data_exporter_service.exe` is copied to `C:\Program Files\data-exporter\`
 
 **Error**: "Configuration file not found"
 - Save the configuration first using the Save button

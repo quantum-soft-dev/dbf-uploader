@@ -55,9 +55,9 @@ pub fn get_log_dir() -> PathBuf {
 
 /// Get the path to the service executable
 ///
-/// Returns `{install_dir}/data_exporter.exe`
+/// Returns `{install_dir}/data_exporter_service.exe`
 pub fn get_service_exe_path() -> PathBuf {
-    get_install_dir().join("data_exporter.exe")
+    get_install_dir().join("data_exporter_service.exe")
 }
 
 #[cfg(test)]
@@ -83,5 +83,12 @@ mod tests {
         let install_dir = PathBuf::from(r"C:\Test\Dir");
         let logs = install_dir.join("logs");
         assert_eq!(logs, PathBuf::from(r"C:\Test\Dir\logs"));
+    }
+
+    #[test]
+    fn test_get_service_exe_path_has_correct_filename() {
+        let path = get_service_exe_path();
+        let filename = path.file_name().unwrap().to_string_lossy();
+        assert_eq!(filename, "data_exporter_service.exe");
     }
 }

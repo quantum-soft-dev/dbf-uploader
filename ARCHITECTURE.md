@@ -325,7 +325,7 @@ cargo build --release
 ### Manual Deployment
 
 1. Build release binaries
-2. Copy `data_exporter.exe` to `C:\Program Files\data-exporter\`
+2. Copy `data_exporter_service.exe` to `C:\Program Files\data-exporter\`
 3. Run `configurator.exe`
 4. Configure via GUI
 5. Install service via GUI

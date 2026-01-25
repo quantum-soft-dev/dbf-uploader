@@ -13,7 +13,9 @@ use std::rc::Rc;
 /// Process pending Windows messages to update UI
 fn process_pending_messages() {
     unsafe {
-        use winapi::um::winuser::{DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE};
+        use winapi::um::winuser::{
+            DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+        };
         let mut msg: MSG = std::mem::zeroed();
         while PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) != 0 {
             TranslateMessage(&msg);
@@ -29,7 +31,6 @@ enum Section {
     Settings,
     Schedule,
     Service,
-    Status,
 }
 
 pub struct ConfiguratorApp {
@@ -51,7 +52,6 @@ pub struct ConfiguratorApp {
     nav_settings_button: nwg::Button,
     nav_schedule_button: nwg::Button,
     nav_service_button: nwg::Button,
-    nav_status_button: nwg::Button,
 
     // Content area
     section_title: nwg::Label,
@@ -95,9 +95,8 @@ pub struct ConfiguratorApp {
     service_stop_button: nwg::Button,
     service_uninstall_button: nwg::Button,
 
-    // Section: Status
-    status_info_label: nwg::Label,
-    status_refresh_button: nwg::Button,
+    // Section: Service - detailed info (merged from Status section)
+    service_info_label: nwg::Label,
 
     // Bottom buttons
     save_button: nwg::Button,
@@ -124,7 +123,6 @@ impl Default for ConfiguratorApp {
             nav_settings_button: Default::default(),
             nav_schedule_button: Default::default(),
             nav_service_button: Default::default(),
-            nav_status_button: Default::default(),
             section_title: Default::default(),
             auth_desc_label: Default::default(),
             auth_site_name_label: Default::default(),
@@ -157,8 +155,7 @@ impl Default for ConfiguratorApp {
             service_start_button: Default::default(),
             service_stop_button: Default::default(),
             service_uninstall_button: Default::default(),
-            status_info_label: Default::default(),
-            status_refresh_button: Default::default(),
+            service_info_label: Default::default(),
             save_button: Default::default(),
             cancel_button: Default::default(),
             current_section: RefCell::new(Section::Auth),
@@ -293,8 +290,7 @@ impl ConfiguratorApp {
             Section::Auth => "Authentication",
             Section::Settings => "Settings",
             Section::Schedule => "Schedule",
-            Section::Service => "Service Management",
-            Section::Status => "Status",
+            Section::Service => "Service",
         };
         self.section_title.set_text(title);
 
@@ -333,9 +329,7 @@ impl ConfiguratorApp {
         self.service_start_button.set_visible(false);
         self.service_stop_button.set_visible(false);
         self.service_uninstall_button.set_visible(false);
-
-        self.status_info_label.set_visible(false);
-        self.status_refresh_button.set_visible(false);
+        self.service_info_label.set_visible(false);
 
         // Show current section
         match section {
@@ -384,15 +378,9 @@ impl ConfiguratorApp {
                 self.service_start_button.set_visible(true);
                 self.service_stop_button.set_visible(true);
                 self.service_uninstall_button.set_visible(true);
-                // Refresh status and update button states
+                self.service_info_label.set_visible(true);
+                // Refresh status, button states, and detailed info
                 self.refresh_service_status();
-            }
-            Section::Status => {
-                self.status_info_label.set_visible(true);
-                self.status_refresh_button.set_visible(true);
-                // Auto-refresh status info when entering this section
-                let info = ServiceManager::get_detailed_info();
-                self.status_info_label.set_text(&info);
             }
         }
     }
@@ -720,14 +708,10 @@ impl ConfiguratorApp {
                 self.service_uninstall_button.set_enabled(true);
             }
         }
-    }
 
-    fn on_status_refresh(&self) {
-        // Update service status in Service section
-        self.refresh_service_status();
-        // Update detailed info in Status section
+        // Update detailed installation info
         let info = ServiceManager::get_detailed_info();
-        self.status_info_label.set_text(&info);
+        self.service_info_label.set_text(&info);
     }
 
     fn on_save(&self) {
@@ -735,7 +719,8 @@ impl ConfiguratorApp {
         let config = self.save_config_from_ui();
 
         // Validate HTTPS URL requirement
-        if let Err(e) = validation::validate_https_url(&config.api.base_url, config.api.https_only) {
+        if let Err(e) = validation::validate_https_url(&config.api.base_url, config.api.https_only)
+        {
             nwg::modal_error_message(
                 &self.window,
                 "Validation Error",
@@ -901,14 +886,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .font(Some(&data.normal_font))
             .parent(&data.nav_frame)
             .build(&mut data.nav_service_button)?;
-
-        nwg::Button::builder()
-            .text("Status")
-            .position((15, 280))
-            .size((150, 45))
-            .font(Some(&data.normal_font))
-            .parent(&data.nav_frame)
-            .build(&mut data.nav_status_button)?;
 
         nwg::Label::builder()
             .text("Authentication")
@@ -1152,20 +1129,13 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
             .parent(&data.window)
             .build(&mut data.service_uninstall_button)?;
 
-        // === Section: Status ===
+        // Service detailed info (installation paths, log files)
         nwg::Label::builder()
             .text("Service information will appear here")
-            .position((220, 85))
-            .size((660, 280))
+            .position((220, 265))
+            .size((660, 220))
             .parent(&data.window)
-            .build(&mut data.status_info_label)?;
-
-        nwg::Button::builder()
-            .text("Refresh")
-            .position((220, 380))
-            .size((130, 45))
-            .parent(&data.window)
-            .build(&mut data.status_refresh_button)?;
+            .build(&mut data.service_info_label)?;
 
         // === Bottom buttons ===
         nwg::Button::builder()
@@ -1210,8 +1180,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.show_section(Section::Schedule);
                         } else if handle == ui.nav_service_button {
                             ui.show_section(Section::Service);
-                        } else if handle == ui.nav_status_button {
-                            ui.show_section(Section::Status);
                         }
                         // Actions
                         else if handle == ui.auth_button {
@@ -1230,8 +1198,6 @@ impl NativeUi<ConfiguratorUi> for ConfiguratorApp {
                             ui.on_service_stop();
                         } else if handle == ui.service_uninstall_button {
                             ui.on_service_uninstall();
-                        } else if handle == ui.status_refresh_button {
-                            ui.on_status_refresh();
                         } else if handle == ui.save_button {
                             ui.on_save();
                         } else if handle == ui.cancel_button {

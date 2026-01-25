@@ -49,7 +49,7 @@ Windows сервис для автоматического экспорта DBF 
 Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 # Установите сервис (требуются права администратора)
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --account "your-account-id" `
   --username "your_username" `
   --password "your_password" `
@@ -59,7 +59,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
   --encoding "Windows1255"
 
 # Для локального тестирования с HTTP (небезопасно!)
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --account "test-account" `
   --username "test_user" `
   --password "test_pass" `
@@ -76,7 +76,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 ```powershell
 # Установите сервис с Device Flow
-.\data_exporter.exe install `
+.\data_exporter_service.exe install `
   --use-device-flow `
   --site-name "warehouse-01" `
   --site-description "Main warehouse terminal" `
@@ -95,7 +95,7 @@ Expand-Archive -Path data_exporter-v1.0.0-windows-x86_64.zip
 
 ```powershell
 # Переавторизация устройства для работы с другим сайтом
-.\data_exporter.exe authorize-device `
+.\data_exporter_service.exe authorize-device `
   --site-name "warehouse-02" `
   --site-description "Secondary warehouse"
 
@@ -190,7 +190,7 @@ notepad "C:\Program Files\data-exporter\config.toml"
 ## 🗑️ Удаление
 
 ```powershell
-.\data_exporter.exe uninstall
+.\data_exporter_service.exe uninstall
 ```
 
 **Важно**: Сервис будет остановлен и удалён немедленно, но файлы установки будут удалены автоматически после завершения процесса (примерно через 2 секунды). Это нормальное поведение.

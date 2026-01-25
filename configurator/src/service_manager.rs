@@ -70,11 +70,11 @@ impl ServiceManager {
         }
 
         // Check if service executable exists in installation directory
-        let exe_path = get_install_dir().join("data_exporter.exe");
+        let exe_path = get_install_dir().join("data_exporter_service.exe");
         if !exe_path.exists() {
             return Err(anyhow::anyhow!(
                 "Service executable not found at: {}\n\n\
-                Please copy data_exporter.exe to the installation directory first.",
+                Please copy data_exporter_service.exe to the installation directory first.",
                 exe_path.display()
             ));
         }
@@ -209,7 +209,7 @@ impl ServiceManager {
         }
 
         // Check installation paths
-        let exe_path = get_install_dir().join("data_exporter.exe");
+        let exe_path = get_install_dir().join("data_exporter_service.exe");
         let config_path = get_install_dir().join("config.toml");
         let log_dir = get_install_dir().join("logs");
 
@@ -312,5 +312,45 @@ impl ServiceManager {
         }
 
         Ok("Service uninstalled successfully".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_service_status_display() {
+        assert_eq!(ServiceStatus::Running.to_string(), "Running");
+        assert_eq!(ServiceStatus::Stopped.to_string(), "Stopped");
+        assert_eq!(ServiceStatus::NotInstalled.to_string(), "Not Installed");
+        assert_eq!(ServiceStatus::Unknown.to_string(), "Unknown");
+    }
+
+    #[test]
+    fn test_format_error_detects_access_denied() {
+        let result = ServiceManager::format_error("FAILED 5", "");
+        assert!(result.contains("Access is denied"));
+        assert!(result.contains("Run as administrator"));
+    }
+
+    #[test]
+    fn test_format_error_passes_through_other_errors() {
+        let result = ServiceManager::format_error("Some error", "Another error");
+        assert!(result.contains("Some error"));
+        assert!(result.contains("Another error"));
+    }
+
+    #[test]
+    fn test_get_detailed_info_contains_service_name() {
+        let info = ServiceManager::get_detailed_info();
+        assert!(info.contains("Service Name: data-exporter"));
+    }
+
+    #[test]
+    fn test_get_detailed_info_contains_installation_section() {
+        let info = ServiceManager::get_detailed_info();
+        assert!(info.contains("--- Installation ---"));
+        assert!(info.contains("data_exporter_service.exe"));
     }
 }
